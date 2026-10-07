@@ -3,6 +3,20 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+
+  --primary: #1d4ed8;
+  --primary-dark: #1e40af;
+  --primary-light: #eff6ff;
+
+  --border: #e2e8f0;
+  --card: #ffffff;
+
+  --muted: #64748b;
+  --muted-dark: #475569;
+
+  --success: #047857;
+  --danger: #b91c1c;
+  --warning: #b45309;
 }
 
 @theme inline {
@@ -12,15 +26,183 @@
   --font-mono: var(--font-geist-mono);
 }
 
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-button, input, select, textarea { font: inherit; }
-button { cursor: pointer; }
-button:disabled { cursor: not-allowed; }
-::selection { background: #c7d2fe; color: #1e1b4b; }
+
+/* Prevent long text from creating horizontal overflow */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+button,
+select,
+option {
+  overflow-wrap: anywhere;
+}
+
+/* Form controls */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input::placeholder {
+  color: #94a3b8;
+}
+
+select {
+  cursor: pointer;
+}
+
+select:disabled {
+  cursor: not-allowed;
+}
+
+/* Better mobile tap behavior */
+button,
+select {
+  touch-action: manipulation;
+}
+
+/* --------------------------------
+   Focus accessibility
+-------------------------------- */
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(29, 78, 216, 0.25);
+  outline-offset: 2px;
+}
+
+/* --------------------------------
+   Selection
+-------------------------------- */
+
+::selection {
+  background: #bfdbfe;
+  color: #172554;
+}
+
+/* --------------------------------
+   Smooth interactions
+-------------------------------- */
+
+button,
+input,
+select,
+textarea {
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+/* --------------------------------
+   Cleaner scrollbar
+-------------------------------- */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* --------------------------------
+   Mobile-specific improvements
+-------------------------------- */
+
+@media (max-width: 639px) {
+  html {
+    font-size: 16px;
+  }
+
+  body {
+    width: 100%;
+  }
+
+  /*
+    Prevent iOS Safari from zooming into form controls
+    when they receive focus.
+  */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /*
+    Keep buttons visually stable when tapped.
+  */
+  button:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+}
+
+/* --------------------------------
+   Reduced motion accessibility
+-------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
