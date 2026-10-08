@@ -159,7 +159,7 @@ export default function Home() {
   ========================= */
 
   const [practiceMode, setPracticeMode] = useState(false);
-  const [practiceCount, setPracticeCount] = useState(5);
+  const [practiceSet, setPracticeSet] = useState(1);
   const [practiceQuestions, setPracticeQuestions] = useState<
     MCQ[]
   >([]);
@@ -199,6 +199,22 @@ export default function Home() {
   );
   const [mockStartedAt, setMockStartedAt] =
     useState<number | null>(null);
+  type MockPaper = {
+    id: string;
+    subject_id: number;
+    paper_number: number | null;
+    retake_number: number | null;
+    question_ids: number[];
+    status: "STARTED" | "COMPLETED";
+    started_at: string;
+    quiz_attempt_id: string | null;
+  };
+  const [mockPapers, setMockPapers] = useState<MockPaper[]>([]);
+  const [selectedMockPaper, setSelectedMockPaper] = useState("1");
+  const [activeMockPaperId, setActiveMockPaperId] = useState<string | null>(null);
+  const [mockStarting, setMockStarting] = useState(false);
+  const [mockHistoryLoading, setMockHistoryLoading] = useState(false);
+
 
   /* =========================
      SUBSCRIPTION / COUPON
@@ -742,126 +758,121 @@ export default function Home() {
      LOAD QUESTION BANK
   ========================= */
 
+  // Supabase normally returns at most 1,000 rows per request.
+  // Fetch all pages so newly imported subjects and questions are visible.
+  async function fetchAllRows<T>(
+    table: string,
+    columns: string,
+    configure?: (query: any) => any
+  ): Promise<T[]> {
+    const pageSize = 1000;
+    const results: T[] = [];
+
+    for (let offset = 0; ; offset += pageSize) {
+      let query: any = supabase
+        .from(table)
+        .select(columns)
+        .eq("is_active", true);
+
+      if (configure) query = configure(query);
+
+      const { data, error: fetchError } = await query
+        .order("id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+
+      if (fetchError) {
+        throw new Error(`${table}: ${fetchError.message}`);
+      }
+
+      const batch = (data || []) as T[];
+      results.push(...batch);
+      if (batch.length < pageSize) break;
+    }
+
+    return results;
+  }
+
   async function loadQuestionData(
     classRowsOverride?: ClassRow[]
   ) {
     setLoading(true);
     setError("");
 
-    const [
-      classResult,
-      subjectResult,
-      chapterResult,
-      questionResult,
-    ] = await Promise.all([
-      supabase
-        .from("classes")
-        .select("id,class_name,is_active")
-        .eq("is_active", true)
-        .order("id"),
+    try {
+      const [loadedClasses, subjectRows, chapterRows, questionRows] =
+        await Promise.all([
+          classRowsOverride
+            ? Promise.resolve(classRowsOverride)
+            : fetchAllRows<ClassRow>(
+                "classes",
+                "id,class_name,is_active"
+              ),
+          fetchAllRows<SubjectRow>(
+            "subjects",
+            "id,class_id,subject_name,is_active"
+          ),
+          fetchAllRows<ChapterRow>(
+            "chapters",
+            "id,subject_id,chapter_number,chapter_name,is_active"
+          ),
+          fetchAllRows<QuestionRow>(
+            "questions",
+            "id,chapter_id,question_text,option_a,option_b,option_c,option_d,correct_option,explanation,difficulty,marks,question_type,is_active",
+            (query) => query.eq("question_type", "MCQ")
+          ),
+        ]);
 
-      supabase
-        .from("subjects")
-        .select(
-          "id,class_id,subject_name,is_active"
-        )
-        .eq("is_active", true)
-        .order("display_order"),
+      const classRows = loadedClasses;
+      const classMap = new Map(classRows.map((item) => [item.id, item]));
+      const subjectMap = new Map(subjectRows.map((item) => [item.id, item]));
+      const chapterMap = new Map(chapterRows.map((item) => [item.id, item]));
 
-      supabase
-        .from("chapters")
-        .select(
-          "id,subject_id,chapter_number,chapter_name,is_active"
-        )
-        .eq("is_active", true)
-        .order("display_order"),
+      const mcqs: MCQ[] = questionRows
+        .map((q) => {
+          const chapter = chapterMap.get(q.chapter_id);
+          const subject = chapter
+            ? subjectMap.get(chapter.subject_id)
+            : undefined;
+          const classRow = subject
+            ? classMap.get(subject.class_id)
+            : undefined;
 
-      supabase
-        .from("questions")
-        .select(
-          "id,chapter_id,question_text,option_a,option_b,option_c,option_d,correct_option,explanation,difficulty,marks,question_type,is_active"
-        )
-        .eq("is_active", true)
-        .eq("question_type", "MCQ")
-        .order("id"),
-    ]);
+          if (!chapter || !subject || !classRow) return null;
 
-    const firstError =
-      classResult.error ||
-      subjectResult.error ||
-      chapterResult.error ||
-      questionResult.error;
+          return {
+            ...q,
+            classId: classRow.id,
+            subjectId: subject.id,
+            className: classRow.class_name,
+            subjectName: subject.subject_name,
+            chapterName: chapter.chapter_name,
+            options: [
+              q.option_a,
+              q.option_b,
+              q.option_c,
+              q.option_d,
+            ].filter(Boolean),
+          };
+        })
+        .filter((q): q is MCQ => q !== null);
 
-    if (firstError) {
-      setError(firstError.message);
+      setClasses(classRows);
+      setSubjects(subjectRows);
+      setChapters(chapterRows);
+      setQuestions(mcqs);
+
+      console.info("Question bank loaded:", {
+        classes: classRows.length,
+        subjects: subjectRows.length,
+        chapters: chapterRows.length,
+        activeMCQs: mcqs.length,
+      });
+    } catch (loadError: any) {
+      console.error("Question bank loading failed:", loadError);
+      setError(loadError?.message || "Unable to load questions.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const classRows =
-      classRowsOverride ||
-      ((classResult.data || []) as ClassRow[]);
-
-    const subjectRows =
-      (subjectResult.data || []) as SubjectRow[];
-
-    const chapterRows =
-      (chapterResult.data || []) as ChapterRow[];
-
-    const questionRows =
-      (questionResult.data || []) as QuestionRow[];
-
-    setClasses(classRows);
-
-    const classMap = new Map(
-      classRows.map((item) => [item.id, item])
-    );
-
-    const subjectMap = new Map(
-      subjectRows.map((item) => [item.id, item])
-    );
-
-    const chapterMap = new Map(
-      chapterRows.map((item) => [item.id, item])
-    );
-
-    const mcqs: MCQ[] = questionRows
-      .map((q) => {
-        const chapter = chapterMap.get(q.chapter_id);
-
-        const subject = chapter
-          ? subjectMap.get(chapter.subject_id)
-          : undefined;
-
-        const classRow = subject
-          ? classMap.get(subject.class_id)
-          : undefined;
-
-        if (!chapter || !subject || !classRow) {
-          return null;
-        }
-
-        return {
-          ...q,
-          classId: classRow.id,
-          subjectId: subject.id,
-          className: classRow.class_name,
-          subjectName: subject.subject_name,
-          chapterName: chapter.chapter_name,
-          options: [
-            q.option_a,
-            q.option_b,
-            q.option_c,
-            q.option_d,
-          ].filter(Boolean),
-        };
-      })
-      .filter((q): q is MCQ => q !== null);
-
-    setSubjects(subjectRows);
-    setChapters(chapterRows);
-    setQuestions(mcqs);
-    setLoading(false);
   }
 
   /* =========================
@@ -1159,18 +1170,18 @@ export default function Home() {
 
     const seen = new Set<string>();
 
-    return rows.filter((c) => {
-      const key = c.chapter_name
-        .trim()
-        .toLowerCase();
-
-      if (seen.has(key)) {
-        return false;
-      }
-
-      seen.add(key);
-      return true;
-    });
+    return rows
+      .filter((c) => {
+        const key = `${c.subject_id}:${c.chapter_name.trim().toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) =>
+        (Number(a.chapter_number) || 9999) -
+          (Number(b.chapter_number) || 9999) ||
+        a.id - b.id
+      );
   }, [
     chapters,
     subjects,
@@ -1241,10 +1252,44 @@ export default function Home() {
   const selectedSubjectQuestionCount =
     selectedSubjectQuestions.length;
 
+  const numberedMockCount = Math.floor(selectedSubjectQuestionCount / MOCK_QUESTION_COUNT);
+  const completedNumberedMocks = mockPapers.filter(
+    (p) => p.paper_number !== null && p.status === "COMPLETED"
+  ).length;
   const mockCanStart =
     selectedSubject !== ALL &&
-    selectedSubjectQuestionCount >=
-      MOCK_QUESTION_COUNT;
+    selectedSubjectQuestionCount >= MOCK_QUESTION_COUNT &&
+    !mockStarting && !mockHistoryLoading;
+  const selectedMockRecord = mockPapers.find(
+    (p) => p.paper_number === Number(selectedMockPaper)
+  );
+  const allNumberedCompleted =
+    numberedMockCount > 0 && completedNumberedMocks >= numberedMockCount;
+
+  useEffect(() => {
+    let cancelled = false;
+    setMockPapers([]);
+    setSelectedMockPaper("1");
+    if (!currentUser?.id || !availableSubjects.find(s => s.subject_name === selectedSubject)?.id) return;
+
+    const load = async () => {
+      setMockHistoryLoading(true);
+      const { data, error: historyError } = await supabase
+        .from("mock_papers")
+        .select("id,subject_id,paper_number,retake_number,question_ids,status,started_at,quiz_attempt_id")
+        .eq("student_id", currentUser.id)
+        .eq("subject_id", availableSubjects.find(s => s.subject_name === selectedSubject)!.id)
+        .order("started_at", { ascending: true });
+      if (!cancelled) {
+        if (historyError) setMockSubmitError(`Mock history: ${historyError.message}`);
+        else setMockPapers((data || []) as MockPaper[]);
+        setMockHistoryLoading(false);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [currentUser?.id, selectedSubject, availableSubjects]);
+
 
   /*
    * FREE AVAILABLE QUESTIONS
@@ -1332,53 +1377,38 @@ export default function Home() {
         )
       : false;
 
-  const practiceOptions = useMemo(() => {
-    const count =
-      availablePracticeQuestions.length;
+  const PRACTICE_SET_SIZE = 60;
 
-    if (count === 0) {
-      return [];
-    }
+  // Stable order keeps each question in exactly one subject-wide set.
+  const orderedPracticeQuestions = useMemo(
+    () => [...filteredQuestions].sort((a, b) => a.id - b.id),
+    [filteredQuestions]
+  );
 
-    const options = [3, 5, 10, count]
-      .filter((value) => value <= count)
-      .filter(
-        (value, index, array) =>
-          array.indexOf(value) === index
-      );
+  const chapterSelected = selectedChapter !== ALL;
+  const totalPracticeSets = chapterSelected
+    ? 1
+    : Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE);
 
-    return options.sort((a, b) => a - b);
-  }, [availablePracticeQuestions.length]);
+  // Free members retain their 10-question subject allowance. They can
+  // access eligible questions within the selected set, not the entire bank.
+  const selectedSetQuestions = useMemo(() => {
+    if (chapterSelected) return orderedPracticeQuestions;
+    const start = (practiceSet - 1) * PRACTICE_SET_SIZE;
+    return orderedPracticeQuestions.slice(start, start + PRACTICE_SET_SIZE);
+  }, [orderedPracticeQuestions, chapterSelected, practiceSet]);
 
-  useEffect(() => {
-    const availableCount =
-      availablePracticeQuestions.length;
-
-    if (availableCount === 0) {
-      return;
-    }
-
-    if (practiceCount > availableCount) {
-      setPracticeCount(availableCount);
-    }
-  }, [
-    availablePracticeQuestions.length,
-    practiceCount,
-  ]);
+  const eligibleSetQuestions = useMemo(() => {
+    if (isPaidMember) return selectedSetQuestions;
+    const remaining = selectedSetQuestions[0]
+      ? getSubjectRemaining(selectedSetQuestions[0].subjectId)
+      : 0;
+    return selectedSetQuestions.slice(0, remaining);
+  }, [selectedSetQuestions, isPaidMember, freeUsage]);
 
   useEffect(() => {
-    if (!practiceOptions.length) {
-      return;
-    }
-
-    if (!practiceOptions.includes(practiceCount)) {
-      setPracticeCount(
-        practiceOptions[
-          practiceOptions.length - 1
-        ]
-      );
-    }
-  }, [practiceOptions, practiceCount]);
+    if (practiceSet > Math.max(1, totalPracticeSets)) setPracticeSet(1);
+  }, [practiceSet, totalPracticeSets]);
 
   /* =========================
      FILTER HANDLERS
@@ -1401,14 +1431,17 @@ export default function Home() {
 
     setSelectedSubject(ALL);
     setSelectedChapter(ALL);
+    setPracticeSet(1);
   }
 
   function handleSubjectChange(value: string) {
     setSelectedSubject(value);
     setSelectedChapter(ALL);
+    setPracticeSet(1);
   }
 
   function clearFilters() {
+    setPracticeSet(1);
     if (enrolledClassId !== null) {
       setSelectedClass(
         String(enrolledClassId)
@@ -1443,9 +1476,7 @@ export default function Home() {
       return;
     }
 
-    const eligibleQuestions = isPaidMember
-      ? shuffleQuestions(filteredQuestions)
-      : freeAvailableQuestions;
+    const eligibleQuestions = eligibleSetQuestions;
 
     if (eligibleQuestions.length === 0) {
       setPracticeSubmitError(
@@ -1456,24 +1487,9 @@ export default function Home() {
       return;
     }
 
-    const selectedCount = Math.min(
-      practiceCount,
-      eligibleQuestions.length
-    );
-
-    if (selectedCount <= 0) {
-      setPracticeSubmitError(
-        "Please select at least one question."
-      );
-      return;
-    }
-
-    setPracticeQuestions(
-      eligibleQuestions.slice(
-        0,
-        selectedCount
-      )
-    );
+    // Chapter mode uses the complete chapter. Subject mode uses one
+    // non-overlapping 60-question set (or the smaller final set).
+    setPracticeQuestions(eligibleQuestions);
 
     setPracticeIndex(0);
     setPracticeAnswers({});
@@ -1645,7 +1661,7 @@ export default function Home() {
       return false;
     }
 
-    return true;
+    return attempt.id;
   }
 
   async function submitPracticeTest() {
@@ -1743,71 +1759,60 @@ export default function Home() {
      REAL MOCK TEST
   ========================= */
 
-  function startMockTest() {
+  async function refreshMockPapers(subjectId: number) {
+    if (!currentUser) return;
+    const { data, error: historyError } = await supabase
+      .from("mock_papers")
+      .select("id,subject_id,paper_number,retake_number,question_ids,status,started_at,quiz_attempt_id")
+      .eq("student_id", currentUser.id)
+      .eq("subject_id", subjectId)
+      .order("started_at", { ascending: true });
+    if (historyError) throw historyError;
+    setMockPapers((data || []) as MockPaper[]);
+  }
+
+  async function startMockTest() {
     setMockSubmitError("");
-
-    if (!currentUser) {
+    if (!currentUser || !selectedSubjectObject) return;
+    if (!isPaidMember) { openSubscribe(); return; }
+    if (selectedSubjectQuestionCount < MOCK_QUESTION_COUNT) return;
+    if (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED") {
+      setMockSubmitError("This paper is completed. Choose another paper or a retake.");
       return;
     }
 
-    if (!isPaidMember) {
-      openSubscribe();
-      return;
-    }
-
-    if (selectedSubject === ALL) {
-      setMockSubmitError(
-        "Please select a subject before starting the Real Mock Test."
+    setMockStarting(true);
+    try {
+      const { data, error: startError } = await supabase.rpc(
+        "start_mock_paper",
+        {
+          p_subject_id: selectedSubjectObject.id,
+          p_paper_number: selectedMockPaper === "retake" ? null : Number(selectedMockPaper),
+        }
       );
-      return;
+      if (startError) throw startError;
+      const paper = data as MockPaper;
+      const byId = new Map(selectedSubjectQuestions.map(q => [q.id, q]));
+      const assigned = paper.question_ids.map(id => byId.get(Number(id)));
+      if (assigned.some(q => !q) || assigned.length !== MOCK_QUESTION_COUNT) {
+        throw new Error("Some assigned questions are no longer available. Contact support.");
+      }
+      await refreshMockPapers(selectedSubjectObject.id);
+      setActiveMockPaperId(paper.id);
+      setMockQuestions(assigned as MCQ[]);
+      setMockIndex(0);
+      setMockAnswers({});
+      setMockSubmitted(false);
+      setMockSubmitting(false);
+      setMockTimeLeft(MOCK_DURATION_SECONDS);
+      setMockStartedAt(Date.now());
+      setPracticeMode(false);
+      setMockMode(true);
+    } catch (startError: any) {
+      setMockSubmitError(startError?.message || "Unable to start mock test.");
+    } finally {
+      setMockStarting(false);
     }
-
-    if (
-      selectedSubjectQuestionCount <
-      MOCK_QUESTION_COUNT
-    ) {
-      setMockSubmitError(
-        `This subject currently has only ${selectedSubjectQuestionCount} active questions. At least ${MOCK_QUESTION_COUNT} questions are required for the Real Mock Test.`
-      );
-      return;
-    }
-
-    /*
-     * Real Mock Test uses the COMPLETE selected subject.
-     *
-     * Chapter filter is intentionally ignored.
-     *
-     * Every new attempt shuffles the complete subject
-     * question pool and selects exactly 60.
-     */
-    const randomizedQuestions =
-      shuffleQuestions(
-        selectedSubjectQuestions
-      ).slice(0, MOCK_QUESTION_COUNT);
-
-    if (
-      randomizedQuestions.length !==
-      MOCK_QUESTION_COUNT
-    ) {
-      setMockSubmitError(
-        "Unable to prepare the 60-question mock test. Please try again."
-      );
-      return;
-    }
-
-    setMockQuestions(randomizedQuestions);
-    setMockIndex(0);
-    setMockAnswers({});
-    setMockSubmitted(false);
-    setMockSubmitting(false);
-    setMockSubmitError("");
-    setMockTimeLeft(
-      MOCK_DURATION_SECONDS
-    );
-    setMockStartedAt(Date.now());
-
-    setPracticeMode(false);
-    setMockMode(true);
   }
 
   async function submitMockTest(
@@ -1842,11 +1847,17 @@ export default function Home() {
       });
 
       if (!historySaved) {
-        setMockSubmitError(
-          "Test completed, but the quiz history could not be saved. Please contact support if this continues."
-        );
+        throw new Error("Unable to save quiz history. Please retry submission.");
       }
-
+      if (!activeMockPaperId) throw new Error("Mock paper assignment is missing.");
+      const { error: completionError } = await supabase.rpc(
+        "complete_mock_paper",
+        { p_mock_paper_id: activeMockPaperId, p_quiz_attempt_id: String(historySaved) }
+      );
+      if (completionError) throw completionError;
+      if (selectedSubjectObject) {
+        await refreshMockPapers(selectedSubjectObject.id);
+      }
       setMockSubmitted(true);
 
       if (automaticSubmit) {
@@ -4022,11 +4033,10 @@ export default function Home() {
 
               <select
                 value={selectedChapter}
-                onChange={(e) =>
-                  setSelectedChapter(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => {
+                  setSelectedChapter(e.target.value);
+                  setPracticeSet(1);
+                }}
                 disabled={
                   selectedSubject === ALL ||
                   availableChapters.length === 0
@@ -4174,8 +4184,8 @@ export default function Home() {
 
                 <p className="mt-1 max-w-xl text-sm leading-6 text-blue-100">
                   Select a subject and optionally a
-                  chapter. Choose how many questions
-                  you want to practice.
+                  chapter. A chapter opens as one paper; All Chapters
+                  is divided into sets of 60 questions.
                 </p>
 
                 {selectedSubject !== ALL ? (
@@ -4208,40 +4218,35 @@ export default function Home() {
               </div>
 
               <div className="grid w-full gap-3 sm:flex sm:w-auto sm:flex-row">
-                <select
-                  value={practiceCount}
-                  onChange={(e) =>
-                    setPracticeCount(
-                      Number(e.target.value)
-                    )
-                  }
-                  disabled={
-                    selectedSubject === ALL ||
-                    !availablePracticeQuestions.length ||
-                    (!isPaidMember && freeUsageLoading)
-                  }
-                  className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-white/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:min-h-11 sm:w-auto"
-                >
-                  {practiceOptions.map(
-                    (count) => (
-                      <option
-                        key={count}
-                        value={count}
-                      >
-                        {count ===
-                        availablePracticeQuestions.length
-                          ? `All ${count} Questions`
-                          : `${count} Questions`}
-                      </option>
-                    )
-                  )}
-                </select>
+                {selectedSubject !== ALL && !chapterSelected && totalPracticeSets > 0 && (
+                  <select
+                    aria-label="Select practice set"
+                    value={practiceSet}
+                    onChange={(e) => setPracticeSet(Number(e.target.value))}
+                    className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-white/40 sm:min-h-11 sm:w-auto"
+                  >
+                    {Array.from({ length: totalPracticeSets }, (_, index) => {
+                      const from = index * PRACTICE_SET_SIZE + 1;
+                      const to = Math.min((index + 1) * PRACTICE_SET_SIZE, orderedPracticeQuestions.length);
+                      return (
+                        <option key={index + 1} value={index + 1}>
+                          {`Set ${index + 1} — Questions ${from}–${to}`}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+                {selectedSubject !== ALL && chapterSelected && (
+                  <div className="flex min-h-11 items-center rounded-lg bg-white px-4 py-3 text-sm font-semibold text-blue-900">
+                    All {orderedPracticeQuestions.length} chapter questions
+                  </div>
+                )}
 
                 <button
                   onClick={startPracticeTest}
                   disabled={
                     selectedSubject === ALL ||
-                    !availablePracticeQuestions.length ||
+                    !eligibleSetQuestions.length ||
                     (!isPaidMember && freeUsageLoading)
                   }
                   className="min-h-12 w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-blue-900 shadow-sm hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-11 sm:w-auto"
@@ -4286,8 +4291,8 @@ export default function Home() {
 
                 <p className="mt-1 max-w-xl text-sm leading-6 text-slate-700">
                   Select a subject with at least 60 active
-                  MCQs. Every new attempt randomly selects
-                  60 questions from the complete subject.
+                  MCQs. Numbered papers use unique randomized questions.
+                  Complete the series to unlock unlimited randomized retakes.
                 </p>
 
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:max-w-sm">
@@ -4337,6 +4342,34 @@ export default function Home() {
               </div>
 
               <div>
+                {selectedSubject !== ALL && numberedMockCount > 0 && (
+                  <div className="mb-4 rounded-lg border border-orange-300 bg-white/70 p-3">
+                    <label htmlFor="mock-paper-selector" className="mb-2 block text-sm font-bold">
+                      Choose a numbered paper or retake
+                    </label>
+                    <select id="mock-paper-selector" value={selectedMockPaper}
+                      onChange={(e) => setSelectedMockPaper(e.target.value)}
+                      className="w-full rounded-lg border border-orange-300 bg-white p-3 text-sm">
+                      {Array.from({ length: numberedMockCount }, (_, i) => i + 1).map(n => {
+                        const record = mockPapers.find(p => p.paper_number === n);
+                        return <option key={n} value={String(n)}>
+                          {`Mock Test ${n} — ${record?.status === "COMPLETED" ? "Completed" : record ? "In progress" : "Not started"}`}
+                        </option>;
+                      })}
+                      {allNumberedCompleted && <option value="retake">New randomized retake</option>}
+                    </select>
+                    <p className="mt-2 text-xs text-slate-700">
+                      {completedNumberedMocks}/{numberedMockCount} numbered papers completed.
+                      Each numbered paper has unique questions. Retakes unlock after completing all numbered papers.
+                    </p>
+                    {mockPapers.filter(p => p.status === "COMPLETED").map(p => (
+                      <p key={p.id} className="mt-1 text-xs text-slate-700">
+                        {p.paper_number ? `Paper ${p.paper_number}` : `Retake ${p.retake_number}`} completed
+                        {p.quiz_attempt_id ? ` • Attempt ${p.quiz_attempt_id}` : ""}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {mockSubmitError && (
                   <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-xs leading-5 text-red-700">
                     {mockSubmitError}
@@ -4346,7 +4379,7 @@ export default function Home() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     onClick={startMockTest}
-                    disabled={!mockCanStart}
+                    disabled={!mockCanStart || (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED")}
                     className="min-h-12 w-full rounded-lg bg-orange-500 px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {selectedSubject === ALL
@@ -4354,7 +4387,9 @@ export default function Home() {
                       : selectedSubjectQuestionCount <
                         MOCK_QUESTION_COUNT
                       ? `Need ${MOCK_QUESTION_COUNT} Questions`
-                      : "Start Real Mock Test →"}
+                      : mockStarting ? "Preparing paper..."
+                      : selectedMockPaper === "retake" ? "Start Randomized Retake →"
+                      : `Start Mock Test ${selectedMockPaper} →`}
                   </button>
 
                   {!isPaidMember && (
