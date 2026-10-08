@@ -54,7 +54,58 @@ type StudentProfile = {
   class_id: number | null;
 };
 
+type FreeUsageRow = {
+  id: number;
+  student_id: string;
+  subject_id: number;
+  chapter_id: number | null;
+  questions_used: number;
+  questions_allowed: number;
+};
+
 const ALL = "all";
+const DEFAULT_FREE_QUESTIONS = 10;
+const MOCK_QUESTION_COUNT = 60;
+const MOCK_DURATION_SECONDS = 60 * 60;
+const ANNUAL_PLAN_PRICE = 99;
+
+function shuffleQuestions<T>(items: T[]): T[] {
+  const shuffled = [...items];
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+
+    [shuffled[i], shuffled[j]] = [
+      shuffled[j],
+      shuffled[i],
+    ];
+  }
+
+  return shuffled;
+}
+
+function formatTime(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds);
+
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor(
+    (safeSeconds % 3600) / 60
+  );
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(
+      minutes
+    ).padStart(2, "0")}:${String(seconds).padStart(
+      2,
+      "0"
+    )}`;
+  }
+
+  return `${String(minutes).padStart(2, "0")}:${String(
+    seconds
+  ).padStart(2, "0")}`;
+}
 
 export default function Home() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -70,26 +121,248 @@ export default function Home() {
   const [studentProfile, setStudentProfile] =
     useState<StudentProfile | null>(null);
 
+  /*
+   * FREE TRIAL
+   *
+   * Key:
+   *     subject_id
+   *
+   * Value:
+   *     questions_used
+   *
+   * Free usage is tracked at SUBJECT level.
+   *
+   * Example:
+   *
+   * Mathematics:
+   *   Chapter 1 -> 4 questions
+   *   Chapter 2 -> 3 questions
+   *   Chapter 3 -> 3 questions
+   *   Total Math -> 10 / 10
+   *
+   * Science has its own separate 10-question allowance.
+   */
+  const [freeUsage, setFreeUsage] = useState<
+    Record<number, number>
+  >({});
+
+  const [freeUsageLoading, setFreeUsageLoading] =
+    useState(false);
+
   const [selectedClass, setSelectedClass] = useState(ALL);
   const [selectedSubject, setSelectedSubject] = useState(ALL);
   const [selectedChapter, setSelectedChapter] = useState(ALL);
-  const [selectedDifficulty, setSelectedDifficulty] = useState(ALL);
 
-  const [selectedOptions, setSelectedOptions] = useState<
-    Record<number, string>
-  >({});
-  const [checkedAnswers, setCheckedAnswers] = useState<
-    Record<number, boolean>
-  >({});
+  /* =========================
+     PRACTICE TEST
+  ========================= */
 
   const [practiceMode, setPracticeMode] = useState(false);
   const [practiceCount, setPracticeCount] = useState(5);
-  const [practiceQuestions, setPracticeQuestions] = useState<MCQ[]>([]);
+  const [practiceQuestions, setPracticeQuestions] = useState<
+    MCQ[]
+  >([]);
   const [practiceIndex, setPracticeIndex] = useState(0);
   const [practiceAnswers, setPracticeAnswers] = useState<
     Record<number, string>
   >({});
-  const [practiceSubmitted, setPracticeSubmitted] = useState(false);
+  const [practiceSubmitted, setPracticeSubmitted] =
+    useState(false);
+  const [practiceSubmitting, setPracticeSubmitting] =
+    useState(false);
+  const [practiceSubmitError, setPracticeSubmitError] =
+    useState("");
+
+  /* =========================
+     REAL MOCK TEST
+  ========================= */
+
+  const [mockMode, setMockMode] = useState(false);
+  const [mockQuestions, setMockQuestions] = useState<MCQ[]>(
+    []
+  );
+  const [mockIndex, setMockIndex] = useState(0);
+  const [mockAnswers, setMockAnswers] = useState<
+    Record<number, string>
+  >({});
+  const [mockSubmitted, setMockSubmitted] =
+    useState(false);
+  const [mockSubmitting, setMockSubmitting] =
+    useState(false);
+  const [mockSubmitError, setMockSubmitError] =
+    useState("");
+  const [mockTimeLeft, setMockTimeLeft] = useState(
+    MOCK_DURATION_SECONDS
+  );
+
+  /* =========================
+     SUBSCRIPTION / COUPON
+  ========================= */
+
+  const [showSubscribeModal, setShowSubscribeModal] =
+    useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponDiscount, setCouponDiscount] =
+    useState(0);
+  const [couponMessage, setCouponMessage] =
+    useState("");
+  const [couponLoading, setCouponLoading] =
+    useState(false);
+  const [isPaidMember, setIsPaidMember] =
+    useState(false);
+
+  function openSubscribe() {
+    setCouponCode("");
+    setCouponDiscount(0);
+    setCouponMessage("");
+    setShowSubscribeModal(true);
+  }
+
+  function closeSubscribe() {
+    if (couponLoading) {
+      return;
+    }
+
+    setShowSubscribeModal(false);
+    setCouponCode("");
+    setCouponDiscount(0);
+    setCouponMessage("");
+  }
+
+  async function applyCoupon() {
+    const code = couponCode.trim().toUpperCase();
+
+    setCouponMessage("");
+    setCouponDiscount(0);
+
+    if (!code) {
+      setCouponMessage("Please enter a coupon code.");
+      return;
+    }
+
+    setCouponLoading(true);
+
+    const { data, error: couponError } = await supabase
+      .from("coupons")
+      .select("coupon_code,discount_percentage,is_active,valid_from,valid_until,usage_limit,usage_count")
+      .eq("coupon_code", code)
+      .maybeSingle();
+
+    if (couponError) {
+      console.error("Coupon lookup error:", couponError);
+      setCouponMessage(
+        couponError.message ||
+          "Unable to validate the coupon. Please try again."
+      );
+      setCouponLoading(false);
+      return;
+    }
+
+    if (!data) {
+      setCouponMessage("Invalid coupon code.");
+      setCouponLoading(false);
+      return;
+    }
+
+    const now = new Date();
+    const validFrom = data.valid_from
+      ? new Date(data.valid_from)
+      : null;
+    const validUntil = data.valid_until
+      ? new Date(data.valid_until)
+      : null;
+
+    if (!data.is_active) {
+      setCouponMessage("This coupon is inactive.");
+      setCouponLoading(false);
+      return;
+    }
+
+    if (validFrom && now < validFrom) {
+      setCouponMessage("This coupon is not active yet.");
+      setCouponLoading(false);
+      return;
+    }
+
+    if (validUntil && now > validUntil) {
+      setCouponMessage("This coupon has expired.");
+      setCouponLoading(false);
+      return;
+    }
+
+    if (
+      data.usage_limit !== null &&
+      data.usage_count >= data.usage_limit
+    ) {
+      setCouponMessage("This coupon has reached its usage limit.");
+      setCouponLoading(false);
+      return;
+    }
+
+    const discount = Number(data.discount_percentage);
+
+    if (!Number.isFinite(discount) || discount < 10 || discount > 100) {
+      setCouponMessage("This coupon has an invalid discount.");
+      setCouponLoading(false);
+      return;
+    }
+
+    setCouponDiscount(discount);
+    setCouponMessage(`${discount}% discount applied successfully.`);
+    setCouponLoading(false);
+  }
+
+  const couponDiscountAmount =
+    Math.round(ANNUAL_PLAN_PRICE * couponDiscount) / 100;
+
+  const finalSubscriptionPrice =
+    Math.max(0, ANNUAL_PLAN_PRICE - couponDiscountAmount);
+
+  async function activateFreeMembership() {
+    if (
+      !currentUser ||
+      finalSubscriptionPrice !== 0 ||
+      couponDiscount <= 0
+    ) {
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponMessage("");
+
+    const { data, error: activationError } =
+      await supabase.rpc(
+        "activate_paid_membership_with_coupon",
+        {
+          p_coupon_code: couponCode.trim().toUpperCase(),
+        }
+      );
+
+    if (activationError) {
+      console.error("Membership activation error:", activationError);
+      setCouponMessage(
+        activationError.message ||
+          "Unable to activate membership. Please try again."
+      );
+      setCouponLoading(false);
+      return;
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+
+    if (!result?.success) {
+      setCouponMessage(
+        result?.message ||
+          "Unable to activate membership. Please try again."
+      );
+      setCouponLoading(false);
+      return;
+    }
+
+    setIsPaidMember(true);
+    setShowSubscribeModal(false);
+    setCouponLoading(false);
+  }
 
   /* =========================
      SIGNUP
@@ -120,7 +393,7 @@ export default function Home() {
      LOAD PUBLIC CLASSES
   ========================= */
 
-  async function loadClasses() {
+  async function loadClasses(): Promise<ClassRow[]> {
     const { data, error: classError } = await supabase
       .from("classes")
       .select("id,class_name,is_active")
@@ -129,17 +402,67 @@ export default function Home() {
 
     if (classError) {
       setError(classError.message);
-      return;
+      return [];
     }
 
-    setClasses((data || []) as ClassRow[]);
+    const classRows = (data || []) as ClassRow[];
+
+    setClasses(classRows);
+
+    return classRows;
   }
+
+  /* =========================
+     GET ENROLLED CLASS
+  ========================= */
+
+  function getMetadataClassId(user: any): number | null {
+    const metadataValue = user?.user_metadata?.class_id;
+
+    if (
+      metadataValue === null ||
+      metadataValue === undefined ||
+      metadataValue === ""
+    ) {
+      return null;
+    }
+
+    const parsed = Number(metadataValue);
+
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const enrolledClassId = useMemo(() => {
+    if (
+      studentProfile?.class_id !== null &&
+      studentProfile?.class_id !== undefined
+    ) {
+      return studentProfile.class_id;
+    }
+
+    return getMetadataClassId(currentUser);
+  }, [studentProfile, currentUser]);
+
+  const enrolledClass = useMemo(() => {
+    if (enrolledClassId === null) {
+      return null;
+    }
+
+    return (
+      classes.find(
+        (item) => item.id === enrolledClassId
+      ) || null
+    );
+  }, [classes, enrolledClassId]);
 
   /* =========================
      LOAD STUDENT PROFILE
   ========================= */
 
-  async function loadStudentProfile(userId: string) {
+  async function loadStudentProfile(
+    userId: string,
+    authUser?: any
+  ) {
     const { data, error: profileError } = await supabase
       .from("student_profiles")
       .select("full_name,class_id")
@@ -147,34 +470,222 @@ export default function Home() {
       .maybeSingle();
 
     if (profileError) {
-      console.error("Student profile error:", profileError);
-      setStudentProfile(null);
-      return;
+      console.error(
+        "Student profile error:",
+        profileError
+      );
+
+      const metadataClassId =
+        getMetadataClassId(authUser);
+
+      const metadataName =
+        authUser?.user_metadata?.full_name || "";
+
+      if (metadataClassId !== null) {
+        const fallbackProfile: StudentProfile = {
+          full_name: metadataName,
+          class_id: metadataClassId,
+        };
+
+        setStudentProfile(fallbackProfile);
+        setSelectedClass(
+          String(metadataClassId)
+        );
+      } else {
+        setStudentProfile(null);
+        setSelectedClass(ALL);
+      }
+
+      return null;
     }
 
     if (data) {
-      setStudentProfile(data as StudentProfile);
-    } else {
-      setStudentProfile(null);
+      const profileData = data as StudentProfile;
+
+      const finalClassId =
+        profileData.class_id !== null
+          ? profileData.class_id
+          : getMetadataClassId(authUser);
+
+      const profile: StudentProfile = {
+        full_name:
+          profileData.full_name ||
+          authUser?.user_metadata?.full_name ||
+          "",
+        class_id: finalClassId,
+      };
+
+      setStudentProfile(profile);
+
+      if (finalClassId !== null) {
+        setSelectedClass(String(finalClassId));
+      } else {
+        setSelectedClass(ALL);
+      }
+
+      setSelectedSubject(ALL);
+      setSelectedChapter(ALL);
+
+      return profile;
     }
+
+    const metadataClassId =
+      getMetadataClassId(authUser);
+
+    if (metadataClassId !== null) {
+      const fallbackProfile: StudentProfile = {
+        full_name:
+          authUser?.user_metadata?.full_name || "",
+        class_id: metadataClassId,
+      };
+
+      setStudentProfile(fallbackProfile);
+      setSelectedClass(
+        String(metadataClassId)
+      );
+      setSelectedSubject(ALL);
+      setSelectedChapter(ALL);
+
+      return fallbackProfile;
+    }
+
+    setStudentProfile(null);
+    setSelectedClass(ALL);
+
+    return null;
+  }
+
+  /* =========================
+     LOAD FREE USAGE
+  ========================= */
+
+  async function loadFreeUsage(userId: string) {
+    setFreeUsageLoading(true);
+
+    const { data, error: usageError } = await supabase
+      .from("free_usage")
+      .select(
+        "id,student_id,subject_id,chapter_id,questions_used,questions_allowed"
+      )
+      .eq("student_id", userId)
+      .is("chapter_id", null);
+
+    if (usageError) {
+      console.error(
+        "Free usage error:",
+        usageError
+      );
+
+      setFreeUsage({});
+      setFreeUsageLoading(false);
+      return;
+    }
+
+    const usageMap: Record<number, number> = {};
+
+    ((data || []) as FreeUsageRow[]).forEach(
+      (row) => {
+        usageMap[row.subject_id] =
+          row.questions_used;
+      }
+    );
+
+    setFreeUsage(usageMap);
+    setFreeUsageLoading(false);
+  }
+
+  /* =========================
+     LOAD PAID MEMBERSHIP
+  ========================= */
+
+  async function loadPaidMembership(userId: string) {
+    const { data, error: subscriptionError } =
+      await supabase
+        .from("subscriptions")
+        .select("id,status,start_date,end_date")
+        .eq("student_id", userId)
+        .eq("status", "Active")
+        .order("end_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (subscriptionError) {
+      console.error("Subscription lookup error:", subscriptionError);
+      setIsPaidMember(false);
+      return;
+    }
+
+    setIsPaidMember(
+      !!data &&
+        (!data.end_date || new Date(data.end_date).getTime() >= Date.now())
+    );
+  }
+
+  /* =========================
+     FREE USAGE HELPERS
+  ========================= */
+
+  function getSubjectUsage(subjectId: number) {
+    return freeUsage[subjectId] || 0;
+  }
+
+  function getSubjectAllowed(subjectId: number) {
+    return DEFAULT_FREE_QUESTIONS;
+  }
+
+  function getSubjectRemaining(subjectId: number) {
+    return Math.max(
+      0,
+      getSubjectAllowed(subjectId) -
+        getSubjectUsage(subjectId)
+    );
+  }
+
+  function isSubjectFreeLimitReached(
+    subjectId: number
+  ) {
+    return (
+      getSubjectUsage(subjectId) >=
+      getSubjectAllowed(subjectId)
+    );
+  }
+
+  /*
+   * A question is available for the free trial only
+   * when its SUBJECT still has at least one question
+   * remaining.
+   */
+  function isQuestionFreeAvailable(q: MCQ) {
+    return getSubjectRemaining(q.subjectId) > 0;
   }
 
   /* =========================
      LOAD QUESTION BANK
   ========================= */
 
-  async function loadQuestionData() {
+  async function loadQuestionData(
+    classRowsOverride?: ClassRow[]
+  ) {
     setLoading(true);
     setError("");
 
     const [
+      classResult,
       subjectResult,
       chapterResult,
       questionResult,
     ] = await Promise.all([
       supabase
+        .from("classes")
+        .select("id,class_name,is_active")
+        .eq("is_active", true)
+        .order("id"),
+
+      supabase
         .from("subjects")
-        .select("id,class_id,subject_name,is_active")
+        .select(
+          "id,class_id,subject_name,is_active"
+        )
         .eq("is_active", true)
         .order("display_order"),
 
@@ -197,6 +708,7 @@ export default function Home() {
     ]);
 
     const firstError =
+      classResult.error ||
       subjectResult.error ||
       chapterResult.error ||
       questionResult.error;
@@ -207,12 +719,23 @@ export default function Home() {
       return;
     }
 
-    const subjectRows = (subjectResult.data || []) as SubjectRow[];
-    const chapterRows = (chapterResult.data || []) as ChapterRow[];
-    const questionRows = (questionResult.data || []) as QuestionRow[];
+    const classRows =
+      classRowsOverride ||
+      ((classResult.data || []) as ClassRow[]);
+
+    const subjectRows =
+      (subjectResult.data || []) as SubjectRow[];
+
+    const chapterRows =
+      (chapterResult.data || []) as ChapterRow[];
+
+    const questionRows =
+      (questionResult.data || []) as QuestionRow[];
+
+    setClasses(classRows);
 
     const classMap = new Map(
-      classes.map((item) => [item.id, item])
+      classRows.map((item) => [item.id, item])
     );
 
     const subjectMap = new Map(
@@ -272,7 +795,7 @@ export default function Home() {
     async function initializeApp() {
       setAuthLoading(true);
 
-      await loadClasses();
+      const classRows = await loadClasses();
 
       const {
         data: { session },
@@ -285,14 +808,31 @@ export default function Home() {
       if (session?.user) {
         setCurrentUser(session.user);
 
-        await loadStudentProfile(session.user.id);
+        await loadStudentProfile(
+          session.user.id,
+          session.user
+        );
+
+        await loadFreeUsage(
+          session.user.id
+        );
+
+        await loadPaidMembership(session.user.id);
 
         if (mounted) {
-          await loadQuestionData();
+          await loadQuestionData(classRows);
         }
       } else {
         setCurrentUser(null);
         setStudentProfile(null);
+        setFreeUsage({});
+        setIsPaidMember(false);
+        setQuestions([]);
+        setSubjects([]);
+        setChapters([]);
+        setSelectedClass(ALL);
+        setSelectedSubject(ALL);
+        setSelectedChapter(ALL);
         setLoading(false);
       }
 
@@ -314,7 +854,16 @@ export default function Home() {
         if (session?.user) {
           setCurrentUser(session.user);
 
-          await loadStudentProfile(session.user.id);
+          await loadStudentProfile(
+            session.user.id,
+            session.user
+          );
+
+          await loadFreeUsage(
+            session.user.id
+          );
+
+          await loadPaidMembership(session.user.id);
 
           if (mounted) {
             await loadQuestionData();
@@ -322,11 +871,17 @@ export default function Home() {
         } else {
           setCurrentUser(null);
           setStudentProfile(null);
+          setFreeUsage({});
           setQuestions([]);
           setSubjects([]);
           setChapters([]);
+          setSelectedClass(ALL);
+          setSelectedSubject(ALL);
+          setSelectedChapter(ALL);
           setLoading(false);
+
           setPracticeMode(false);
+          setMockMode(false);
         }
 
         if (mounted) {
@@ -342,21 +897,84 @@ export default function Home() {
   }, []);
 
   /* =========================
+     MOCK TIMER
+  ========================= */
+
+  useEffect(() => {
+    if (
+      !mockMode ||
+      mockSubmitted ||
+      mockSubmitting
+    ) {
+      return;
+    }
+
+    if (mockTimeLeft <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setMockTimeLeft((previous) => {
+        if (previous <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+
+        return previous - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [
+    mockMode,
+    mockSubmitted,
+    mockSubmitting,
+    mockTimeLeft,
+  ]);
+
+  /*
+   * Automatically submit the mock when the timer
+   * reaches zero.
+   */
+  useEffect(() => {
+    if (
+      !mockMode ||
+      mockSubmitted ||
+      mockSubmitting ||
+      mockTimeLeft > 0
+    ) {
+      return;
+    }
+
+    submitMockTest(true);
+  }, [
+    mockMode,
+    mockSubmitted,
+    mockSubmitting,
+    mockTimeLeft,
+  ]);
+
+  /* =========================
      FILTER DATA
   ========================= */
 
   const availableSubjects = useMemo(() => {
-    const rows =
-      selectedClass === ALL
-        ? subjects
-        : subjects.filter(
-            (s) => String(s.class_id) === selectedClass
-          );
+    if (enrolledClassId === null) {
+      return [];
+    }
+
+    const rows = subjects.filter(
+      (s) => s.class_id === enrolledClassId
+    );
 
     const seen = new Set<string>();
 
     return rows.filter((s) => {
-      const key = s.subject_name.trim().toLowerCase();
+      const key = s.subject_name
+        .trim()
+        .toLowerCase();
 
       if (seen.has(key)) {
         return false;
@@ -365,15 +983,18 @@ export default function Home() {
       seen.add(key);
       return true;
     });
-  }, [subjects, selectedClass]);
+  }, [subjects, enrolledClassId]);
 
   const availableChapters = useMemo(() => {
+    if (enrolledClassId === null) {
+      return [];
+    }
+
     const activeSubjectIds = new Set(
       subjects
         .filter((s) => {
           const classMatches =
-            selectedClass === ALL ||
-            String(s.class_id) === selectedClass;
+            s.class_id === enrolledClassId;
 
           const subjectMatches =
             selectedSubject === ALL ||
@@ -391,7 +1012,9 @@ export default function Home() {
     const seen = new Set<string>();
 
     return rows.filter((c) => {
-      const key = c.chapter_name.trim().toLowerCase();
+      const key = c.chapter_name
+        .trim()
+        .toLowerCase();
 
       if (seen.has(key)) {
         return false;
@@ -404,24 +1027,21 @@ export default function Home() {
     chapters,
     subjects,
     selectedSubject,
-    selectedClass,
+    enrolledClassId,
   ]);
 
-  const difficulties = useMemo(() => {
-    return Array.from(
-      new Set(
-        questions
-          .map((q) => q.difficulty)
-          .filter(Boolean)
-      )
-    ) as string[];
-  }, [questions]);
-
   const filteredQuestions = useMemo(() => {
+    if (enrolledClassId === null) {
+      return [];
+    }
+
     return questions.filter((q) => {
-      const matchesClass =
-        selectedClass === ALL ||
-        String(q.classId) === selectedClass;
+      const matchesStudentClass =
+        q.classId === enrolledClassId;
+
+      if (!matchesStudentClass) {
+        return false;
+      }
 
       const matchesSubject =
         selectedSubject === ALL ||
@@ -431,27 +1051,142 @@ export default function Home() {
         selectedChapter === ALL ||
         q.chapterName === selectedChapter;
 
-      const matchesDifficulty =
-        selectedDifficulty === ALL ||
-        q.difficulty === selectedDifficulty;
-
       return (
-        matchesClass &&
         matchesSubject &&
-        matchesChapter &&
-        matchesDifficulty
+        matchesChapter
       );
     });
   }, [
     questions,
-    selectedClass,
     selectedSubject,
     selectedChapter,
-    selectedDifficulty,
+    enrolledClassId,
   ]);
 
+  /*
+   * Questions belonging to the selected subject.
+   *
+   * This is intentionally NOT affected by chapter selection.
+   *
+   * Real Mock Test requires a minimum of 60 active
+   * questions across the complete selected subject.
+   */
+  const selectedSubjectQuestions = useMemo(() => {
+    if (
+      enrolledClassId === null ||
+      selectedSubject === ALL
+    ) {
+      return [];
+    }
+
+    return questions.filter(
+      (q) =>
+        q.classId === enrolledClassId &&
+        q.subjectName === selectedSubject
+    );
+  }, [
+    questions,
+    selectedSubject,
+    enrolledClassId,
+  ]);
+
+  const selectedSubjectQuestionCount =
+    selectedSubjectQuestions.length;
+
+  const mockCanStart =
+    selectedSubject !== ALL &&
+    selectedSubjectQuestionCount >=
+      MOCK_QUESTION_COUNT;
+
+  /*
+   * FREE AVAILABLE QUESTIONS
+   *
+   * Subject-level allowance is enforced here.
+   */
+  const freeAvailableQuestions = useMemo(() => {
+    const subjectRemaining = new Map<
+      number,
+      number
+    >();
+
+    const result: MCQ[] = [];
+
+    const shuffledQuestions =
+      shuffleQuestions(filteredQuestions);
+
+    for (const question of shuffledQuestions) {
+      let remaining =
+        subjectRemaining.get(
+          question.subjectId
+        );
+
+      if (remaining === undefined) {
+        remaining =
+          getSubjectRemaining(
+            question.subjectId
+          );
+      }
+
+      if (remaining <= 0) {
+        continue;
+      }
+
+      result.push(question);
+
+      subjectRemaining.set(
+        question.subjectId,
+        remaining - 1
+      );
+    }
+
+    return result;
+  }, [filteredQuestions, freeUsage]);
+
+  const availablePracticeQuestions = isPaidMember
+    ? filteredQuestions
+    : freeAvailableQuestions;
+
+  const selectedSubjectObject = useMemo(() => {
+    if (selectedSubject === ALL) {
+      return null;
+    }
+
+    return (
+      availableSubjects.find(
+        (subject) =>
+          subject.subject_name ===
+          selectedSubject
+      ) || null
+    );
+  }, [
+    availableSubjects,
+    selectedSubject,
+  ]);
+
+  const selectedSubjectUsage =
+    selectedSubjectObject
+      ? getSubjectUsage(
+          selectedSubjectObject.id
+        )
+      : 0;
+
+  const selectedSubjectRemaining =
+    selectedSubjectObject
+      ? getSubjectRemaining(
+          selectedSubjectObject.id
+        )
+      : 0;
+
+  const selectedSubjectLimitReached =
+    selectedSubjectObject
+      ? isSubjectFreeLimitReached(
+          selectedSubjectObject.id
+        )
+      : false;
+
   const practiceOptions = useMemo(() => {
-    const count = filteredQuestions.length;
+    const count =
+      availablePracticeQuestions.length;
 
     if (count === 0) {
       return [];
@@ -465,10 +1200,11 @@ export default function Home() {
       );
 
     return options.sort((a, b) => a - b);
-  }, [filteredQuestions.length]);
+  }, [availablePracticeQuestions.length]);
 
   useEffect(() => {
-    const availableCount = filteredQuestions.length;
+    const availableCount =
+      availablePracticeQuestions.length;
 
     if (availableCount === 0) {
       return;
@@ -477,14 +1213,44 @@ export default function Home() {
     if (practiceCount > availableCount) {
       setPracticeCount(availableCount);
     }
-  }, [filteredQuestions.length, practiceCount]);
+  }, [
+    availablePracticeQuestions.length,
+    practiceCount,
+  ]);
+
+  useEffect(() => {
+    if (!practiceOptions.length) {
+      return;
+    }
+
+    if (!practiceOptions.includes(practiceCount)) {
+      setPracticeCount(
+        practiceOptions[
+          practiceOptions.length - 1
+        ]
+      );
+    }
+  }, [practiceOptions, practiceCount]);
 
   /* =========================
      FILTER HANDLERS
   ========================= */
 
   function handleClassChange(value: string) {
-    setSelectedClass(value);
+    if (enrolledClassId === null) {
+      return;
+    }
+
+    if (
+      String(enrolledClassId) !== value
+    ) {
+      return;
+    }
+
+    setSelectedClass(
+      String(enrolledClassId)
+    );
+
     setSelectedSubject(ALL);
     setSelectedChapter(ALL);
   }
@@ -494,33 +1260,17 @@ export default function Home() {
     setSelectedChapter(ALL);
   }
 
-  function handleOptionChange(
-    questionId: number,
-    option: string
-  ) {
-    setSelectedOptions((prev) => ({
-      ...prev,
-      [questionId]: option,
-    }));
-
-    setCheckedAnswers((prev) => ({
-      ...prev,
-      [questionId]: false,
-    }));
-  }
-
-  function checkAnswer(question: MCQ) {
-    setCheckedAnswers((prev) => ({
-      ...prev,
-      [question.id]: true,
-    }));
-  }
-
   function clearFilters() {
-    setSelectedClass(ALL);
+    if (enrolledClassId !== null) {
+      setSelectedClass(
+        String(enrolledClassId)
+      );
+    } else {
+      setSelectedClass(ALL);
+    }
+
     setSelectedSubject(ALL);
     setSelectedChapter(ALL);
-    setSelectedDifficulty(ALL);
   }
 
   /* =========================
@@ -528,32 +1278,275 @@ export default function Home() {
   ========================= */
 
   function startPracticeTest() {
-    const mcqs = [...filteredQuestions];
+    setPracticeSubmitError("");
 
-    for (let i = mcqs.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [mcqs[i], mcqs[j]] = [mcqs[j], mcqs[i]];
+    if (!currentUser) {
+      return;
+    }
+
+    if (selectedSubject === ALL) {
+      setPracticeSubmitError(
+        "Please select a subject before starting the Practice Paper."
+      );
+      return;
+    }
+
+    if (freeUsageLoading && !isPaidMember) {
+      return;
+    }
+
+    const eligibleQuestions = isPaidMember
+      ? shuffleQuestions(filteredQuestions)
+      : freeAvailableQuestions;
+
+    if (eligibleQuestions.length === 0) {
+      setPracticeSubmitError(
+        isPaidMember
+          ? "No questions are currently available for this subject."
+          : "No free questions remain for this subject."
+      );
+      return;
+    }
+
+    const selectedCount = Math.min(
+      practiceCount,
+      eligibleQuestions.length
+    );
+
+    if (selectedCount <= 0) {
+      setPracticeSubmitError(
+        "Please select at least one question."
+      );
+      return;
     }
 
     setPracticeQuestions(
-      mcqs.slice(
+      eligibleQuestions.slice(
         0,
-        Math.min(practiceCount, mcqs.length)
+        selectedCount
       )
     );
 
     setPracticeIndex(0);
     setPracticeAnswers({});
     setPracticeSubmitted(false);
+    setPracticeSubmitting(false);
+    setPracticeSubmitError("");
     setPracticeMode(true);
+    setMockMode(false);
+  }
+
+  /*
+   * Records one free-question usage for every
+   * question included in the completed practice test.
+   *
+   * Database usage is stored at:
+   *
+   *     student_id + subject_id
+   *
+   * chapter_id is passed for compatibility with the
+   * existing RPC, but the allowance is subject-level.
+   */
+  async function submitPracticeTest() {
+    if (!currentUser) {
+      setPracticeSubmitError(
+        "Your session has expired. Please sign in again."
+      );
+      return;
+    }
+
+    if (
+      practiceSubmitting ||
+      practiceSubmitted
+    ) {
+      return;
+    }
+
+    if (practiceQuestions.length === 0) {
+      setPracticeSubmitError(
+        "There are no questions to submit."
+      );
+      return;
+    }
+
+    setPracticeSubmitting(true);
+    setPracticeSubmitError("");
+
+    try {
+      if (isPaidMember) {
+        setPracticeSubmitted(true);
+        return;
+      }
+
+      for (const question of practiceQuestions) {
+        const { error: usageError } =
+          await supabase.rpc(
+            "record_free_question_usage",
+            {
+              p_student_id:
+                currentUser.id,
+              p_subject_id:
+                question.subjectId,
+              p_chapter_id:
+                question.chapter_id,
+            }
+          );
+
+        if (usageError) {
+          console.error(
+            "Free usage RPC error:",
+            usageError
+          );
+
+          throw new Error(
+            usageError.message ||
+              "Unable to record free question usage."
+          );
+        }
+      }
+
+      await loadFreeUsage(
+        currentUser.id
+      );
+
+      setPracticeSubmitted(true);
+    } catch (submitError: any) {
+      console.error(
+        "Practice test submission error:",
+        submitError
+      );
+
+      setPracticeSubmitError(
+        submitError?.message ||
+          "Unable to submit the practice test. Please try again."
+      );
+    } finally {
+      setPracticeSubmitting(false);
+    }
   }
 
   function exitPracticeTest() {
     setPracticeMode(false);
     setPracticeSubmitted(false);
+    setPracticeSubmitting(false);
+    setPracticeSubmitError("");
     setPracticeQuestions([]);
     setPracticeAnswers({});
     setPracticeIndex(0);
+  }
+
+  /* =========================
+     REAL MOCK TEST
+  ========================= */
+
+  function startMockTest() {
+    setMockSubmitError("");
+
+    if (!currentUser) {
+      return;
+    }
+
+    if (!isPaidMember) {
+      openSubscribe();
+      return;
+    }
+
+    if (selectedSubject === ALL) {
+      setMockSubmitError(
+        "Please select a subject before starting the Real Mock Test."
+      );
+      return;
+    }
+
+    if (
+      selectedSubjectQuestionCount <
+      MOCK_QUESTION_COUNT
+    ) {
+      setMockSubmitError(
+        `This subject currently has only ${selectedSubjectQuestionCount} active questions. At least ${MOCK_QUESTION_COUNT} questions are required for the Real Mock Test.`
+      );
+      return;
+    }
+
+    /*
+     * Real Mock Test uses the COMPLETE selected subject.
+     *
+     * Chapter filter is intentionally ignored.
+     *
+     * Every new attempt shuffles the complete subject
+     * question pool and selects exactly 60.
+     */
+    const randomizedQuestions =
+      shuffleQuestions(
+        selectedSubjectQuestions
+      ).slice(0, MOCK_QUESTION_COUNT);
+
+    if (
+      randomizedQuestions.length !==
+      MOCK_QUESTION_COUNT
+    ) {
+      setMockSubmitError(
+        "Unable to prepare the 60-question mock test. Please try again."
+      );
+      return;
+    }
+
+    setMockQuestions(randomizedQuestions);
+    setMockIndex(0);
+    setMockAnswers({});
+    setMockSubmitted(false);
+    setMockSubmitting(false);
+    setMockSubmitError("");
+    setMockTimeLeft(
+      MOCK_DURATION_SECONDS
+    );
+
+    setPracticeMode(false);
+    setMockMode(true);
+  }
+
+  async function submitMockTest(
+    automaticSubmit = false
+  ) {
+    if (mockSubmitted || mockSubmitting) {
+      return;
+    }
+
+    if (mockQuestions.length !== MOCK_QUESTION_COUNT) {
+      setMockSubmitError(
+        "There are no valid mock questions to submit."
+      );
+      return;
+    }
+
+    setMockSubmitting(true);
+    setMockSubmitError("");
+
+    /*
+     * Real Mock Test does not consume the 10-question
+     * free-trial allowance.
+     *
+     * It is a separate 60-question mock-test system.
+     */
+    setMockSubmitted(true);
+    setMockSubmitting(false);
+
+    if (automaticSubmit) {
+      setMockTimeLeft(0);
+    }
+  }
+
+  function exitMockTest() {
+    setMockMode(false);
+    setMockSubmitted(false);
+    setMockSubmitting(false);
+    setMockSubmitError("");
+    setMockQuestions([]);
+    setMockAnswers({});
+    setMockIndex(0);
+    setMockTimeLeft(
+      MOCK_DURATION_SECONDS
+    );
   }
 
   /* =========================
@@ -585,21 +1578,30 @@ export default function Home() {
     setSignupError("");
     setSignupSuccess("");
 
-    const fullName = signupFullName.trim();
-    const email = signupEmail.trim().toLowerCase();
+    const fullName =
+      signupFullName.trim();
+
+    const email =
+      signupEmail.trim().toLowerCase();
 
     if (!fullName) {
-      setSignupError("Please enter your full name.");
+      setSignupError(
+        "Please enter your full name."
+      );
       return;
     }
 
     if (!email) {
-      setSignupError("Please enter your email ID.");
+      setSignupError(
+        "Please enter your email ID."
+      );
       return;
     }
 
     if (!signupClassId) {
-      setSignupError("Please select your class.");
+      setSignupError(
+        "Please select your class."
+      );
       return;
     }
 
@@ -610,7 +1612,10 @@ export default function Home() {
       return;
     }
 
-    if (signupPassword !== signupConfirmPassword) {
+    if (
+      signupPassword !==
+      signupConfirmPassword
+    ) {
       setSignupError(
         "Password and Confirm Password do not match."
       );
@@ -619,21 +1624,26 @@ export default function Home() {
 
     setSignupLoading(true);
 
-   const { data, error: authError } =
-  await supabase.auth.signUp({
-    email,
-    password: signupPassword,
-    options: {
-      emailRedirectTo:
-        "https://cbse-question-bank.vercel.app/auth/callback",
-      data: {
-        full_name: fullName,
-        class_id: Number(signupClassId),
+    const {
+      data,
+      error: authError,
+    } = await supabase.auth.signUp({
+      email,
+      password: signupPassword,
+      options: {
+        emailRedirectTo:
+          "https://cbse-question-bank.vercel.app/auth/callback",
+        data: {
+          full_name: fullName,
+          class_id: Number(signupClassId),
+        },
       },
-    },
-  });
+    });
+
     if (authError) {
-      setSignupError(authError.message);
+      setSignupError(
+        authError.message
+      );
       setSignupLoading(false);
       return;
     }
@@ -647,13 +1657,17 @@ export default function Home() {
     }
 
     if (data.session) {
-      const { error: profileError } = await supabase
+      const {
+        error: profileError,
+      } = await supabase
         .from("student_profiles")
         .insert({
           id: data.user.id,
           full_name: fullName,
           mobile_number: null,
-          class_id: Number(signupClassId),
+          class_id: Number(
+            signupClassId
+          ),
           is_active: true,
         });
 
@@ -661,6 +1675,7 @@ export default function Home() {
         setSignupError(
           `Account was created, but the student profile could not be saved: ${profileError.message}`
         );
+
         setSignupLoading(false);
         return;
       }
@@ -708,28 +1723,38 @@ export default function Home() {
 
     setSigninError("");
 
-    const email = signinEmail.trim().toLowerCase();
+    const email =
+      signinEmail.trim().toLowerCase();
 
     if (!email) {
-      setSigninError("Please enter your email ID.");
+      setSigninError(
+        "Please enter your email ID."
+      );
       return;
     }
 
     if (!signinPassword) {
-      setSigninError("Please enter your password.");
+      setSigninError(
+        "Please enter your password."
+      );
       return;
     }
 
     setSigninLoading(true);
 
-    const { data, error: authError } =
+    const {
+      data,
+      error: authError,
+    } =
       await supabase.auth.signInWithPassword({
         email,
         password: signinPassword,
       });
 
     if (authError) {
-      setSigninError(authError.message);
+      setSigninError(
+        authError.message
+      );
       setSigninLoading(false);
       return;
     }
@@ -744,7 +1769,17 @@ export default function Home() {
 
     setCurrentUser(data.user);
 
-    await loadStudentProfile(data.user.id);
+    await loadStudentProfile(
+      data.user.id,
+      data.user
+    );
+
+    await loadFreeUsage(
+      data.user.id
+    );
+
+    await loadPaidMembership(data.user.id);
+
     await loadQuestionData();
 
     setSigninEmail("");
@@ -762,23 +1797,53 @@ export default function Home() {
 
     setCurrentUser(null);
     setStudentProfile(null);
+    setFreeUsage({});
+    setIsPaidMember(false);
     setQuestions([]);
     setSubjects([]);
     setChapters([]);
+
     setSelectedClass(ALL);
     setSelectedSubject(ALL);
     setSelectedChapter(ALL);
-    setSelectedDifficulty(ALL);
-    setSelectedOptions({});
-    setCheckedAnswers({});
+
     setPracticeMode(false);
+    setPracticeQuestions([]);
+    setPracticeAnswers({});
+    setPracticeIndex(0);
+    setPracticeSubmitted(false);
+    setPracticeSubmitting(false);
+    setPracticeSubmitError("");
+
+    setMockMode(false);
+    setMockQuestions([]);
+    setMockAnswers({});
+    setMockIndex(0);
+    setMockSubmitted(false);
+    setMockSubmitting(false);
+    setMockSubmitError("");
+    setMockTimeLeft(
+      MOCK_DURATION_SECONDS
+    );
   }
 
-  const practiceScore = practiceQuestions.filter(
-    (q) =>
-      practiceAnswers[q.id] ===
-      q.correct_option.trim().toUpperCase()
-  ).length;
+  const practiceScore =
+    practiceQuestions.filter(
+      (q) =>
+        practiceAnswers[q.id] ===
+        q.correct_option
+          .trim()
+          .toUpperCase()
+    ).length;
+
+  const mockScore =
+    mockQuestions.filter(
+      (q) =>
+        mockAnswers[q.id] ===
+        q.correct_option
+          .trim()
+          .toUpperCase()
+    ).length;
 
   /* =========================
      AUTH LOADING
@@ -811,7 +1876,6 @@ export default function Home() {
   if (!currentUser) {
     return (
       <main className="min-h-screen overflow-x-hidden bg-slate-50">
-        {/* HEADER */}
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
             <div className="min-w-0">
@@ -842,7 +1906,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* SIGNUP MODAL */}
         {showSignup && (
           <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 px-4 py-6 backdrop-blur-sm">
             <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
@@ -895,7 +1958,9 @@ export default function Home() {
                     type="text"
                     value={signupFullName}
                     onChange={(e) =>
-                      setSignupFullName(e.target.value)
+                      setSignupFullName(
+                        e.target.value
+                      )
                     }
                     placeholder="Enter your full name"
                     disabled={signupLoading}
@@ -913,7 +1978,9 @@ export default function Home() {
                     type="email"
                     value={signupEmail}
                     onChange={(e) =>
-                      setSignupEmail(e.target.value)
+                      setSignupEmail(
+                        e.target.value
+                      )
                     }
                     placeholder="Enter your email"
                     disabled={signupLoading}
@@ -931,7 +1998,9 @@ export default function Home() {
                     type="password"
                     value={signupPassword}
                     onChange={(e) =>
-                      setSignupPassword(e.target.value)
+                      setSignupPassword(
+                        e.target.value
+                      )
                     }
                     placeholder="Minimum 6 characters"
                     disabled={signupLoading}
@@ -949,7 +2018,9 @@ export default function Home() {
                     type="password"
                     value={signupConfirmPassword}
                     onChange={(e) =>
-                      setSignupConfirmPassword(e.target.value)
+                      setSignupConfirmPassword(
+                        e.target.value
+                      )
                     }
                     placeholder="Re-enter your password"
                     disabled={signupLoading}
@@ -966,7 +2037,9 @@ export default function Home() {
                   <select
                     value={signupClassId}
                     onChange={(e) =>
-                      setSignupClassId(e.target.value)
+                      setSignupClassId(
+                        e.target.value
+                      )
                     }
                     disabled={signupLoading}
                     className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
@@ -976,7 +2049,10 @@ export default function Home() {
                     </option>
 
                     {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
+                      <option
+                        key={c.id}
+                        value={c.id}
+                      >
                         {c.class_name}
                       </option>
                     ))}
@@ -1008,7 +2084,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* SIGN IN MODAL */}
         {showSignin && (
           <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 px-4 py-6 backdrop-blur-sm">
             <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
@@ -1055,7 +2130,9 @@ export default function Home() {
                     type="email"
                     value={signinEmail}
                     onChange={(e) =>
-                      setSigninEmail(e.target.value)
+                      setSigninEmail(
+                        e.target.value
+                      )
                     }
                     placeholder="Enter your email"
                     disabled={signinLoading}
@@ -1074,7 +2151,9 @@ export default function Home() {
                     type="password"
                     value={signinPassword}
                     onChange={(e) =>
-                      setSigninPassword(e.target.value)
+                      setSigninPassword(
+                        e.target.value
+                      )
                     }
                     placeholder="Enter your password"
                     disabled={signinLoading}
@@ -1108,7 +2187,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* HERO */}
         <section className="border-b border-slate-800 bg-slate-950 text-white">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20">
             <div className="max-w-3xl">
@@ -1147,7 +2225,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* FEATURES */}
         <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-14">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -1160,8 +2237,8 @@ export default function Home() {
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Practice questions organized by subject,
-                chapter and difficulty.
+                Practice questions organized by subject
+                and chapter.
               </p>
             </div>
 
@@ -1171,12 +2248,12 @@ export default function Home() {
               </div>
 
               <h3 className="mt-4 text-lg font-bold text-slate-950">
-                Instant Answers
+                Focused Practice
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Select an answer and immediately check
-                whether you are correct.
+                Select your subject and chapter to build
+                a focused practice session.
               </p>
             </div>
 
@@ -1186,18 +2263,17 @@ export default function Home() {
               </div>
 
               <h3 className="mt-4 text-lg font-bold text-slate-950">
-                Practice Tests
+                Real Mock Test
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Take randomized practice tests using
-                questions from your preparation area.
+                Attempt a randomized 60-question,
+                60-minute subject mock test.
               </p>
             </div>
           </div>
         </section>
 
-        {/* FOOTER */}
         <footer className="border-t border-slate-200 bg-white">
           <div className="mx-auto max-w-7xl px-4 py-7 text-center sm:px-6 sm:py-8">
             <p className="font-bold text-slate-950">
@@ -1258,10 +2334,377 @@ export default function Home() {
           </p>
 
           <p className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            Check your Supabase URL/key and make sure the
-            tables allow SELECT access.
+            Check your Supabase URL/key and make sure
+            the tables allow SELECT access.
           </p>
         </div>
+      </main>
+    );
+  }
+
+  /* =========================
+     REAL MOCK TEST
+  ========================= */
+
+  if (mockMode) {
+    const current =
+      mockQuestions[mockIndex];
+
+    if (!current) {
+      return null;
+    }
+
+    if (mockSubmitted) {
+      const percentage =
+        mockQuestions.length
+          ? Math.round(
+              (mockScore /
+                mockQuestions.length) *
+                100
+            )
+          : 0;
+
+      return (
+        <main className="min-h-screen overflow-x-hidden bg-slate-50">
+          <header className="border-b border-slate-800 bg-slate-950 text-white">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-300 sm:text-[11px]">
+                  Real Mock Test
+                </p>
+
+                <h1 className="mt-0.5 truncate text-base font-bold sm:text-lg">
+                  CBSE Question Bank
+                </h1>
+              </div>
+
+              <button
+                onClick={exitMockTest}
+                className="min-h-10 shrink-0 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700 sm:px-4 sm:text-sm"
+              >
+                Back to Questions
+              </button>
+            </div>
+          </header>
+
+          <section className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-12">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-9">
+              <div className="text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-4 border-blue-100 bg-blue-50 text-xl font-bold text-blue-700">
+                  {percentage}%
+                </div>
+
+                <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-700">
+                  Mock Test Completed
+                </p>
+
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                  Real Mock Test Result
+                </h2>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Your 60-question mock test has been completed.
+                </p>
+              </div>
+
+              <div className="mt-7 grid gap-3 sm:mt-8 sm:grid-cols-3 sm:gap-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                  <p className="text-sm font-medium text-slate-500">
+                    Total Questions
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl">
+                    {mockQuestions.length}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5">
+                  <p className="text-sm font-medium text-emerald-800">
+                    Correct
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-emerald-700 sm:text-3xl">
+                    {mockScore}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
+                  <p className="text-sm font-medium text-blue-800">
+                    Percentage
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-blue-700 sm:text-3xl">
+                    {percentage}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-7 space-y-4 sm:mt-9">
+                {mockQuestions.map(
+                  (q, index) => {
+                    const correct =
+                      q.correct_option
+                        .trim()
+                        .toUpperCase();
+
+                    const user =
+                      mockAnswers[q.id];
+
+                    return (
+                      <div
+                        key={q.id}
+                        className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-100 text-xs font-bold text-blue-700">
+                            {index + 1}
+                          </span>
+
+                          <p className="min-w-0 text-sm font-semibold leading-6 text-slate-900 sm:text-base">
+                            {q.question_text}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                          <p className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600">
+                            Your answer:{" "}
+                            <strong className="text-slate-900">
+                              {user ||
+                                "Not answered"}
+                            </strong>
+                          </p>
+
+                          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
+                            Correct answer:{" "}
+                            <strong>
+                              {correct}
+                            </strong>
+                          </p>
+                        </div>
+
+                        {q.explanation && (
+                          <p className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
+                            <strong>
+                              Explanation:
+                            </strong>{" "}
+                            {q.explanation}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+
+              <div className="mt-7 flex justify-center sm:mt-9">
+                <button
+                  onClick={exitMockTest}
+                  className="min-h-11 rounded-lg bg-blue-700 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800"
+                >
+                  Back to Questions
+                </button>
+              </div>
+            </div>
+          </section>
+        </main>
+      );
+    }
+
+    const progress =
+      ((mockIndex + 1) /
+        mockQuestions.length) *
+      100;
+
+    const timerWarning =
+      mockTimeLeft <= 300;
+
+    return (
+      <main className="min-h-screen overflow-x-hidden bg-slate-50">
+        <header className="border-b border-slate-800 bg-slate-950 text-white">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-300 sm:text-[11px]">
+                Real Mock Test
+              </p>
+
+              <h1 className="mt-0.5 truncate text-base font-bold sm:text-lg">
+                CBSE Question Bank
+              </h1>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <div
+                className={`rounded-lg border px-3 py-2 text-center ${
+                  timerWarning
+                    ? "border-red-400 bg-red-500/20 text-red-200"
+                    : "border-slate-600 bg-slate-800 text-white"
+                }`}
+              >
+                <p className="text-[9px] font-bold uppercase tracking-wide opacity-80">
+                  Time Left
+                </p>
+
+                <p className="mt-0.5 text-sm font-extrabold tabular-nums sm:text-base">
+                  {formatTime(mockTimeLeft)}
+                </p>
+              </div>
+
+              <button
+                onClick={exitMockTest}
+                disabled={mockSubmitting}
+                className="min-h-10 shrink-0 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-semibold hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm"
+              >
+                Exit Test
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <section className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-12">
+          <div className="mb-5">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-amber-700">
+                  Real Mock Test
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                  Question{" "}
+                  {mockIndex + 1} of{" "}
+                  {mockQuestions.length}
+                </h2>
+              </div>
+
+              <span className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 sm:px-3 sm:text-xs">
+                60 Questions
+              </span>
+            </div>
+
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-200 sm:mt-5">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                style={{
+                  width: `${progress}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {mockSubmitError && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
+              {mockSubmitError}
+            </div>
+          )}
+
+          {mockTimeLeft <= 60 && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold leading-6 text-red-800">
+              Time is almost over. The test will be
+              submitted automatically when the timer
+              reaches zero.
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
+            <p className="text-lg font-semibold leading-7 text-slate-950 sm:text-xl sm:leading-8">
+              {current.question_text}
+            </p>
+
+            <div className="mt-6 space-y-3 sm:mt-7">
+              {current.options.map(
+                (option, index) => {
+                  const letter =
+                    String.fromCharCode(
+                      65 + index
+                    );
+
+                  const selected =
+                    mockAnswers[
+                      current.id
+                    ] === letter;
+
+                  return (
+                    <button
+                      key={letter}
+                      onClick={() =>
+                        setMockAnswers(
+                          (prev) => ({
+                            ...prev,
+                            [current.id]:
+                              letter,
+                          })
+                        )
+                      }
+                      disabled={mockSubmitting}
+                      className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${
+                        selected
+                          ? "border-blue-700 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                          selected
+                            ? "bg-blue-700 text-white"
+                            : "bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800"
+                        }`}
+                      >
+                        {letter}
+                      </span>
+
+                      <span className="min-w-0 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
+                        {option}
+                      </span>
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5">
+            <button
+              disabled={
+                mockIndex === 0 ||
+                mockSubmitting
+              }
+              onClick={() =>
+                setMockIndex(
+                  (p) => p - 1
+                )
+              }
+              className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-5"
+            >
+              ← Previous
+            </button>
+
+            {mockIndex <
+            mockQuestions.length - 1 ? (
+              <button
+                disabled={mockSubmitting}
+                onClick={() =>
+                  setMockIndex(
+                    (p) => p + 1
+                  )
+                }
+                className="min-h-11 rounded-lg bg-blue-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
+              >
+                Next →
+              </button>
+            ) : (
+              <button
+                disabled={mockSubmitting}
+                onClick={() =>
+                  submitMockTest(false)
+                }
+                className="min-h-11 rounded-lg bg-emerald-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
+              >
+                {mockSubmitting
+                  ? "Submitting..."
+                  : "Submit Mock Test"}
+              </button>
+            )}
+          </div>
+        </section>
       </main>
     );
   }
@@ -1271,18 +2714,22 @@ export default function Home() {
   ========================= */
 
   if (practiceMode) {
-    const current = practiceQuestions[practiceIndex];
+    const current =
+      practiceQuestions[practiceIndex];
 
     if (!current) {
       return null;
     }
 
     if (practiceSubmitted) {
-      const percentage = practiceQuestions.length
-        ? Math.round(
-            (practiceScore / practiceQuestions.length) * 100
-          )
-        : 0;
+      const percentage =
+        practiceQuestions.length
+          ? Math.round(
+              (practiceScore /
+                practiceQuestions.length) *
+                100
+            )
+          : 0;
 
       return (
         <main className="min-h-screen overflow-x-hidden bg-slate-50">
@@ -1360,52 +2807,60 @@ export default function Home() {
               </div>
 
               <div className="mt-7 space-y-4 sm:mt-9">
-                {practiceQuestions.map((q, index) => {
-                  const correct =
-                    q.correct_option
-                      .trim()
-                      .toUpperCase();
+                {practiceQuestions.map(
+                  (q, index) => {
+                    const correct =
+                      q.correct_option
+                        .trim()
+                        .toUpperCase();
 
-                  const user = practiceAnswers[q.id];
+                    const user =
+                      practiceAnswers[q.id];
 
-                  return (
-                    <div
-                      key={q.id}
-                      className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-100 text-xs font-bold text-blue-700">
-                          {index + 1}
-                        </span>
+                    return (
+                      <div
+                        key={q.id}
+                        className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-100 text-xs font-bold text-blue-700">
+                            {index + 1}
+                          </span>
 
-                        <p className="min-w-0 text-sm font-semibold leading-6 text-slate-900 sm:text-base">
-                          {q.question_text}
-                        </p>
+                          <p className="min-w-0 text-sm font-semibold leading-6 text-slate-900 sm:text-base">
+                            {q.question_text}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                          <p className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600">
+                            Your answer:{" "}
+                            <strong className="text-slate-900">
+                              {user ||
+                                "Not answered"}
+                            </strong>
+                          </p>
+
+                          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
+                            Correct answer:{" "}
+                            <strong>
+                              {correct}
+                            </strong>
+                          </p>
+                        </div>
+
+                        {q.explanation && (
+                          <p className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
+                            <strong>
+                              Explanation:
+                            </strong>{" "}
+                            {q.explanation}
+                          </p>
+                        )}
                       </div>
-
-                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                        <p className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600">
-                          Your answer:{" "}
-                          <strong className="text-slate-900">
-                            {user || "Not answered"}
-                          </strong>
-                        </p>
-
-                        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
-                          Correct answer:{" "}
-                          <strong>{correct}</strong>
-                        </p>
-                      </div>
-
-                      {q.explanation && (
-                        <p className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
-                          <strong>Explanation:</strong>{" "}
-                          {q.explanation}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  }
+                )}
               </div>
             </div>
           </section>
@@ -1434,7 +2889,8 @@ export default function Home() {
 
             <button
               onClick={exitPracticeTest}
-              className="min-h-10 shrink-0 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-semibold hover:bg-slate-700 sm:px-4 sm:text-sm"
+              disabled={practiceSubmitting}
+              className="min-h-10 shrink-0 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-semibold hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm"
             >
               Exit Test
             </button>
@@ -1450,23 +2906,28 @@ export default function Home() {
                 </p>
 
                 <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
-                  Question {practiceIndex + 1} of{" "}
+                  Question{" "}
+                  {practiceIndex + 1} of{" "}
                   {practiceQuestions.length}
                 </h2>
               </div>
-
-              <span className="shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 sm:px-3 sm:text-xs">
-                {current.difficulty || "Not set"}
-              </span>
             </div>
 
             <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-200 sm:mt-5">
               <div
                 className="h-full rounded-full bg-blue-700 transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                style={{
+                  width: `${progress}%`,
+                }}
               />
             </div>
           </div>
+
+          {practiceSubmitError && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
+              {practiceSubmitError}
+            </div>
+          )}
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
             <p className="text-lg font-semibold leading-7 text-slate-950 sm:text-xl sm:leading-8">
@@ -1474,53 +2935,67 @@ export default function Home() {
             </p>
 
             <div className="mt-6 space-y-3 sm:mt-7">
-              {current.options.map((option, index) => {
-                const letter = String.fromCharCode(
-                  65 + index
-                );
+              {current.options.map(
+                (option, index) => {
+                  const letter =
+                    String.fromCharCode(
+                      65 + index
+                    );
 
-                const selected =
-                  practiceAnswers[current.id] === letter;
+                  const selected =
+                    practiceAnswers[
+                      current.id
+                    ] === letter;
 
-                return (
-                  <button
-                    key={letter}
-                    onClick={() =>
-                      setPracticeAnswers((prev) => ({
-                        ...prev,
-                        [current.id]: letter,
-                      }))
-                    }
-                    className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${
-                      selected
-                        ? "border-blue-700 bg-blue-50"
-                        : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                  return (
+                    <button
+                      key={letter}
+                      onClick={() =>
+                        setPracticeAnswers(
+                          (prev) => ({
+                            ...prev,
+                            [current.id]:
+                              letter,
+                          })
+                        )
+                      }
+                      disabled={practiceSubmitting}
+                      className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${
                         selected
-                          ? "bg-blue-700 text-white"
-                          : "bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800"
-                      }`}
+                          ? "border-blue-700 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
                     >
-                      {letter}
-                    </span>
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                          selected
+                            ? "bg-blue-700 text-white"
+                            : "bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800"
+                        }`}
+                      >
+                        {letter}
+                      </span>
 
-                    <span className="min-w-0 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
-                      {option}
-                    </span>
-                  </button>
-                );
-              })}
+                      <span className="min-w-0 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
+                        {option}
+                      </span>
+                    </button>
+                  );
+                }
+              )}
             </div>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5">
             <button
-              disabled={practiceIndex === 0}
+              disabled={
+                practiceIndex === 0 ||
+                practiceSubmitting
+              }
               onClick={() =>
-                setPracticeIndex((p) => p - 1)
+                setPracticeIndex(
+                  (p) => p - 1
+                )
               }
               className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-5"
             >
@@ -1530,19 +3005,25 @@ export default function Home() {
             {practiceIndex <
             practiceQuestions.length - 1 ? (
               <button
+                disabled={practiceSubmitting}
                 onClick={() =>
-                  setPracticeIndex((p) => p + 1)
+                  setPracticeIndex(
+                    (p) => p + 1
+                  )
                 }
-                className="min-h-11 rounded-lg bg-blue-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 sm:px-6"
+                className="min-h-11 rounded-lg bg-blue-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
               >
                 Next →
               </button>
             ) : (
               <button
-                onClick={() => setPracticeSubmitted(true)}
-                className="min-h-11 rounded-lg bg-emerald-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 sm:px-6"
+                disabled={practiceSubmitting}
+                onClick={submitPracticeTest}
+                className="min-h-11 rounded-lg bg-emerald-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
               >
-                Submit Test
+                {practiceSubmitting
+                  ? "Submitting..."
+                  : "Submit Test"}
               </button>
             )}
           </div>
@@ -1552,11 +3033,139 @@ export default function Home() {
   }
 
   /* =========================
-     MAIN AUTHENTICATED QUESTION BANK
+     MAIN AUTHENTICATED PAGE
   ========================= */
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-slate-50">
+    <>
+      {showSubscribeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 px-4 py-6 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+            <button
+              type="button"
+              onClick={closeSubscribe}
+              disabled={couponLoading}
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-lg text-lg font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+              aria-label="Close subscription"
+            >
+              ×
+            </button>
+
+            <div className="pr-10">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
+                Annual Membership
+              </p>
+
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
+                Annual Paid Plan
+              </h2>
+
+              <p className="mt-1.5 text-sm leading-5 text-slate-500">
+                Get access to paid practice questions and the Real Mock Test.
+              </p>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-blue-800">
+                    Annual Plan
+                  </p>
+                  <p className="mt-1 text-3xl font-extrabold text-slate-950">
+                    ₹{ANNUAL_PLAN_PRICE}
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700">
+                  Annual
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                Coupon Code
+              </label>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    setCouponDiscount(0);
+                    setCouponMessage("");
+                  }}
+                  placeholder="Enter coupon code"
+                  disabled={couponLoading}
+                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-semibold uppercase text-slate-900 outline-none placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                />
+
+                <button
+                  type="button"
+                  onClick={applyCoupon}
+                  disabled={couponLoading}
+                  className="min-h-11 rounded-lg bg-slate-950 px-4 py-3 text-xs font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                >
+                  {couponLoading ? "Checking..." : "Apply"}
+                </button>
+              </div>
+
+              {couponMessage && (
+                <p className={`mt-2 text-xs font-semibold ${
+                  couponDiscount > 0
+                    ? "text-emerald-700"
+                    : "text-red-700"
+                }`}>
+                  {couponMessage}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="text-slate-600">Plan price</span>
+                <span className="font-semibold text-slate-900">₹{ANNUAL_PLAN_PRICE.toFixed(2)}</span>
+              </div>
+
+              {couponDiscount > 0 && (
+                <div className="mt-2 flex justify-between gap-3 text-sm">
+                  <span className="text-emerald-700">Coupon discount ({couponDiscount}%)</span>
+                  <span className="font-semibold text-emerald-700">-₹{couponDiscountAmount.toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="mt-3 border-t border-slate-200 pt-3 flex justify-between gap-3">
+                <span className="font-bold text-slate-900">Payable amount</span>
+                <span className="text-xl font-extrabold text-blue-700">₹{finalSubscriptionPrice.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={activateFreeMembership}
+              disabled={
+                couponLoading ||
+                finalSubscriptionPrice !== 0 ||
+                couponDiscount === 0
+              }
+              className="mt-5 min-h-12 w-full rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {couponLoading
+                ? "Activating..."
+                : finalSubscriptionPrice === 0
+                ? "Activate Annual Membership"
+                : "Payment / Activate"}
+            </button>
+
+            <p className="mt-3 text-center text-[11px] leading-5 text-slate-500">
+              Payment gateway will be connected after this coupon and pricing test is verified.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <main className="min-h-screen overflow-x-hidden bg-slate-50">
       {/* HEADER */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
@@ -1597,7 +3206,9 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 py-9 sm:px-6 sm:py-16">
           <div className="max-w-3xl">
             <span className="inline-flex rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-blue-300 sm:px-3 sm:text-[11px] sm:tracking-[0.12em]">
-              Student Dashboard
+              {enrolledClass
+                ? enrolledClass.class_name
+                : "Student Dashboard"}
             </span>
 
             <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight sm:mt-5 sm:text-5xl lg:text-6xl">
@@ -1611,8 +3222,12 @@ export default function Home() {
             </h2>
 
             <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:mt-5 sm:text-lg sm:leading-7">
-              Practice CBSE MCQ questions by class,
-              subject, chapter and difficulty.
+              Your{" "}
+              {enrolledClass?.class_name ||
+                "enrolled class"}{" "}
+              is locked to your account. Practice MCQ
+              questions by subject and chapter, or take
+              a 60-question Real Mock Test.
             </p>
           </div>
         </div>
@@ -1636,8 +3251,8 @@ export default function Home() {
               </h3>
 
               <p className="mt-1 text-sm leading-5 text-slate-500">
-                Filter by class, subject, chapter and
-                difficulty.
+                Your class is locked. Select a subject
+                and optionally choose a chapter.
               </p>
             </div>
 
@@ -1646,29 +3261,46 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+          <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-2 lg:grid-cols-3">
+            {/* CLASS */}
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
-                Class
+                Your Class
               </label>
 
               <select
-                value={selectedClass}
-                onChange={(e) =>
-                  handleClassChange(e.target.value)
+                value={
+                  enrolledClassId !== null
+                    ? String(enrolledClassId)
+                    : ""
                 }
-                className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none hover:border-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 sm:min-h-11"
+                onChange={(e) =>
+                  handleClassChange(
+                    e.target.value
+                  )
+                }
+                disabled
+                className="min-h-12 w-full rounded-lg border border-slate-300 bg-slate-100 px-3.5 py-3 text-sm font-bold text-slate-700 outline-none disabled:cursor-not-allowed sm:min-h-11"
               >
-                <option value={ALL}>All Classes</option>
-
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.class_name}
+                {enrolledClass ? (
+                  <option
+                    value={enrolledClass.id}
+                  >
+                    {enrolledClass.class_name}
                   </option>
-                ))}
+                ) : (
+                  <option value="">
+                    Class not assigned
+                  </option>
+                )}
               </select>
+
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                Class is linked to your account.
+              </p>
             </div>
 
+            {/* SUBJECT */}
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
                 Subject
@@ -1677,11 +3309,15 @@ export default function Home() {
               <select
                 value={selectedSubject}
                 onChange={(e) =>
-                  handleSubjectChange(e.target.value)
+                  handleSubjectChange(
+                    e.target.value
+                  )
                 }
                 className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none hover:border-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 sm:min-h-11"
               >
-                <option value={ALL}>All Subjects</option>
+                <option value={ALL}>
+                  Select Subject
+                </option>
 
                 {availableSubjects.map((s) => (
                   <option
@@ -1692,8 +3328,15 @@ export default function Home() {
                   </option>
                 ))}
               </select>
+
+              {selectedSubject === ALL && (
+                <p className="mt-1.5 text-[11px] font-semibold text-amber-700">
+                  Select a subject to start a paper.
+                </p>
+              )}
             </div>
 
+            {/* CHAPTER */}
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
                 Chapter
@@ -1702,19 +3345,29 @@ export default function Home() {
               <select
                 value={selectedChapter}
                 onChange={(e) =>
-                  setSelectedChapter(e.target.value)
+                  setSelectedChapter(
+                    e.target.value
+                  )
                 }
-                disabled={availableChapters.length === 0}
+                disabled={
+                  selectedSubject === ALL ||
+                  availableChapters.length === 0
+                }
                 className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none hover:border-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:min-h-11"
               >
                 <option value={ALL}>
-                  {availableChapters.length
+                  {selectedSubject === ALL
+                    ? "Select Subject First"
+                    : availableChapters.length
                     ? "All Chapters"
                     : "No Chapters Available"}
                 </option>
 
                 {availableChapters.map((c) => (
-                  <option key={c.id} value={c.chapter_name}>
+                  <option
+                    key={c.id}
+                    value={c.chapter_name}
+                  >
                     {c.chapter_number
                       ? `${c.chapter_number}. `
                       : ""}
@@ -1723,29 +3376,81 @@ export default function Home() {
                 ))}
               </select>
             </div>
-
-            <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
-                Difficulty
-              </label>
-
-              <select
-                value={selectedDifficulty}
-                onChange={(e) =>
-                  setSelectedDifficulty(e.target.value)
-                }
-                className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none hover:border-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 sm:min-h-11"
-              >
-                <option value={ALL}>All Levels</option>
-
-                {difficulties.map((d) => (
-                  <option key={d}>{d}</option>
-                ))}
-              </select>
-            </div>
           </div>
 
+          {/* FREE TRIAL STATUS */}
+          {selectedSubjectObject ? (
+            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-amber-900">
+                    Free Trial —{" "}
+                    {selectedSubjectObject.subject_name}
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-amber-800">
+                    You can check up to 10 questions
+                    from this subject for free. All
+                    chapters in this subject share the
+                    same free-question allowance.
+                  </p>
+                </div>
+
+                <div className="w-fit rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-900">
+                  {freeUsageLoading
+                    ? "Loading..."
+                    : `${selectedSubjectUsage} / ${DEFAULT_FREE_QUESTIONS} used`}
+                </div>
+              </div>
+
+              {!freeUsageLoading &&
+                !selectedSubjectLimitReached && (
+                  <p className="mt-2 text-xs font-semibold text-emerald-700">
+                    {selectedSubjectRemaining} free question
+                    {selectedSubjectRemaining === 1
+                      ? ""
+                      : "s"} remaining for this subject.
+                  </p>
+                )}
+
+              {!freeUsageLoading &&
+                selectedSubjectLimitReached && (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold leading-5 text-red-800">
+                    Your free trial limit for this
+                    subject has been reached. A
+                    subscription will be required to
+                    continue with additional practice
+                    questions.
+                  </div>
+                )}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <p className="text-sm font-bold text-blue-900">
+                Subject-level Free Trial
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-blue-800">
+                Each subject has its own 10-question free
+                allowance. All chapters within a subject
+                share that allowance.
+              </p>
+            </div>
+          )}
+
           <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-200 pt-4 sm:pt-5">
+            <span className="text-xs text-slate-600 sm:text-sm">
+              Class:{" "}
+              <strong className="text-slate-900">
+                {enrolledClass?.class_name ||
+                  "Not assigned"}
+              </strong>
+            </span>
+
+            <span className="text-slate-300">
+              •
+            </span>
+
             <span className="text-xs text-slate-600 sm:text-sm">
               Subjects:{" "}
               <strong className="text-slate-900">
@@ -1753,7 +3458,9 @@ export default function Home() {
               </strong>
             </span>
 
-            <span className="text-slate-300">•</span>
+            <span className="text-slate-300">
+              •
+            </span>
 
             <span className="text-xs text-slate-600 sm:text-sm">
               Chapters:{" "}
@@ -1771,289 +3478,215 @@ export default function Home() {
           </div>
         </div>
 
-        {/* PRACTICE TEST */}
-        <div className="mt-5 rounded-2xl border border-blue-800 bg-blue-900 p-4 text-white shadow-sm sm:mt-6 sm:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <span className="inline-flex rounded-md border border-blue-700 bg-blue-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-blue-100 sm:px-3 sm:text-[11px]">
-                Test Yourself
-              </span>
+        {/* PAPER OPTIONS */}
+        <div className="mt-5 grid gap-5 lg:grid-cols-2 sm:mt-6">
+          {/* PRACTICE PAPER */}
+          <div className="rounded-2xl border border-blue-800 bg-blue-900 p-4 text-white shadow-sm sm:p-7">
+            <div className="flex h-full flex-col justify-between gap-5">
+              <div>
+                <span className="inline-flex rounded-md border border-blue-700 bg-blue-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-blue-100 sm:px-3 sm:text-[11px]">
+                  Practice Paper
+                </span>
 
-              <h3 className="mt-2.5 text-xl font-bold sm:mt-3 sm:text-2xl">
-                Practice Test
-              </h3>
+                <h3 className="mt-2.5 text-xl font-bold sm:mt-3 sm:text-2xl">
+                  Practice Test
+                </h3>
 
-              <p className="mt-1 max-w-xl text-sm leading-6 text-blue-100">
-                Test yourself using questions from your
-                current filters.
-              </p>
+                <p className="mt-1 max-w-xl text-sm leading-6 text-blue-100">
+                  Select a subject and optionally a
+                  chapter. Choose how many questions
+                  you want to practice.
+                </p>
 
-              <p className="mt-3 text-sm font-semibold text-white">
-                {filteredQuestions.length} questions available
-              </p>
-            </div>
+                {selectedSubject !== ALL ? (
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-sm font-semibold text-white">
+                      {filteredQuestions.length} total questions available
+                    </p>
 
-            <div className="grid w-full gap-3 sm:flex sm:w-auto sm:flex-row">
-              <select
-                value={practiceCount}
-                onChange={(e) =>
-                  setPracticeCount(Number(e.target.value))
-                }
-                disabled={!filteredQuestions.length}
-                className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-white/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:min-h-11 sm:w-auto"
-              >
-                {practiceOptions.map((count) => (
-                  <option key={count} value={count}>
-                    {count === filteredQuestions.length
-                      ? `All ${count} Questions`
-                      : `${count} Questions`}
-                  </option>
-                ))}
-              </select>
+                    <p className="text-sm font-semibold text-green-200">
+                      {isPaidMember
+                        ? `${filteredQuestions.length} questions unlocked`
+                        : `${freeAvailableQuestions.length} free questions available`}
+                    </p>
 
-              <button
-                onClick={startPracticeTest}
-                disabled={!filteredQuestions.length}
-                className="min-h-12 w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-blue-900 shadow-sm hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-11 sm:w-auto"
-              >
-                Start Practice Test →
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* QUESTIONS */}
-        <div className="mt-5 space-y-4 sm:mt-7 sm:space-y-5">
-          {filteredQuestions.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-7 text-center shadow-sm sm:p-10">
-              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold text-slate-500">
-                —
+                    {!isPaidMember &&
+                      filteredQuestions.length >
+                        freeAvailableQuestions.length && (
+                      <p className="text-xs leading-5 text-blue-200">
+                        {filteredQuestions.length -
+                          freeAvailableQuestions.length}{" "}
+                        questions require a paid plan to access.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm font-semibold text-white">
+                    Select a subject first.
+                  </p>
+                )}
               </div>
 
-              <h3 className="mt-4 text-lg font-bold text-slate-950 sm:text-xl">
-                No questions found
-              </h3>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Try changing the selected filters.
-              </p>
-
-              <button
-                onClick={clearFilters}
-                className="mt-5 min-h-10 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800"
-              >
-                Reset Filters
-              </button>
-            </div>
-          ) : (
-            filteredQuestions.map((question, index) => {
-              const selected =
-                selectedOptions[question.id];
-
-              const checked =
-                checkedAnswers[question.id];
-
-              const correct =
-                question.correct_option
-                  .trim()
-                  .toUpperCase();
-
-              const isCorrect =
-                selected === correct;
-
-              return (
-                <div
-                  key={question.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-7"
+              <div className="grid w-full gap-3 sm:flex sm:w-auto sm:flex-row">
+                <select
+                  value={practiceCount}
+                  onChange={(e) =>
+                    setPracticeCount(
+                      Number(e.target.value)
+                    )
+                  }
+                  disabled={
+                    selectedSubject === ALL ||
+                    !availablePracticeQuestions.length ||
+                    (!isPaidMember && freeUsageLoading)
+                  }
+                  className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-white/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:min-h-11 sm:w-auto"
                 >
-                  {/* QUESTION HEADER */}
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                      <span className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-800">
-                        {question.className}
-                      </span>
+                  {practiceOptions.map(
+                    (count) => (
+                      <option
+                        key={count}
+                        value={count}
+                      >
+                        {count ===
+                        availablePracticeQuestions.length
+                          ? `All ${count} Questions`
+                          : `${count} Questions`}
+                      </option>
+                    )
+                  )}
+                </select>
 
-                      <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-800">
-                        {question.subjectName}
-                      </span>
+                <button
+                  type="button"
+                  onClick={openSubscribe}
+                  disabled={isPaidMember}
+                  className="min-h-12 w-full rounded-lg border border-white/70 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/20 disabled:cursor-default disabled:opacity-100 sm:min-h-11 sm:w-auto"
+                >
+                  {isPaidMember ? "Membership Active" : "Subscribe ₹99"}
+                </button>
 
-                      <span className="max-w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                        {question.chapterName}
-                      </span>
-                    </div>
+                <button
+                  onClick={startPracticeTest}
+                  disabled={
+                    selectedSubject === ALL ||
+                    !availablePracticeQuestions.length ||
+                    (!isPaidMember && freeUsageLoading)
+                  }
+                  className="min-h-12 w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-blue-900 shadow-sm hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-11 sm:w-auto"
+                >
+                  {selectedSubject === ALL
+                    ? "Select Subject First"
+                    : (!isPaidMember && freeUsageLoading)
+                    ? "Checking Free Usage..."
+                    : "Start Practice Paper →"}
+                </button>
+              </div>
+            </div>
+          </div>
 
-                    <span
-                      className={`w-fit rounded-md border px-2.5 py-1 text-[11px] font-bold ${
-                        question.difficulty === "Easy"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                          : question.difficulty ===
-                            "Hard"
-                          ? "border-red-200 bg-red-50 text-red-800"
-                          : "border-amber-200 bg-amber-50 text-amber-800"
+          {/* REAL MOCK TEST */}
+          <div className="rounded-2xl border border-orange-300 bg-orange-100 p-4 text-slate-900 shadow-sm sm:p-7">
+            <div className="flex h-full flex-col justify-between gap-5">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex rounded-md border border-orange-300 bg-orange-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-orange-900 sm:px-3 sm:text-[11px]">
+                    Real Mock Test
+                  </span>
+
+                  <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-emerald-800">
+                    ⚡ Available to Paid Members
+                  </span>
+                </div>
+
+                <h3 className="mt-2.5 text-xl font-bold sm:mt-3 sm:text-2xl">
+                  60 Questions • 60 Minutes
+                </h3>
+
+                <p className="mt-1 max-w-xl text-sm leading-6 text-slate-700">
+                  Select a subject with at least 60 active
+                  MCQs. Every new attempt randomly selects
+                  60 questions from the complete subject.
+                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:max-w-sm">
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                      Questions
+                    </p>
+
+                    <p className="mt-1 text-lg font-extrabold text-slate-900">
+                      60
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                      Time
+                    </p>
+
+                    <p className="mt-1 text-lg font-extrabold text-slate-900">
+                      60 Min
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  {selectedSubject === ALL ? (
+                    <p className="text-xs font-semibold text-orange-800">
+                      Select a subject first.
+                    </p>
+                  ) : (
+                    <p
+                      className={`text-xs font-semibold ${
+                        selectedSubjectQuestionCount >=
+                        MOCK_QUESTION_COUNT
+                          ? "text-emerald-700"
+                          : "text-red-700"
                       }`}
                     >
-                      {question.difficulty ||
-                        "Not set"}
-                    </span>
-                  </div>
-
-                  {/* QUESTION */}
-                  <div className="mt-5 flex gap-3 sm:mt-6 sm:gap-4">
-                    <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-700 text-xs font-bold text-white sm:flex">
-                      {index + 1}
-                    </div>
-
-                    <h3 className="min-w-0 text-base font-bold leading-6 text-slate-950 sm:text-xl sm:leading-7">
-                      {question.question_text}
-                    </h3>
-                  </div>
-
-                  {/* OPTIONS */}
-                  <div className="mt-5 grid gap-2.5 sm:mt-6 sm:gap-3">
-                    {question.options.map(
-                      (option, optionIndex) => {
-                        const letter =
-                          String.fromCharCode(
-                            65 + optionIndex
-                          );
-
-                        const selectedOption =
-                          selected === letter;
-
-                        let cls =
-                          "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50";
-
-                        if (
-                          checked &&
-                          selectedOption &&
-                          isCorrect
-                        ) {
-                          cls =
-                            "border-emerald-600 bg-emerald-50";
-                        } else if (
-                          checked &&
-                          selectedOption &&
-                          !isCorrect
-                        ) {
-                          cls =
-                            "border-red-600 bg-red-50";
-                        } else if (selectedOption) {
-                          cls =
-                            "border-blue-700 bg-blue-50";
-                        }
-
-                        return (
-                          <button
-                            key={letter}
-                            onClick={() =>
-                              handleOptionChange(
-                                question.id,
-                                letter
-                              )
-                            }
-                            className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${cls}`}
-                          >
-                            <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                                checked &&
-                                selectedOption &&
-                                isCorrect
-                                  ? "bg-emerald-700 text-white"
-                                  : checked &&
-                                      selectedOption &&
-                                      !isCorrect
-                                    ? "bg-red-700 text-white"
-                                    : selectedOption
-                                      ? "bg-blue-700 text-white"
-                                      : "bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800"
-                              }`}
-                            >
-                              {letter}
-                            </span>
-
-                            <span className="min-w-0 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
-                              {option}
-                            </span>
-                          </button>
-                        );
-                      }
-                    )}
-                  </div>
-
-                  {/* CHECK */}
-                  <div className="mt-4 flex flex-col items-stretch gap-2 sm:mt-5 sm:flex-row sm:items-center">
-                    <button
-                      onClick={() =>
-                        checkAnswer(question)
-                      }
-                      disabled={!selected}
-                      className="min-h-11 rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Check Answer
-                    </button>
-
-                    {!selected && (
-                      <span className="text-center text-xs text-slate-500 sm:text-left">
-                        Select an option first
-                      </span>
-                    )}
-                  </div>
-
-                  {/* FEEDBACK */}
-                  {checked && (
-                    <div
-                      className={`mt-4 rounded-xl border p-4 sm:mt-5 sm:p-5 ${
-                        isCorrect
-                          ? "border-emerald-200 bg-emerald-50"
-                          : "border-red-200 bg-red-50"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                            isCorrect
-                              ? "bg-emerald-700 text-white"
-                              : "bg-red-700 text-white"
-                          }`}
-                        >
-                          {isCorrect ? "✓" : "!"}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p
-                            className={`font-bold ${
-                              isCorrect
-                                ? "text-emerald-800"
-                                : "text-red-800"
-                            }`}
-                          >
-                            {isCorrect
-                              ? "Correct Answer!"
-                              : `Incorrect. Correct answer: ${correct}`}
-                          </p>
-
-                          {question.explanation && (
-                            <p
-                              className={`mt-2 break-words text-sm leading-6 ${
-                                isCorrect
-                                  ? "text-emerald-900"
-                                  : "text-red-900"
-                              }`}
-                            >
-                              <strong>
-                                Explanation:
-                              </strong>{" "}
-                              {question.explanation}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                      {selectedSubjectQuestionCount} active
+                      questions available in this subject.
+                      {selectedSubjectQuestionCount <
+                        MOCK_QUESTION_COUNT &&
+                        ` ${MOCK_QUESTION_COUNT} are required.`}
+                    </p>
                   )}
                 </div>
-              );
-            })
-          )}
+              </div>
+
+              <div>
+                {mockSubmitError && (
+                  <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-xs leading-5 text-red-700">
+                    {mockSubmitError}
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    onClick={startMockTest}
+                    disabled={!mockCanStart}
+                    className="min-h-12 w-full rounded-lg bg-orange-500 px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {selectedSubject === ALL
+                      ? "Select Subject First"
+                      : selectedSubjectQuestionCount <
+                        MOCK_QUESTION_COUNT
+                      ? `Need ${MOCK_QUESTION_COUNT} Questions`
+                      : "Start Real Mock Test →"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openSubscribe}
+                    className="min-h-12 w-full rounded-lg border border-orange-400 bg-white/70 px-5 py-3 text-sm font-extrabold text-orange-900 hover:bg-white"
+                  >
+                    Subscribe ₹99
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -2069,6 +3702,7 @@ export default function Home() {
           </p>
         </div>
       </footer>
-    </main>
+      </main>
+    </>
   );
 }
