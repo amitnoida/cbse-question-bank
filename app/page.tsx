@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 type ClassRow = {
@@ -118,6 +118,7 @@ export default function Home() {
   const [error, setError] = useState("");
 
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const authUserIdRef = useRef<string | null>(null);
   const [studentProfile, setStudentProfile] =
     useState<StudentProfile | null>(null);
 
@@ -172,6 +173,8 @@ export default function Home() {
     useState(false);
   const [practiceSubmitError, setPracticeSubmitError] =
     useState("");
+  const [practiceStartedAt, setPracticeStartedAt] =
+    useState<number | null>(null);
 
   /* =========================
      REAL MOCK TEST
@@ -194,6 +197,8 @@ export default function Home() {
   const [mockTimeLeft, setMockTimeLeft] = useState(
     MOCK_DURATION_SECONDS
   );
+  const [mockStartedAt, setMockStartedAt] =
+    useState<number | null>(null);
 
   /* =========================
      SUBSCRIPTION / COUPON
@@ -330,38 +335,66 @@ export default function Home() {
     setCouponLoading(true);
     setCouponMessage("");
 
-    const { data, error: activationError } =
-      await supabase.rpc(
-        "activate_paid_membership_with_coupon",
-        {
-          p_coupon_code: couponCode.trim().toUpperCase(),
-        }
+    try {
+      const { data, error: activationError } =
+        await supabase.rpc(
+          "activate_paid_membership_with_coupon",
+          {
+            p_coupon_code: couponCode.trim().toUpperCase(),
+          }
+        );
+
+      if (activationError) {
+        console.error(
+          "Membership activation error:",
+          activationError
+        );
+
+        setCouponMessage(
+          activationError.message ||
+            "Unable to activate membership. Please try again."
+        );
+        return;
+      }
+
+      const result = Array.isArray(data) ? data[0] : data;
+
+      if (!result?.success) {
+        setCouponMessage(
+          result?.message ||
+            "Unable to activate membership. Please try again."
+        );
+        return;
+      }
+
+      /*
+       * The RPC has already written the subscription to Supabase.
+       * Re-read the database instead of relying only on local React state.
+       */
+      const membershipActive =
+        await loadPaidMembership(currentUser.id);
+
+      if (!membershipActive) {
+        setCouponMessage(
+          "Membership was activated, but the saved subscription could not be verified. Please refresh and try again."
+        );
+        return;
+      }
+
+      setShowSubscribeModal(false);
+    } catch (activationError: any) {
+      console.error(
+        "Unexpected membership activation error:",
+        activationError
       );
 
-    if (activationError) {
-      console.error("Membership activation error:", activationError);
       setCouponMessage(
-        activationError.message ||
+        activationError?.message ||
           "Unable to activate membership. Please try again."
       );
+    } finally {
       setCouponLoading(false);
-      return;
     }
-
-    const result = Array.isArray(data) ? data[0] : data;
-
-    if (!result?.success) {
-      setCouponMessage(
-        result?.message ||
-          "Unable to activate membership. Please try again."
-      );
-      setCouponLoading(false);
-      return;
-    }
-
-    setIsPaidMember(true);
-    setShowSubscribeModal(false);
-    setCouponLoading(false);
   }
 
   /* =========================
@@ -388,6 +421,24 @@ export default function Home() {
   const [signinPassword, setSigninPassword] = useState("");
   const [signinLoading, setSigninLoading] = useState(false);
   const [signinError, setSigninError] = useState("");
+
+  /* =========================
+     FORGOT / RESET PASSWORD
+  ========================= */
+
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState("");
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState("");
+  const [showUpdatePassword, setShowUpdatePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [updatePasswordLoading, setUpdatePasswordLoading] = useState(false);
+  const [updatePasswordError, setUpdatePasswordError] = useState("");
+  const [updatePasswordSuccess, setUpdatePasswordSuccess] = useState("");
+
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   /* =========================
      LOAD PUBLIC CLASSES
@@ -598,27 +649,55 @@ export default function Home() {
      LOAD PAID MEMBERSHIP
   ========================= */
 
-  async function loadPaidMembership(userId: string) {
+  async function loadPaidMembership(
+    userId: string
+  ): Promise<boolean> {
+    console.log(
+      "Checking membership for user:",
+      userId
+    );
+
     const { data, error: subscriptionError } =
       await supabase
         .from("subscriptions")
-        .select("id,status,start_date,end_date")
+        .select(
+          "id,student_id,status,start_date,end_date,payment_reference"
+        )
         .eq("student_id", userId)
-        .eq("status", "Active")
+        .eq("status", "ACTIVE")
         .order("end_date", { ascending: false })
         .limit(1)
         .maybeSingle();
 
     if (subscriptionError) {
-      console.error("Subscription lookup error:", subscriptionError);
-      setIsPaidMember(false);
-      return;
+      /*
+       * Do not overwrite an already-known membership with false
+       * because of a temporary/network/database read error.
+       */
+      console.error(
+        "Subscription lookup error:",
+        subscriptionError
+      );
+      return isPaidMember;
     }
 
-    setIsPaidMember(
+    const membershipActive =
       !!data &&
-        (!data.end_date || new Date(data.end_date).getTime() >= Date.now())
+      (!data.end_date ||
+        new Date(data.end_date).getTime() >= Date.now());
+
+    console.log(
+      "Subscription query result:",
+      {
+        data,
+        error: subscriptionError,
+        membershipActive,
+      }
     );
+
+    setIsPaidMember(membershipActive);
+
+    return membershipActive;
   }
 
   /* =========================
@@ -792,6 +871,85 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
 
+    function clearAuthenticatedState() {
+      authUserIdRef.current = null;
+
+      setCurrentUser(null);
+      setStudentProfile(null);
+      setFreeUsage({});
+      setIsPaidMember(false);
+      setQuestions([]);
+      setSubjects([]);
+      setChapters([]);
+
+      setSelectedClass(ALL);
+      setSelectedSubject(ALL);
+      setSelectedChapter(ALL);
+
+      setPracticeMode(false);
+      setPracticeQuestions([]);
+      setPracticeAnswers({});
+      setPracticeIndex(0);
+      setPracticeSubmitted(false);
+      setPracticeSubmitting(false);
+      setPracticeSubmitError("");
+      setPracticeStartedAt(null);
+
+      setMockMode(false);
+      setMockQuestions([]);
+      setMockAnswers({});
+      setMockIndex(0);
+      setMockSubmitted(false);
+      setMockSubmitting(false);
+      setMockSubmitError("");
+      setMockTimeLeft(MOCK_DURATION_SECONDS);
+      setMockStartedAt(null);
+
+      setShowSubscribeModal(false);
+      setCouponCode("");
+      setCouponDiscount(0);
+      setCouponMessage("");
+      setCouponLoading(false);
+    }
+
+    async function loadAuthenticatedUser(
+      user: any,
+      classRowsOverride?: ClassRow[]
+    ) {
+      if (!mounted || !user) {
+        return;
+      }
+
+      const userId = user.id;
+
+      /*
+       * Prevent duplicate loads caused by signInWithPassword()
+       * and Supabase's SIGNED_IN / INITIAL_SESSION events.
+       */
+      authUserIdRef.current = userId;
+      setCurrentUser(user);
+
+      await loadStudentProfile(userId, user);
+
+      if (!mounted || authUserIdRef.current !== userId) {
+        return;
+      }
+
+      await loadFreeUsage(userId);
+
+      if (!mounted || authUserIdRef.current !== userId) {
+        return;
+      }
+
+      await loadPaidMembership(userId);
+
+      if (!mounted || authUserIdRef.current !== userId) {
+        return;
+      }
+
+      await loadQuestionData(classRowsOverride);
+    }
+
     async function initializeApp() {
       setAuthLoading(true);
 
@@ -806,33 +964,12 @@ export default function Home() {
       }
 
       if (session?.user) {
-        setCurrentUser(session.user);
-
-        await loadStudentProfile(
-          session.user.id,
-          session.user
+        await loadAuthenticatedUser(
+          session.user,
+          classRows
         );
-
-        await loadFreeUsage(
-          session.user.id
-        );
-
-        await loadPaidMembership(session.user.id);
-
-        if (mounted) {
-          await loadQuestionData(classRows);
-        }
       } else {
-        setCurrentUser(null);
-        setStudentProfile(null);
-        setFreeUsage({});
-        setIsPaidMember(false);
-        setQuestions([]);
-        setSubjects([]);
-        setChapters([]);
-        setSelectedClass(ALL);
-        setSelectedSubject(ALL);
-        setSelectedChapter(ALL);
+        clearAuthenticatedState();
         setLoading(false);
       }
 
@@ -841,54 +978,65 @@ export default function Home() {
       }
     }
 
-    initializeApp();
-
+    /*
+     * Subscribe first so a login/logout event cannot be missed.
+     * Database work is scheduled outside the auth callback to avoid
+     * doing long async Supabase queries while the auth lock is held.
+     */
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (event, session) => {
         if (!mounted) {
           return;
         }
 
-        if (session?.user) {
-          setCurrentUser(session.user);
-
-          await loadStudentProfile(
-            session.user.id,
-            session.user
-          );
-
-          await loadFreeUsage(
-            session.user.id
-          );
-
-          await loadPaidMembership(session.user.id);
-
-          if (mounted) {
-            await loadQuestionData();
-          }
-        } else {
-          setCurrentUser(null);
-          setStudentProfile(null);
-          setFreeUsage({});
-          setQuestions([]);
-          setSubjects([]);
-          setChapters([]);
-          setSelectedClass(ALL);
-          setSelectedSubject(ALL);
-          setSelectedChapter(ALL);
-          setLoading(false);
-
-          setPracticeMode(false);
-          setMockMode(false);
+        if (event === "PASSWORD_RECOVERY") {
+          setUpdatePasswordError("");
+          setUpdatePasswordSuccess("");
+          setNewPassword("");
+          setConfirmNewPassword("");
+          setShowUpdatePassword(true);
         }
 
-        if (mounted) {
+        if (!session?.user) {
+          clearAuthenticatedState();
           setAuthLoading(false);
+          return;
         }
+
+        const userId = session.user.id;
+
+        /*
+         * initializeApp() may already have loaded this exact user.
+         * Do not run the complete membership/profile/question load twice.
+         */
+        if (authUserIdRef.current === userId) {
+          setCurrentUser(session.user);
+          setAuthLoading(false);
+          return;
+        }
+
+        /*
+         * Defer the database calls until the auth callback finishes.
+         */
+        window.setTimeout(() => {
+          if (!mounted) {
+            return;
+          }
+
+          void (async () => {
+            await loadAuthenticatedUser(session.user);
+
+            if (mounted) {
+              setAuthLoading(false);
+            }
+          })();
+        }, 0);
       }
     );
+
+    void initializeApp();
 
     return () => {
       mounted = false;
@@ -1332,6 +1480,7 @@ export default function Home() {
     setPracticeSubmitted(false);
     setPracticeSubmitting(false);
     setPracticeSubmitError("");
+    setPracticeStartedAt(Date.now());
     setPracticeMode(true);
     setMockMode(false);
   }
@@ -1347,6 +1496,158 @@ export default function Home() {
    * chapter_id is passed for compatibility with the
    * existing RPC, but the allowance is subject-level.
    */
+  /* =========================
+     SAVE QUIZ HISTORY
+  ========================= */
+
+  async function saveQuizAttempt({
+    quizType,
+    questions,
+    answers,
+    startedAt,
+    timeTakenSeconds,
+  }: {
+    quizType: "PRACTICE" | "MOCK";
+    questions: MCQ[];
+    answers: Record<number, string>;
+    startedAt: number | null;
+    timeTakenSeconds?: number;
+  }) {
+    if (!currentUser || questions.length === 0) {
+      return false;
+    }
+
+    const submittedAt = new Date();
+    const startedAtDate = new Date(
+      startedAt || submittedAt.getTime()
+    );
+
+    const correctAnswers = questions.filter(
+      (q) =>
+        answers[q.id] ===
+        q.correct_option.trim().toUpperCase()
+    ).length;
+
+    const answeredQuestions = questions.filter(
+      (q) => Boolean(answers[q.id])
+    ).length;
+
+    const unansweredQuestions =
+      questions.length - answeredQuestions;
+
+    const wrongAnswers =
+      answeredQuestions - correctAnswers;
+
+    const totalMarks = questions.reduce(
+      (sum, q) => sum + Number(q.marks ?? 1),
+      0
+    );
+
+    const obtainedMarks = questions.reduce(
+      (sum, q) => {
+        const isCorrect =
+          answers[q.id] ===
+          q.correct_option.trim().toUpperCase();
+
+        return isCorrect
+          ? sum + Number(q.marks ?? 1)
+          : sum;
+      },
+      0
+    );
+
+    const percentage = totalMarks > 0
+      ? Number(((obtainedMarks / totalMarks) * 100).toFixed(2))
+      : 0;
+
+    const calculatedTimeTaken =
+      timeTakenSeconds ??
+      Math.max(0, Math.round((submittedAt.getTime() - startedAtDate.getTime()) / 1000));
+
+    // Practice/mock tests can contain multiple chapters, so chapter_id
+    // is only stored when every question belongs to the same chapter.
+    const uniqueChapterIds = Array.from(
+      new Set(questions.map((q) => q.chapter_id))
+    );
+
+    const subjectId = questions[0]?.subjectId ?? null;
+    const chapterId =
+      uniqueChapterIds.length === 1
+        ? uniqueChapterIds[0]
+        : null;
+
+    const { data: attempt, error: attemptError } =
+      await supabase
+        .from("quiz_attempts")
+        .insert({
+          student_id: currentUser.id,
+          subject_id: subjectId,
+          chapter_id: chapterId,
+          quiz_type: quizType,
+          total_questions: questions.length,
+          answered_questions: answeredQuestions,
+          correct_answers: correctAnswers,
+          wrong_answers: wrongAnswers,
+          unanswered_questions: unansweredQuestions,
+          total_marks: totalMarks,
+          obtained_marks: obtainedMarks,
+          percentage,
+          status: "COMPLETED",
+          started_at: startedAtDate.toISOString(),
+          submitted_at: submittedAt.toISOString(),
+          time_taken_seconds: calculatedTimeTaken,
+        })
+        .select("id")
+        .single();
+
+    if (attemptError || !attempt) {
+      console.error(
+        "Quiz attempt save error:",
+        attemptError
+      );
+      return false;
+    }
+
+    const answerRows = questions.map((q) => {
+      const selectedAnswer = answers[q.id] || null;
+      const isCorrect =
+        selectedAnswer ===
+        q.correct_option.trim().toUpperCase();
+
+      return {
+        attempt_id: attempt.id,
+        question_id: q.id,
+        selected_answer: selectedAnswer,
+        correct_answer: q.correct_option.trim().toUpperCase(),
+        is_correct: Boolean(selectedAnswer) && isCorrect,
+        marks_obtained: isCorrect ? Number(q.marks ?? 1) : 0,
+        answered_at: selectedAnswer ? submittedAt.toISOString() : null,
+      };
+    });
+
+    const { error: answerError } = await supabase
+      .from("quiz_attempt_answers")
+      .insert(answerRows);
+
+    if (answerError) {
+      console.error(
+        "Quiz answer history save error:",
+        answerError
+      );
+
+      // Remove the parent attempt so we never leave a partial history record.
+      await supabase
+        .from("quiz_attempts")
+        .delete()
+        .eq("id", attempt.id)
+        .eq("student_id", currentUser.id);
+
+      return false;
+    }
+
+    return true;
+  }
+
   async function submitPracticeTest() {
     if (!currentUser) {
       setPracticeSubmitError(
@@ -1355,10 +1656,7 @@ export default function Home() {
       return;
     }
 
-    if (
-      practiceSubmitting ||
-      practiceSubmitted
-    ) {
+    if (practiceSubmitting || practiceSubmitted) {
       return;
     }
 
@@ -1373,41 +1671,46 @@ export default function Home() {
     setPracticeSubmitError("");
 
     try {
-      if (isPaidMember) {
-        setPracticeSubmitted(true);
-        return;
-      }
+      if (!isPaidMember) {
+        for (const question of practiceQuestions) {
+          const { error: usageError } =
+            await supabase.rpc(
+              "record_free_question_usage",
+              {
+                p_student_id: currentUser.id,
+                p_subject_id: question.subjectId,
+                p_chapter_id: question.chapter_id,
+              }
+            );
 
-      for (const question of practiceQuestions) {
-        const { error: usageError } =
-          await supabase.rpc(
-            "record_free_question_usage",
-            {
-              p_student_id:
-                currentUser.id,
-              p_subject_id:
-                question.subjectId,
-              p_chapter_id:
-                question.chapter_id,
-            }
-          );
+          if (usageError) {
+            console.error(
+              "Free usage RPC error:",
+              usageError
+            );
 
-        if (usageError) {
-          console.error(
-            "Free usage RPC error:",
-            usageError
-          );
-
-          throw new Error(
-            usageError.message ||
-              "Unable to record free question usage."
-          );
+            throw new Error(
+              usageError.message ||
+                "Unable to record free question usage."
+            );
+          }
         }
+
+        await loadFreeUsage(currentUser.id);
       }
 
-      await loadFreeUsage(
-        currentUser.id
-      );
+      const historySaved = await saveQuizAttempt({
+        quizType: "PRACTICE",
+        questions: practiceQuestions,
+        answers: practiceAnswers,
+        startedAt: practiceStartedAt,
+      });
+
+      if (!historySaved) {
+        setPracticeSubmitError(
+          "Test completed, but the quiz history could not be saved. Please contact support if this continues."
+        );
+      }
 
       setPracticeSubmitted(true);
     } catch (submitError: any) {
@@ -1433,6 +1736,7 @@ export default function Home() {
     setPracticeQuestions([]);
     setPracticeAnswers({});
     setPracticeIndex(0);
+    setPracticeStartedAt(null);
   }
 
   /* =========================
@@ -1500,6 +1804,7 @@ export default function Home() {
     setMockTimeLeft(
       MOCK_DURATION_SECONDS
     );
+    setMockStartedAt(Date.now());
 
     setPracticeMode(false);
     setMockMode(true);
@@ -1522,17 +1827,43 @@ export default function Home() {
     setMockSubmitting(true);
     setMockSubmitError("");
 
-    /*
-     * Real Mock Test does not consume the 10-question
-     * free-trial allowance.
-     *
-     * It is a separate 60-question mock-test system.
-     */
-    setMockSubmitted(true);
-    setMockSubmitting(false);
+    try {
+      const timeTakenSeconds = Math.max(
+        0,
+        MOCK_DURATION_SECONDS - mockTimeLeft
+      );
 
-    if (automaticSubmit) {
-      setMockTimeLeft(0);
+      const historySaved = await saveQuizAttempt({
+        quizType: "MOCK",
+        questions: mockQuestions,
+        answers: mockAnswers,
+        startedAt: mockStartedAt,
+        timeTakenSeconds,
+      });
+
+      if (!historySaved) {
+        setMockSubmitError(
+          "Test completed, but the quiz history could not be saved. Please contact support if this continues."
+        );
+      }
+
+      setMockSubmitted(true);
+
+      if (automaticSubmit) {
+        setMockTimeLeft(0);
+      }
+    } catch (submitError: any) {
+      console.error(
+        "Mock test submission error:",
+        submitError
+      );
+
+      setMockSubmitError(
+        submitError?.message ||
+          "Unable to submit the mock test. Please try again."
+      );
+    } finally {
+      setMockSubmitting(false);
     }
   }
 
@@ -1547,6 +1878,7 @@ export default function Home() {
     setMockTimeLeft(
       MOCK_DURATION_SECONDS
     );
+    setMockStartedAt(null);
   }
 
   /* =========================
@@ -1716,6 +2048,114 @@ export default function Home() {
     setSigninError("");
   }
 
+  function openForgotPassword() {
+    setSigninError("");
+    setForgotPasswordEmail(signinEmail.trim().toLowerCase());
+    setForgotPasswordError("");
+    setForgotPasswordSuccess("");
+    setShowSignin(false);
+    setShowForgotPassword(true);
+  }
+
+  function closeForgotPassword() {
+    if (forgotPasswordLoading) {
+      return;
+    }
+
+    setShowForgotPassword(false);
+    setForgotPasswordError("");
+    setForgotPasswordSuccess("");
+  }
+
+  async function handleForgotPassword(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+    setForgotPasswordError("");
+    setForgotPasswordSuccess("");
+
+    const email = forgotPasswordEmail.trim().toLowerCase();
+    if (!email) {
+      setForgotPasswordError("Please enter your email ID.");
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+    try {
+      const { error: resetError } =
+        await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/`,
+        });
+
+      if (resetError) {
+        setForgotPasswordError(resetError.message);
+        return;
+      }
+
+      setForgotPasswordSuccess(
+        "Password reset link sent. Please check your email and open the link to create a new password."
+      );
+    } catch (resetError: any) {
+      console.error("Password reset error:", resetError);
+      setForgotPasswordError(
+        resetError?.message ||
+          "Unable to send the password reset email. Please try again."
+      );
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  }
+
+  async function handleUpdatePassword(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+    setUpdatePasswordError("");
+    setUpdatePasswordSuccess("");
+
+    if (newPassword.length < 6) {
+      setUpdatePasswordError("Password must be at least 6 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setUpdatePasswordError(
+        "Passwords do not match. Please enter the same password in both fields."
+      );
+      return;
+    }
+
+    setUpdatePasswordLoading(true);
+    try {
+      const { error: updateError } =
+        await supabase.auth.updateUser({ password: newPassword });
+
+      if (updateError) {
+        setUpdatePasswordError(updateError.message);
+        return;
+      }
+
+      setUpdatePasswordSuccess(
+        "Your password has been updated successfully. You can continue using CBSE Question Bank."
+      );
+      setNewPassword("");
+      setConfirmNewPassword("");
+
+      window.setTimeout(() => {
+        setShowUpdatePassword(false);
+        setUpdatePasswordSuccess("");
+      }, 1800);
+    } catch (updateError: any) {
+      console.error("Password update error:", updateError);
+      setUpdatePasswordError(
+        updateError?.message ||
+          "Unable to update your password. Please try again."
+      );
+    } finally {
+      setUpdatePasswordLoading(false);
+    }
+  }
+
   async function handleSignin(
     e: React.FormEvent<HTMLFormElement>
   ) {
@@ -1767,20 +2207,12 @@ export default function Home() {
       return;
     }
 
+    /*
+     * Do not load profile/subscription/question data here.
+     * Supabase's auth state listener is now the single source
+     * of truth for post-login initialization.
+     */
     setCurrentUser(data.user);
-
-    await loadStudentProfile(
-      data.user.id,
-      data.user
-    );
-
-    await loadFreeUsage(
-      data.user.id
-    );
-
-    await loadPaidMembership(data.user.id);
-
-    await loadQuestionData();
 
     setSigninEmail("");
     setSigninPassword("");
@@ -1793,7 +2225,12 @@ export default function Home() {
   ========================= */
 
   async function handleLogout() {
+    setIsPaidMember(false);
+    setShowSubscribeModal(false);
+
     await supabase.auth.signOut();
+
+    authUserIdRef.current = null;
 
     setCurrentUser(null);
     setStudentProfile(null);
@@ -1825,6 +2262,8 @@ export default function Home() {
     setMockTimeLeft(
       MOCK_DURATION_SECONDS
     );
+    setMockStartedAt(null);
+    setPracticeStartedAt(null);
   }
 
   const practiceScore =
@@ -1875,37 +2314,7 @@ export default function Home() {
 
   if (!currentUser) {
     return (
-      <main className="min-h-screen overflow-x-hidden bg-slate-50">
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
-            <div className="min-w-0">
-              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-blue-700 sm:text-[11px] sm:tracking-[0.18em]">
-                CBSE Exam Preparation
-              </p>
-
-              <h1 className="truncate text-base font-bold tracking-tight text-slate-950 sm:text-xl">
-                CBSE Exam Question Bank
-              </h1>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                onClick={openSignup}
-                className="min-h-10 rounded-lg border border-blue-700 bg-white px-3.5 py-2 text-xs font-bold text-blue-700 shadow-sm hover:bg-blue-50 sm:px-4 sm:text-sm"
-              >
-                Sign Up
-              </button>
-
-              <button
-                onClick={openSignin}
-                className="min-h-10 rounded-lg bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 sm:px-4 sm:text-sm"
-              >
-                Sign In
-              </button>
-            </div>
-          </div>
-        </header>
-
+      <main className="min-h-screen overflow-x-hidden bg-[#f8f7ff] text-slate-950">
         {showSignup && (
           <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 px-4 py-6 backdrop-blur-sm">
             <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
@@ -1965,7 +2374,7 @@ export default function Home() {
                     placeholder="Enter your full name"
                     disabled={signupLoading}
                     autoComplete="name"
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
                   />
                 </div>
 
@@ -1985,7 +2394,7 @@ export default function Home() {
                     placeholder="Enter your email"
                     disabled={signupLoading}
                     autoComplete="email"
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
                   />
                 </div>
 
@@ -2005,7 +2414,7 @@ export default function Home() {
                     placeholder="Minimum 6 characters"
                     disabled={signupLoading}
                     autoComplete="new-password"
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
                   />
                 </div>
 
@@ -2025,7 +2434,7 @@ export default function Home() {
                     placeholder="Re-enter your password"
                     disabled={signupLoading}
                     autoComplete="new-password"
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
                   />
                 </div>
 
@@ -2042,7 +2451,7 @@ export default function Home() {
                       )
                     }
                     disabled={signupLoading}
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
                   >
                     <option value="">
                       Select your class
@@ -2138,7 +2547,7 @@ export default function Home() {
                     disabled={signinLoading}
                     autoComplete="email"
                     autoFocus
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
                   />
                 </div>
 
@@ -2158,14 +2567,25 @@ export default function Home() {
                     placeholder="Enter your password"
                     disabled={signinLoading}
                     autoComplete="current-password"
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
                   />
+                </div>
+
+                <div className="-mt-1 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={openForgotPassword}
+                    disabled={signinLoading}
+                    className="min-h-11 px-1 text-sm font-bold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                  >
+                    Forgot password?
+                  </button>
                 </div>
 
                 <button
                   type="submit"
                   disabled={signinLoading}
-                  className="mt-2 min-h-12 w-full rounded-lg bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-1 min-h-12 w-full rounded-lg bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {signinLoading
                     ? "Signing In..."
@@ -2187,104 +2607,362 @@ export default function Home() {
           </div>
         )}
 
-        <section className="border-b border-slate-800 bg-slate-950 text-white">
-          <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20">
-            <div className="max-w-3xl">
-              <span className="inline-flex rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-blue-300 sm:px-3 sm:text-[11px] sm:tracking-[0.12em]">
-                Class 9 & 10 • CBSE
-              </span>
 
-              <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight sm:mt-5 sm:text-5xl lg:text-6xl">
-                Practice smarter.
-                <br />
-                Prepare better.
-              </h2>
+        {showForgotPassword && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-950/70 px-4 py-5 backdrop-blur-sm sm:py-8">
+            <div className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+              <button
+                type="button"
+                onClick={closeForgotPassword}
+                disabled={forgotPasswordLoading}
+                className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-xl text-xl font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40 sm:right-4 sm:top-4"
+                aria-label="Close forgot password"
+              >
+                ×
+              </button>
 
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:mt-5 sm:text-lg sm:leading-7">
-                Prepare for your CBSE exams with
-                chapter-wise MCQ practice, subject-wise
-                preparation and practice tests.
-              </p>
+              <div className="pr-10">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-600">
+                  Account Recovery
+                </p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                  Forgot your password?
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Enter your registered email and we will send you a secure password reset link.
+                </p>
+              </div>
 
+              {forgotPasswordError && (
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-sm leading-5 text-red-800">
+                  {forgotPasswordError}
+                </div>
+              )}
+
+              {forgotPasswordSuccess && (
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm leading-6 text-emerald-800">
+                  {forgotPasswordSuccess}
+                </div>
+              )}
+
+              <form onSubmit={handleForgotPassword} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                    Email ID
+                  </label>
+                  <input
+                    type="email"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    placeholder="Enter your registered email"
+                    disabled={forgotPasswordLoading || !!forgotPasswordSuccess}
+                    autoComplete="email"
+                    autoFocus
+                    className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 disabled:bg-slate-100 sm:text-sm"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotPasswordLoading || !!forgotPasswordSuccess}
+                  className="min-h-12 w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {forgotPasswordLoading ? "Sending Reset Link..." : "Send Reset Link"}
+                </button>
+              </form>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotPasswordError("");
+                  setForgotPasswordSuccess("");
+                  setSigninEmail(forgotPasswordEmail);
+                  setShowSignin(true);
+                }}
+                disabled={forgotPasswordLoading}
+                className="mt-4 min-h-11 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                ← Back to Sign In
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showUpdatePassword && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/70 px-4 py-5 backdrop-blur-sm sm:py-8">
+            <div className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+              <div className="pr-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-600">
+                  Secure Password Reset
+                </p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                  Create a new password
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Choose a new password for your CBSE Question Bank account.
+                </p>
+              </div>
+
+              {updatePasswordError && (
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-sm leading-5 text-red-800">
+                  {updatePasswordError}
+                </div>
+              )}
+
+              {updatePasswordSuccess && (
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm leading-6 text-emerald-800">
+                  {updatePasswordSuccess}
+                </div>
+              )}
+
+              <form onSubmit={handleUpdatePassword} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    disabled={updatePasswordLoading || !!updatePasswordSuccess}
+                    autoComplete="new-password"
+                    autoFocus
+                    className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 disabled:bg-slate-100 sm:text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="Enter the password again"
+                    disabled={updatePasswordLoading || !!updatePasswordSuccess}
+                    autoComplete="new-password"
+                    className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 disabled:bg-slate-100 sm:text-sm"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={updatePasswordLoading || !!updatePasswordSuccess}
+                  className="min-h-12 w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {updatePasswordLoading ? "Updating Password..." : "Update Password"}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/*
+         * MODERN PUBLIC HOMEPAGE
+         *
+         * The authenticated question-bank flow below this public page is
+         * intentionally preserved: subject/chapter filters, Practice Paper,
+         * Real Mock Test, subscription checks, usage tracking, and all
+         * existing handlers continue to use the original state and functions.
+         */}
+        <header className="sticky top-0 z-40 border-b border-indigo-100 bg-white/95 shadow-sm backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
+            <a
+              href="#home"
+              onClick={() => setShowMobileMenu(false)}
+              className="flex min-w-0 items-center gap-2.5"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg shadow-lg shadow-indigo-200">📚</div>
+              <div className="min-w-0">
+                <p className="text-[8px] font-extrabold uppercase tracking-[0.14em] text-indigo-600 sm:text-[9px] sm:tracking-[0.18em]">CBSE Exam Preparation</p>
+                <p className="truncate text-sm font-extrabold tracking-tight text-slate-950 sm:text-lg">CBSE Question Bank</p>
+              </div>
+            </a>
+
+            <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-600 lg:flex">
+              <a href="#home" className="transition hover:text-indigo-600">Home</a>
+              <a href="#features" className="transition hover:text-indigo-600">Features</a>
+              <a href="#subjects" className="transition hover:text-indigo-600">Subjects</a>
+              <a href="#pricing" className="transition hover:text-indigo-600">Pricing</a>
+              <a href="#how-it-works" className="transition hover:text-indigo-600">How It Works</a>
+            </nav>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={openSignin}
+                className="hidden min-h-10 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700 sm:inline-flex"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={openSignup}
+                className="min-h-10 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 sm:px-4 sm:text-sm"
+              >
+                Start Free
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMobileMenu((previous) => !previous)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-800 shadow-sm sm:hidden"
+                aria-label={showMobileMenu ? "Close menu" : "Open menu"}
+                aria-expanded={showMobileMenu}
+              >
+                <span className="text-xl leading-none">{showMobileMenu ? "×" : "☰"}</span>
+              </button>
+            </div>
+          </div>
+
+          {showMobileMenu && (
+            <div className="border-t border-indigo-100 bg-white px-4 py-3 shadow-lg sm:hidden">
+              <nav className="grid gap-1">
+                {[
+                  ["Home", "#home"],
+                  ["How It Works", "#how-it-works"],
+                  ["Subjects", "#subjects"],
+                  ["Features", "#features"],
+                  ["Pricing", "#pricing"],
+                ].map(([label, href]) => (
+                  <a
+                    key={href}
+                    href={href}
+                    onClick={() => setShowMobileMenu(false)}
+                    className="flex min-h-11 items-center rounded-xl px-3 text-sm font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    {label}
+                  </a>
+                ))}
+                <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      openSignin();
+                    }}
+                    className="min-h-11 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-700"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      openSignup();
+                    }}
+                    className="min-h-11 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-extrabold text-white"
+                  >
+                    Start Free
+                  </button>
+                </div>
+              </nav>
+            </div>
+          )}
+        </header>
+        <section id="home" className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 text-white">
+          <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-3xl" />
+          <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-24">
+            <div>
+              <span className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-amber-200 sm:text-[11px]">🇮🇳 Class 9 &amp; 10 • CBSE</span>
+              <h1 className="mt-5 max-w-3xl text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">Crack Your CBSE<br />Exams with <span className="text-amber-300">Confidence!</span> 🚀</h1>
+              <p className="mt-5 max-w-2xl text-sm leading-6 text-indigo-100 sm:text-lg sm:leading-8">Practice chapter-wise MCQs, build subject confidence, get instant explanations, and prepare with focused practice tests designed for CBSE students.</p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={openSignup}
-                  className="min-h-12 rounded-lg bg-blue-700 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800"
-                >
-                  Create Student Account
-                </button>
+                <button onClick={openSignup} className="min-h-12 rounded-xl bg-amber-400 px-6 py-3 text-sm font-extrabold text-slate-950 shadow-xl shadow-indigo-950/20 transition hover:bg-amber-300">Start Free Demo 🎯</button>
+                <a href="#pricing" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-white/15">View Plans</a>
+              </div>
+              <div className="mt-7 flex flex-wrap items-center gap-3 text-xs font-semibold text-indigo-100">
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">✓ 10 Free MCQs</span>
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">✓ Instant explanations</span>
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">✓ Chapter-wise practice</span>
+              </div>
+            </div>
 
-                <button
-                  onClick={openSignin}
-                  className="min-h-12 rounded-lg border border-slate-600 bg-slate-900 px-6 py-3 text-sm font-bold text-white hover:bg-slate-800"
-                >
-                  Sign In
-                </button>
+            <div className="relative mx-auto w-full max-w-xl">
+              <div className="absolute inset-8 rounded-[2rem] bg-white/10 blur-2xl" />
+              <div className="relative rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-md sm:p-6">
+                <div className="rounded-[1.5rem] bg-white p-5 text-slate-950 shadow-xl sm:p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div><p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-600">Smart Practice</p><h2 className="mt-1 text-xl font-black sm:text-2xl">Choose. Practice. Improve.</h2></div>
+                    <div className="rounded-xl bg-indigo-50 px-3 py-2 text-center"><p className="text-[9px] font-bold uppercase text-indigo-500">Free</p><p className="text-lg font-black text-indigo-700">10 MCQs</p></div>
+                  </div>
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-violet-50 p-4"><div className="text-2xl">📐</div><p className="mt-2 text-sm font-extrabold">Mathematics</p><p className="mt-1 text-[11px] text-slate-500">Practice by chapter</p></div>
+                    <div className="rounded-2xl bg-sky-50 p-4"><div className="text-2xl">🔬</div><p className="mt-2 text-sm font-extrabold">Science</p><p className="mt-1 text-[11px] text-slate-500">Target weak topics</p></div>
+                    <div className="rounded-2xl bg-emerald-50 p-4"><div className="text-2xl">📖</div><p className="mt-2 text-sm font-extrabold">English</p><p className="mt-1 text-[11px] text-slate-500">Subject-wise MCQs</p></div>
+                    <div className="rounded-2xl bg-orange-50 p-4"><div className="text-2xl">🌍</div><p className="mt-2 text-sm font-extrabold">Social Science</p><p className="mt-1 text-[11px] text-slate-500">Focused preparation</p></div>
+                  </div>
+                  <div className="mt-4 rounded-2xl bg-slate-950 p-4 text-white"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold text-indigo-300">REAL MOCK TEST</p><p className="mt-1 text-sm font-extrabold">60 Questions • 60 Minutes</p></div><span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-[9px] font-extrabold text-emerald-300">PAID MEMBERS</span></div></div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-14">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-lg font-bold text-blue-700">
-                01
-              </div>
-
-              <h3 className="mt-4 text-lg font-bold text-slate-950">
-                Chapter-wise Practice
-              </h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Practice questions organized by subject
-                and chapter.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-lg font-bold text-blue-700">
-                02
-              </div>
-
-              <h3 className="mt-4 text-lg font-bold text-slate-950">
-                Focused Practice
-              </h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Select your subject and chapter to build
-                a focused practice session.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-lg font-bold text-blue-700">
-                03
-              </div>
-
-              <h3 className="mt-4 text-lg font-bold text-slate-950">
-                Real Mock Test
-              </h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Attempt a randomized 60-question,
-                60-minute subject mock test.
-              </p>
+        <section id="how-it-works" className="bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">Simple process</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">How It Works</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Get started in three simple steps and build a smarter CBSE preparation routine.</p></div>
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {[
+                { n: "01", icon: "🎓", title: "Pick Your Class", text: "Choose Class 9 or Class 10 and your account stays connected to the right question bank." },
+                { n: "02", icon: "📚", title: "Choose a Subject", text: "Select Mathematics, Science, English, Social Science or Hindi, then focus on a chapter if you want." },
+                { n: "03", icon: "🎯", title: "Attempt the Quiz", text: "Answer MCQs, see explanations and use practice tests to improve your exam readiness." },
+              ].map((step) => (
+                <div key={step.n} className="relative rounded-3xl border border-indigo-100 bg-[#f8f7ff] p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="flex items-center justify-between"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl shadow-lg shadow-indigo-200">{step.icon}</div><span className="text-4xl font-black text-indigo-100">{step.n}</span></div><h3 className="mt-6 text-lg font-extrabold text-slate-950">{step.title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{step.text}</p></div>
+              ))}
             </div>
           </div>
         </section>
 
-        <footer className="border-t border-slate-200 bg-white">
-          <div className="mx-auto max-w-7xl px-4 py-7 text-center sm:px-6 sm:py-8">
-            <p className="font-bold text-slate-950">
-              CBSE Question Bank
-            </p>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Practice • Learn • Improve
-            </p>
+        <section id="subjects" className="bg-[#f8f7ff] px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">CBSE question bank</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">All CBSE Subjects Covered 📚</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Comprehensive MCQ practice for the core Class 9 and Class 10 subjects.</p></div>
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                { name: "Mathematics", icon: "📐", tone: "from-violet-500 to-purple-600", tag: "Class 9 & 10" },
+                { name: "Science", icon: "🔬", tone: "from-sky-500 to-cyan-500", tag: "Class 9 & 10" },
+                { name: "English", icon: "📖", tone: "from-emerald-500 to-teal-500", tag: "Class 9 & 10" },
+                { name: "Social Science", icon: "🌍", tone: "from-orange-500 to-amber-500", tag: "Class 9 & 10" },
+                { name: "Hindi", icon: "IN", tone: "from-pink-500 to-rose-500", tag: "Class 9 & 10" },
+              ].map((subject) => (
+                <button key={subject.name} type="button" onClick={openSignup} className={`group min-h-44 rounded-3xl bg-gradient-to-br ${subject.tone} p-5 text-left text-white shadow-lg transition hover:-translate-y-1 hover:shadow-xl`}><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 text-2xl font-black backdrop-blur">{subject.icon}</div><h3 className="mt-7 text-lg font-black">{subject.name}</h3><span className="mt-2 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold">{subject.tag}</span></button>
+              ))}
+            </div>
           </div>
-        </footer>
+        </section>
+
+        <section id="features" className="bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">Built for better preparation</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Everything You Need to Ace Your Exams 💡</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Focused tools to help you practice consistently, understand mistakes and prepare with confidence.</p></div>
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { icon: "🎯", title: "10 Free MCQs", text: "Try the question bank before you buy with 10 free questions per subject." },
+                { icon: "💡", title: "Instant Answer + Explanation", text: "Understand why an answer is correct immediately after every question." },
+                { icon: "📚", title: "Chapter-wise Practice", text: "Focus on specific chapters and build targeted practice sessions." },
+                { icon: "🔄", title: "Reset & Reshuffle", text: "Practice again with questions appearing in a new random order." },
+                { icon: "📊", title: "Progress Tracking", text: "Track your practice and identify areas where you need more work." },
+                { icon: "🏆", title: "Premium Practice", text: "Unlock full question access and the 60-question Real Mock Test with membership." },
+              ].map((feature) => (
+                <div key={feature.title} className="rounded-3xl border border-indigo-100 bg-[#f8f7ff] p-6 transition hover:-translate-y-1 hover:shadow-lg"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-xl">{feature.icon}</div><h3 className="mt-5 text-base font-extrabold text-slate-950">{feature.title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{feature.text}</p></div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="pricing" className="bg-[#f0efff] px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto max-w-5xl">
+            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">Simple, affordable plans</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Start Free. Upgrade When Ready. 💰</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Try the question bank first, then unlock the full practice experience when you are ready.</p></div>
+            <div className="mt-10 grid gap-5 md:grid-cols-2">
+              <div className="rounded-[2rem] border border-indigo-200 bg-white p-6 shadow-sm sm:p-8"><div className="flex items-center justify-between gap-4"><div><span className="inline-flex rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase text-slate-600">FREE</span><h3 className="mt-4 text-2xl font-black text-slate-950">Free Demo</h3></div><p className="text-3xl font-black text-slate-950">₹0<span className="text-xs font-semibold text-slate-400"> / forever</span></p></div><ul className="mt-7 space-y-3 text-sm font-semibold text-slate-600"><li>✓ 10 free MCQs per subject</li><li>✓ All subjects preview</li><li>✓ Instant answers &amp; explanations</li><li>✓ No credit card needed</li></ul><button onClick={openSignup} className="mt-8 min-h-12 w-full rounded-xl bg-indigo-50 px-5 py-3 text-sm font-extrabold text-indigo-700 transition hover:bg-indigo-100">Start Free Demo</button></div>
+              <div className="relative rounded-[2rem] bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-800 p-6 text-white shadow-2xl shadow-indigo-200 sm:p-8"><span className="absolute right-6 top-0 -translate-y-1/2 rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase text-slate-950">Recommended</span><div className="flex items-center justify-between gap-4"><div><span className="inline-flex rounded-lg bg-white/10 px-2.5 py-1 text-[10px] font-extrabold uppercase text-indigo-200">PREMIUM</span><h3 className="mt-4 text-2xl font-black">Annual Membership</h3></div><p className="text-3xl font-black">₹99<span className="text-xs font-semibold text-indigo-200"> / year</span></p></div><ul className="mt-7 space-y-3 text-sm font-semibold text-indigo-100"><li>✓ Unlimited MCQ practice</li><li>✓ All chapters unlocked</li><li>✓ Instant answers + explanations</li><li>✓ Practice reset &amp; reshuffle</li><li>✓ 60-question Real Mock Test</li></ul><button onClick={openSignup} className="mt-8 min-h-12 w-full rounded-xl bg-amber-400 px-5 py-3 text-sm font-extrabold text-slate-950 shadow-lg transition hover:bg-amber-300">Get Premium</button></div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-slate-950 px-4 py-14 text-white sm:px-6 sm:py-20 lg:px-8"><div className="mx-auto max-w-4xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-300">Ready to start?</p><h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Your next practice session starts here. 🚀</h2><p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">Create your student account and start practicing CBSE MCQs today.</p><button onClick={openSignup} className="mt-7 min-h-12 rounded-xl bg-indigo-500 px-7 py-3 text-sm font-extrabold text-white shadow-xl shadow-indigo-950 transition hover:bg-indigo-400">Create Student Account</button></div></section>
+
+        <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><div><p className="font-black text-slate-950">CBSE Question Bank</p><p className="mt-1 text-xs text-slate-500">Practice • Learn • Improve</p></div><p className="text-xs text-slate-400">Class 9 &amp; 10 • CBSE MCQ Preparation</p></div></footer>
       </main>
     );
   }
@@ -3098,7 +3776,7 @@ export default function Home() {
                   }}
                   placeholder="Enter coupon code"
                   disabled={couponLoading}
-                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-semibold uppercase text-slate-900 outline-none placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100"
+                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-semibold uppercase text-slate-900 outline-none placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
                 />
 
                 <button
@@ -3378,8 +4056,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* FREE TRIAL STATUS */}
-          {selectedSubjectObject ? (
+          {/* FREE TRIAL STATUS — shown only to non-paid members */}
+          {!isPaidMember && selectedSubjectObject && (
             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -3424,7 +4102,9 @@ export default function Home() {
                   </div>
                 )}
             </div>
-          ) : (
+          )}
+
+          {!isPaidMember && !selectedSubjectObject && (
             <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
               <p className="text-sm font-bold text-blue-900">
                 Subject-level Free Trial
@@ -3558,15 +4238,6 @@ export default function Home() {
                 </select>
 
                 <button
-                  type="button"
-                  onClick={openSubscribe}
-                  disabled={isPaidMember}
-                  className="min-h-12 w-full rounded-lg border border-white/70 bg-white/10 px-5 py-3 text-sm font-bold text-white hover:bg-white/20 disabled:cursor-default disabled:opacity-100 sm:min-h-11 sm:w-auto"
-                >
-                  {isPaidMember ? "Membership Active" : "Subscribe ₹99"}
-                </button>
-
-                <button
                   onClick={startPracticeTest}
                   disabled={
                     selectedSubject === ALL ||
@@ -3581,6 +4252,16 @@ export default function Home() {
                     ? "Checking Free Usage..."
                     : "Start Practice Paper →"}
                 </button>
+
+                {isPaidMember && (
+                  <button
+                    type="button"
+                    disabled
+                    className="min-h-12 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-800 sm:min-h-11 sm:w-auto"
+                  >
+                    Membership Active
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -3676,13 +4357,15 @@ export default function Home() {
                       : "Start Real Mock Test →"}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={openSubscribe}
-                    className="min-h-12 w-full rounded-lg border border-orange-400 bg-white/70 px-5 py-3 text-sm font-extrabold text-orange-900 hover:bg-white"
-                  >
-                    Subscribe ₹99
-                  </button>
+                  {!isPaidMember && (
+                    <button
+                      type="button"
+                      onClick={openSubscribe}
+                      className="min-h-12 w-full rounded-lg border border-orange-400 bg-white/70 px-5 py-3 text-sm font-extrabold text-orange-900 hover:bg-white"
+                    >
+                      Subscribe ₹99
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
