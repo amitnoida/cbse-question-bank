@@ -619,18 +619,19 @@ export default function Home() {
 
     setSignupLoading(true);
 
-    const { data, error: authError } =
-      await supabase.auth.signUp({
-        email,
-        password: signupPassword,
-        options: {
-          data: {
-            full_name: fullName,
-            class_id: Number(signupClassId),
-          },
-        },
-      });
-
+   const { data, error: authError } =
+  await supabase.auth.signUp({
+    email,
+    password: signupPassword,
+    options: {
+      emailRedirectTo:
+        "https://cbse-question-bank.vercel.app/auth/callback",
+      data: {
+        full_name: fullName,
+        class_id: Number(signupClassId),
+      },
+    },
+  });
     if (authError) {
       setSignupError(authError.message);
       setSignupLoading(false);
