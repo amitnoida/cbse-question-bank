@@ -1,0 +1,27 @@
+/* Admin-only visual refinements. No Supabase logic or event handlers changed. */
+.cbse-admin-polish {background:radial-gradient(ellipse at 100% 0%,#eae7ff 0%,transparent 43%),linear-gradient(160deg,#f8faff,#f0f3ff 75%);color:#142044}
+.cbse-admin-polish > header {border-bottom:1px solid #e3e8f5;background:rgba(255,255,255,.96);box-shadow:0 4px 22px rgba(30,41,95,.045)}
+.cbse-admin-polish .cbse-admin-brand {display:flex;align-items:center;gap:12px}
+.cbse-admin-polish .cbse-admin-brand-icon {display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#312e81,#6542f5);font-size:23px;box-shadow:0 6px 16px #4338ca30}
+.cbse-admin-polish .cbse-admin-eyebrow {font-size:10px;font-weight:800;letter-spacing:.15em;color:#5544d7;margin-bottom:6px}
+.cbse-admin-polish .cbse-admin-overview-subtitle {margin-top:6px;color:#64748b;font-size:13px}
+.cbse-admin-polish .cbse-admin-stats {margin-top:22px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.cbse-admin-polish .cbse-admin-stat-card {position:relative;min-height:157px;border:1px solid #e4e9f7;border-radius:20px;box-shadow:0 8px 25px #1e28580b;transition:transform .2s,box-shadow .2s}
+.cbse-admin-polish .cbse-admin-stat-card:hover {transform:translateY(-3px);box-shadow:0 14px 30px #1e285817}
+.cbse-admin-polish .cbse-admin-stat-icon {display:grid;place-items:center;width:39px;height:39px;border-radius:12px;background:#f0edff;font-size:20px}
+.cbse-admin-polish .cbse-admin-stat-card:nth-child(2) .cbse-admin-stat-icon {background:#edf8f5}
+.cbse-admin-polish .cbse-admin-stat-card:nth-child(3) .cbse-admin-stat-icon {background:#fff7e8}
+.cbse-admin-polish .cbse-admin-stat-card:nth-child(5) .cbse-admin-stat-icon {background:#eff6ff}
+.cbse-admin-polish .cbse-admin-stat-card button {text-decoration:none;border-radius:8px;padding:4px 0}
+.cbse-admin-polish .cbse-admin-stat-card button:hover {text-decoration:underline}
+.cbse-admin-polish section {border-color:#e2e8f5;box-shadow:0 8px 26px #2532610b}
+.cbse-admin-polish section:has(.cbse-admin-login-emblem) {margin-top:42px;max-width:470px;border:1px solid #e0e5f3;padding:34px;box-shadow:0 22px 60px #272a6017}
+.cbse-admin-polish .cbse-admin-login-emblem {display:grid;place-items:center;width:74px;height:74px;border-radius:22px;margin:0 auto 18px;background:linear-gradient(135deg,#312e81,#5b36ed);font-size:38px;box-shadow:0 12px 26px #4538d443}
+.cbse-admin-polish section:has(.cbse-admin-login-emblem) h2,.cbse-admin-polish section:has(.cbse-admin-login-emblem) .cbse-admin-eyebrow {text-align:center}
+.cbse-admin-polish section:has(.cbse-admin-login-emblem) > p:not(.cbse-admin-eyebrow) {text-align:center}
+.cbse-admin-polish input,.cbse-admin-polish select {accent-color:#4f46e5}
+.cbse-admin-polish button:focus-visible,.cbse-admin-polish a:focus-visible {outline:3px solid #a5b4fc;outline-offset:3px}
+.cbse-admin-polish table thead {background:#f6f7fe}
+.cbse-admin-polish table tbody tr:hover {background:#fafaff}
+@media(max-width:900px){.cbse-admin-polish .cbse-admin-stats {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.cbse-admin-polish .cbse-admin-brand-icon{width:38px;height:38px}.cbse-admin-polish .cbse-admin-stat-card{min-height:150px}.cbse-admin-polish .cbse-admin-stat-icon{width:32px;height:32px;font-size:17px}.cbse-admin-polish section:has(.cbse-admin-login-emblem){padding:22px}}

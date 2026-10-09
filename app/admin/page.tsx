@@ -1,5 +1,16 @@
 "use client";
 
+import "../design-refresh.css";
+import "./admin-polish.css";
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7,6 +18,10 @@
 
 
 import { useCallback, useEffect, useState } from "react";
+
+
+
+
 
 
 
@@ -18,7 +33,19 @@ import { supabase } from "../../lib/supabase";
 
 
 
+
+
+
+
+
+
+
+
 type Stats = { admin_users?: number; total_students: number; free_students: number; paid_students: number; family_friends_students: number; completed_tests: number; active_coupons: number; redeemed_coupons: number };
+
+
+
+
 
 
 
@@ -26,7 +53,15 @@ type Coupon = { id: number; coupon_code: string; discount_percentage: number; is
 
 
 
+
+
+
+
 type AdminUser = { user_id: string; email: string | null; full_name: string | null; is_active: boolean; created_at: string | null };
+
+
+
+
 
 
 
@@ -34,7 +69,15 @@ type Student = { student_id: string; student_name: string | null; class_name: st
 
 
 
+
+
+
+
 type CouponFilter = "all" | "available" | "redeemed" | "expired" | "inactive";
+
+
+
+
 
 
 
@@ -42,7 +85,15 @@ function couponStatus(c: Coupon): Exclude<CouponFilter, "all"> {
 
 
 
+
+
+
+
   if ((c.usage_count ?? 0) > 0) return "redeemed";
+
+
+
+
 
 
 
@@ -50,7 +101,15 @@ function couponStatus(c: Coupon): Exclude<CouponFilter, "all"> {
 
 
 
+
+
+
+
   if (!c.is_active || (c.valid_from && new Date(c.valid_from).getTime() > Date.now())) return "inactive";
+
+
+
+
 
 
 
@@ -58,7 +117,15 @@ function couponStatus(c: Coupon): Exclude<CouponFilter, "all"> {
 
 
 
+
+
+
+
   return "available";
+
+
+
+
 
 
 
@@ -66,7 +133,15 @@ function couponStatus(c: Coupon): Exclude<CouponFilter, "all"> {
 
 
 
+
+
+
+
 const cards: { key: keyof Stats; label: string; icon: string }[] = [
+
+
+
+
 
 
 
@@ -74,7 +149,15 @@ const cards: { key: keyof Stats; label: string; icon: string }[] = [
 
 
 
+
+
+
+
   { key: "free_students", label: "Free students", icon: "📖" },
+
+
+
+
 
 
 
@@ -82,7 +165,15 @@ const cards: { key: keyof Stats; label: string; icon: string }[] = [
 
 
 
+
+
+
+
   { key: "admin_users", label: "Admin users", icon: "🛡️" },
+
+
+
+
 
 
 
@@ -90,7 +181,15 @@ const cards: { key: keyof Stats; label: string; icon: string }[] = [
 
 
 
+
+
+
+
   { key: "redeemed_coupons", label: "Redeemed coupons", icon: "✅" },
+
+
+
+
 
 
 
@@ -102,7 +201,19 @@ const cards: { key: keyof Stats; label: string; icon: string }[] = [
 
 
 
+
+
+
+
+
+
+
+
 export default function AdminPage() {
+
+
+
+
 
 
 
@@ -110,7 +221,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [password, setPassword] = useState("");
+
+
+
+
 
 
 
@@ -118,7 +237,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [stats, setStats] = useState<Stats | null>(null);
+
+
+
+
 
 
 
@@ -126,7 +253,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [signingIn, setSigningIn] = useState(false);
+
+
+
+
 
 
 
@@ -134,7 +269,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+
+
+
+
 
 
 
@@ -142,7 +285,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [discount, setDiscount] = useState(100);
+
+
+
+
 
 
 
@@ -150,7 +301,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [couponBusy, setCouponBusy] = useState(false);
+
+
+
+
 
 
 
@@ -158,7 +317,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [couponFilter, setCouponFilter] = useState<CouponFilter>("all");
+
+
+
+
 
 
 
@@ -170,7 +337,19 @@ export default function AdminPage() {
 
 
 
+
+
+
+
+
+
+
+
   const [students, setStudents] = useState<Student[]>([]);
+
+
+
+
 
 
 
@@ -178,7 +357,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [studentsBusy, setStudentsBusy] = useState(false);
+
+
+
+
 
 
 
@@ -186,7 +373,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [studentFilter, setStudentFilter] = useState<"all" | "free" | "paid">("all");
+
+
+
+
 
 
 
@@ -194,7 +389,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [admins, setAdmins] = useState<AdminUser[]>([]);
+
+
+
+
 
 
 
@@ -202,7 +405,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   const [adminsBusy, setAdminsBusy] = useState(false);
+
+
+
+
 
 
 
@@ -214,7 +425,19 @@ export default function AdminPage() {
 
 
 
+
+
+
+
+
+
+
+
   const refresh = useCallback(async () => {
+
+
+
+
 
 
 
@@ -222,7 +445,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     const { data: auth, error: authError } = await supabase.auth.getUser();
+
+
+
+
 
 
 
@@ -230,11 +461,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       setUserEmail(null); setStats(null); setLoading(false); return;
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -242,7 +485,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     const { data, error: rpcError } = await supabase.rpc("admin_dashboard_summary");
+
+
+
+
 
 
 
@@ -250,7 +501,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       setStats(null);
+
+
+
+
 
 
 
@@ -258,7 +517,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         ? "This account is not authorized as an active administrator."
+
+
+
+
 
 
 
@@ -266,7 +533,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     } else {
+
+
+
+
 
 
 
@@ -274,7 +549,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       const { data: countRows, error: countError } = await supabase.rpc("admin_portal_counts");
+
+
+
+
 
 
 
@@ -282,7 +565,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         setStats(null);
+
+
+
+
 
 
 
@@ -290,7 +581,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         setLoading(false);
+
+
+
+
 
 
 
@@ -298,7 +597,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       }
+
+
+
+
 
 
 
@@ -306,7 +613,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       if (!counts) {
+
+
+
+
 
 
 
@@ -314,7 +629,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         setError("No student counts were returned by admin_portal_counts.");
+
+
+
+
 
 
 
@@ -322,7 +645,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         return;
+
+
+
+
 
 
 
@@ -330,7 +661,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       setStats({ ...(record as Stats), total_students: Number(counts.total_students),
+
+
+
+
 
 
 
@@ -338,7 +677,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         admin_users: Number(counts.admin_users) });
+
+
+
+
 
 
 
@@ -346,7 +693,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       if (listError) { setCouponError(`Coupon list: ${listError.message}. Run admin_phase2.sql first.`); setCoupons([]); }
+
+
+
+
 
 
 
@@ -354,11 +709,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     }
 
 
 
+
+
+
+
     setLoading(false);
+
+
+
+
 
 
 
@@ -370,7 +737,19 @@ export default function AdminPage() {
 
 
 
+
+
+
+
+
+
+
+
   useEffect(() => {
+
+
+
+
 
 
 
@@ -378,7 +757,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+
+
+
+
 
 
 
@@ -386,7 +773,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       window.setTimeout(() => void refresh(), 0);
+
+
+
+
 
 
 
@@ -394,7 +789,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     return () => subscription.unsubscribe();
+
+
+
+
 
 
 
@@ -406,7 +809,19 @@ export default function AdminPage() {
 
 
 
+
+
+
+
+
+
+
+
   async function loadStudents(filter: "all" | "free" | "paid" = studentFilter) {
+
+
+
+
 
 
 
@@ -414,7 +829,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setStudentsOpen(true);
+
+
+
+
 
 
 
@@ -422,7 +845,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setStudentsError("");
+
+
+
+
 
 
 
@@ -430,7 +861,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     if (listError) {
+
+
+
+
 
 
 
@@ -438,7 +877,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       setStudents([]);
+
+
+
+
 
 
 
@@ -446,7 +893,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       setStudents((data || []) as Student[]);
+
+
+
+
 
 
 
@@ -454,11 +909,27 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setStudentsBusy(false);
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -470,7 +941,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setAdminsOpen(true);
+
+
+
+
 
 
 
@@ -478,7 +957,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setAdminsError("");
+
+
+
+
 
 
 
@@ -486,7 +973,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     if (listError) { setAdminsError(listError.message); setAdmins([]); }
+
+
+
+
 
 
 
@@ -494,11 +989,27 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setAdminsBusy(false);
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -510,7 +1021,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setCouponFilter(filter);
+
+
+
+
 
 
 
@@ -518,11 +1037,27 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     window.setTimeout(() => document.getElementById("admin-coupon-management")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -534,7 +1069,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     event.preventDefault(); setSigningIn(true); setError("");
+
+
+
+
 
 
 
@@ -542,7 +1085,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setPassword("");
+
+
+
+
 
 
 
@@ -550,7 +1101,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     else await refresh();
+
+
+
+
 
 
 
@@ -558,7 +1117,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   }
+
+
+
+
 
 
 
@@ -566,11 +1133,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setCouponBusy(true); setCouponError(""); setGeneratedCode("");
 
 
 
+
+
+
+
     try {
+
+
+
+
 
 
 
@@ -578,7 +1157,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       if (createError) throw createError;
+
+
+
+
 
 
 
@@ -586,7 +1173,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       await refresh();
+
+
+
+
 
 
 
@@ -594,11 +1189,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     finally { setCouponBusy(false); }
 
 
 
+
+
+
+
   }
+
+
+
+
 
 
 
@@ -606,7 +1213,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     setCouponBusy(true); setCouponError("");
+
+
+
+
 
 
 
@@ -614,7 +1229,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       const { data, error: updateError } = await supabase.rpc("admin_coupon_set_active", { p_coupon_id: coupon.id, p_active: !coupon.is_active });
+
+
+
+
 
 
 
@@ -622,7 +1245,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       if (!data) throw new Error("This coupon cannot be changed (redeemed or expired).");
+
+
+
+
 
 
 
@@ -630,7 +1261,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     } catch (e: any) { setCouponError(e?.message || "Unable to update coupon."); }
+
+
+
+
 
 
 
@@ -638,7 +1277,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   }
+
+
+
+
 
 
 
@@ -646,11 +1293,27 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     await supabase.auth.signOut(); setUserEmail(null); setStats(null); setCoupons([]); setStudents([]); setStudentsOpen(false); setAdmins([]); setAdminsOpen(false); setError("");
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -662,7 +1325,15 @@ export default function AdminPage() {
 
 
 
-    <main className="min-h-screen bg-[#f5f7fc] text-slate-900">
+
+
+
+
+    <main className="cbse-refreshed-admin cbse-admin-polish min-h-screen bg-[#f5f7fc] text-slate-900">
+
+
+
+
 
 
 
@@ -670,11 +1341,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
 
 
 
-          <div><p className="text-xs font-bold uppercase tracking-widest text-indigo-600">CBSE Exam Prep Guide</p><h1 className="text-lg font-extrabold tracking-tight sm:text-xl">Admin Control Panel</h1></div>
+
+
+
+
+          <div className="cbse-admin-brand"><span className="cbse-admin-brand-icon" aria-hidden="true">🛡️</span><div><p className="text-xs font-bold uppercase tracking-widest text-indigo-600">CBSE Exam Prep Guide</p><h1 className="text-lg font-extrabold tracking-tight sm:text-xl">Admin Control Panel</h1></div></div>
+
+
+
+
 
 
 
@@ -682,7 +1365,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         </div>
+
+
+
+
 
 
 
@@ -690,7 +1381,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-9">
+
+
+
+
 
 
 
@@ -698,11 +1397,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
           <section className="mx-auto max-w-md rounded-2xl border bg-white p-7 shadow-sm">
 
 
 
-            <h2 className="mb-2 text-2xl font-bold">Administrator sign in</h2>
+
+
+
+
+            <div className="cbse-admin-login-emblem" aria-hidden="true">🛡️</div><p className="cbse-admin-eyebrow">SECURE MANAGEMENT ACCESS</p><h2 className="mb-2 text-2xl font-bold">Administrator sign in</h2>
+
+
+
+
 
 
 
@@ -710,7 +1421,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
             <form onSubmit={signIn} className="space-y-4">
+
+
+
+
 
 
 
@@ -718,7 +1437,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
               <label className="block text-sm font-semibold">Password<input required type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} className="mt-1 w-full rounded-lg border p-3 font-normal" /></label>
+
+
+
+
 
 
 
@@ -726,7 +1453,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
             </form>
+
+
+
+
 
 
 
@@ -734,7 +1469,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         ) : (
+
+
+
+
 
 
 
@@ -742,11 +1485,23 @@ export default function AdminPage() {
 
 
 
-            <div className="mb-7 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Overview</h2><p className="text-sm text-slate-600">Signed in as {userEmail}</p></div>{stats && <button onClick={() => {setLoading(true);void refresh();}} className="rounded-lg border bg-white px-4 py-2 font-semibold">Refresh</button>}</div>
 
 
 
-            {stats && <><div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">{cards.map(card => {
+
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-3"><div><p className="cbse-admin-eyebrow">ADMINISTRATOR WORKSPACE</p><h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Management overview</h2><p className="cbse-admin-overview-subtitle">Manage students, subscriptions and coupons from one place.</p><p className="text-sm text-slate-600">Signed in as {userEmail}</p></div>{stats && <button onClick={() => {setLoading(true);void refresh();}} className="rounded-lg border bg-white px-4 py-2 font-semibold">Refresh</button>}</div>
+
+
+
+
+
+
+
+            {stats && <><div className="cbse-admin-stats grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">{cards.map(card => {
+
+
+
+
 
 
 
@@ -754,7 +1509,15 @@ export default function AdminPage() {
 
 
 
-  return <article key={card.key} className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/60 sm:p-5"><div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-600 sm:text-sm">{card.label}</p><span>{card.icon}</span></div><p className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">{Number(stats[card.key] ?? 0).toLocaleString()}</p>{filter && <button type="button" onClick={() => void loadStudents(filter)} className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-indigo-700 underline underline-offset-2 sm:text-sm">View students →</button>}{(card.key === "active_coupons" || card.key === "redeemed_coupons") && <button type="button" onClick={() => showCoupons(card.key === "active_coupons" ? "available" : "redeemed")} className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-indigo-700 underline underline-offset-2 sm:text-sm">View coupons →</button>}{card.key === "admin_users" && <button type="button" onClick={() => void loadAdmins()} className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-indigo-700 underline underline-offset-2 sm:text-sm">View admins →</button>}</article>;
+
+
+
+
+  return <article key={card.key} className="cbse-admin-stat-card rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/60 sm:p-5"><div className="flex items-center justify-between"><p className="text-xs font-medium text-slate-600 sm:text-sm">{card.label}</p><span className="cbse-admin-stat-icon" aria-hidden="true">{card.icon}</span></div><p className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">{Number(stats[card.key] ?? 0).toLocaleString()}</p>{filter && <button type="button" onClick={() => void loadStudents(filter)} className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-indigo-700 underline underline-offset-2 sm:text-sm">View students →</button>}{(card.key === "active_coupons" || card.key === "redeemed_coupons") && <button type="button" onClick={() => showCoupons(card.key === "active_coupons" ? "available" : "redeemed")} className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-indigo-700 underline underline-offset-2 sm:text-sm">View coupons →</button>}{card.key === "admin_users" && <button type="button" onClick={() => void loadAdmins()} className="mt-3 inline-flex min-h-9 items-center text-xs font-bold text-indigo-700 underline underline-offset-2 sm:text-sm">View admins →</button>}</article>;
+
+
+
+
 
 
 
@@ -762,11 +1525,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
 {adminsOpen && <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 sm:mt-7 sm:p-6">
 
 
 
+
+
+
+
   <div className="flex flex-wrap items-center justify-between gap-3">
+
+
+
+
 
 
 
@@ -774,11 +1549,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     <div className="flex gap-2"><button type="button" onClick={() => void loadAdmins()} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Refresh list</button><button type="button" onClick={() => setAdminsOpen(false)} className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">Hide admins</button></div>
 
 
 
+
+
+
+
   </div>
+
+
+
+
 
 
 
@@ -786,7 +1573,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   {adminsBusy ? <p className="mt-4 text-sm">Loading administrators…</p> : <><div className="mt-4 space-y-3 md:hidden">{admins.map(a => <article key={a.user_id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><div className="flex items-start justify-between gap-2"><p className="font-bold">{a.full_name || "Not provided"}</p><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${a.is_active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>{a.is_active ? "Active" : "Inactive"}</span></div><p className="mt-2 break-all text-sm text-slate-600">{a.email || "—"}</p><p className="mt-2 text-xs text-slate-500">Added {a.created_at ? new Date(a.created_at).toLocaleDateString("en-IN") : "—"}</p></article>)}{!admins.length && !adminsError && <p className="p-4 text-center text-sm text-slate-500">No administrators found.</p>}</div><div className="mt-4 hidden overflow-x-auto md:block"><table className="w-full min-w-[650px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-slate-600"><th className="p-3">Full name</th><th className="p-3">Email</th><th className="p-3">Status</th><th className="p-3">Added on</th></tr></thead><tbody>{admins.map(a => <tr key={a.user_id} className="border-b"><td className="p-3 font-semibold">{a.full_name || "Not provided"}</td><td className="p-3 break-all">{a.email || "—"}</td><td className="p-3">{a.is_active ? "Active" : "Inactive"}</td><td className="p-3">{a.created_at ? new Date(a.created_at).toLocaleDateString("en-IN") : "—"}</td></tr>)}{admins.length === 0 && !adminsError && <tr><td colSpan={4} className="p-5 text-center text-slate-500">No administrators found.</td></tr>}</tbody></table></div></>}
+
+
+
+
 
 
 
@@ -794,7 +1589,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
 <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 sm:mt-7 sm:p-6">
+
+
+
+
 
 
 
@@ -802,7 +1605,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   {studentsOpen && <>
+
+
+
+
 
 
 
@@ -810,7 +1621,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     {studentsError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{studentsError}. Run admin_student_directory.sql in Supabase SQL Editor first.</p>}
+
+
+
+
 
 
 
@@ -818,7 +1637,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   </>}
+
+
+
+
 
 
 
@@ -826,7 +1653,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
 <section id="admin-coupon-management" className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 sm:mt-7 sm:p-6">
+
+
+
+
 
 
 
@@ -834,7 +1669,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     <h3 className="text-lg font-extrabold sm:text-xl">🎟️ Coupon Management</h3>
+
+
+
+
 
 
 
@@ -842,7 +1685,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   </div>
+
+
+
+
 
 
 
@@ -850,7 +1701,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   <p className="mt-1 text-sm text-slate-600">Each coupon can be redeemed by one student. A 100% coupon grants paid access only until the coupon expiry shown below; purchased subscriptions remain valid until 31 March.</p>
+
+
+
+
 
 
 
@@ -858,7 +1717,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     <label className="text-sm font-semibold">Discount<select value={discount} onChange={e=>setDiscount(Number(e.target.value))} className="mt-1 block rounded-lg border bg-white p-2"><option value={100}>100%</option><option value={50}>50%</option><option value={20}>20%</option></select></label>
+
+
+
+
 
 
 
@@ -866,11 +1733,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     <button disabled={couponBusy} onClick={()=>void createCoupon()} className="min-h-11 w-full rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-800 disabled:opacity-50 sm:w-auto">{couponBusy?"Working…":"Generate unique coupon"}</button>
 
 
 
+
+
+
+
   </div>
+
+
+
+
 
 
 
@@ -878,7 +1757,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   {couponError && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{couponError}</p>}
+
+
+
+
 
 
 
@@ -886,7 +1773,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     <label htmlFor="coupon-filter" className="text-sm font-semibold">Show coupons:</label>
+
+
+
+
 
 
 
@@ -894,7 +1789,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       <option value="all">All coupons</option>
+
+
+
+
 
 
 
@@ -902,7 +1805,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       <option value="redeemed">Redeemed</option>
+
+
+
+
 
 
 
@@ -910,7 +1821,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
       <option value="inactive">Inactive / not yet active</option>
+
+
+
+
 
 
 
@@ -918,7 +1837,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     <span className="text-sm text-slate-600">{coupons.filter(c => couponFilter === "all" || couponStatus(c) === couponFilter).length} shown</span>
+
+
+
+
 
 
 
@@ -926,7 +1853,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
   <div className="mt-5 space-y-3 md:hidden">{coupons.filter(c => couponFilter === "all" || couponStatus(c) === couponFilter).map(c => {const status=couponStatus(c); const used=(c.usage_count||0)>0; const expired=!!c.valid_until&&new Date(c.valid_until).getTime()<Date.now();return <article key={c.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><code className="break-all text-sm font-bold text-indigo-800">{c.coupon_code}</code><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${status === "available" ? "bg-emerald-100 text-emerald-800" : status === "redeemed" ? "bg-indigo-100 text-indigo-800" : "bg-slate-200 text-slate-700"}`}>{status.charAt(0).toUpperCase()+status.slice(1)}</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><p className="text-slate-500">Discount</p><p className="mt-1 font-bold">{c.discount_percentage}%</p></div><div><p className="text-slate-500">Used</p><p className="mt-1 font-bold">{c.usage_count||0}/{c.usage_limit??"∞"}</p></div><div><p className="text-slate-500">Expires</p><p className="mt-1 font-bold">{c.valid_until?new Date(c.valid_until).toLocaleDateString("en-IN"):"No expiry"}</p></div></div>{c.redeemed_student_id&&<p className="mt-3 break-all text-xs text-slate-500">Redeemed by: {c.redeemed_student_id}</p>}<button type="button" disabled={couponBusy||used||expired} onClick={()=>void toggleCoupon(c)} className="mt-3 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-40">{c.is_active?"Deactivate coupon":"Activate coupon"}</button></article>})}{!coupons.some(c => couponFilter === "all" || couponStatus(c) === couponFilter) && <p className="p-4 text-center text-sm text-slate-500">No coupons match this filter.</p>}</div><div className="mt-6 hidden overflow-x-auto md:block"><table className="w-full min-w-[780px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-slate-600"><th className="p-3">Code</th><th className="p-3">Discount</th><th className="p-3">Expiry</th><th className="p-3">Usage</th><th className="p-3">Status</th><th className="p-3">Redeemed by</th><th className="p-3">Action</th></tr></thead><tbody>{coupons.filter(c => couponFilter === "all" || couponStatus(c) === couponFilter).map(c=>{const used=(c.usage_count||0)>0;const expired=!!c.valid_until&&new Date(c.valid_until).getTime()<Date.now();return <tr key={c.id} className="border-b"><td className="p-3 font-mono font-semibold">{c.coupon_code}</td><td className="p-3">{c.discount_percentage}%</td><td className="p-3">{c.valid_until?new Date(c.valid_until).toLocaleDateString("en-IN"):"No expiry"}</td><td className="p-3">{c.usage_count||0}/{c.usage_limit??"∞"}</td><td className="p-3">{used?"Redeemed":expired?"Expired":c.is_active?"Available":"Inactive"}</td><td className="p-3 text-xs">{c.redeemed_student_id?<><span className="break-all">{c.redeemed_student_id}</span>{c.redeemed_at&&<div>{new Date(c.redeemed_at).toLocaleString("en-IN")}</div>}</>:"—"}</td><td className="p-3"><button disabled={couponBusy||used||expired} onClick={()=>void toggleCoupon(c)} className="rounded border px-3 py-1.5 font-semibold disabled:opacity-40">{c.is_active?"Deactivate":"Activate"}</button></td></tr>})}{coupons.filter(c => couponFilter === "all" || couponStatus(c) === couponFilter).length===0&&<tr><td colSpan={7} className="p-5 text-center text-slate-500">No coupons match this filter.</td></tr>}</tbody></table></div>
+
+
+
+
 
 
 
@@ -934,7 +1869,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
           </>
+
+
+
+
 
 
 
@@ -942,7 +1885,15 @@ export default function AdminPage() {
 
 
 
+
+
+
+
         {error && <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
+
+
+
+
 
 
 
@@ -950,11 +1901,23 @@ export default function AdminPage() {
 
 
 
+
+
+
+
     </main>
 
 
 
+
+
+
+
   );
+
+
+
+
 
 
 

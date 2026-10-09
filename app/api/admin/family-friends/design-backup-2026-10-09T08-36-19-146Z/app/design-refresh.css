@@ -1,0 +1,17 @@
+/* Scoped presentation improvements: no authentication, database, or event-handler changes. */
+.cbse-refreshed-dashboard {background:linear-gradient(135deg,#f8faff,#f1f5ff);color:#172554}
+.cbse-refreshed-dashboard header {box-shadow:0 2px 18px rgba(30,41,59,.05)}
+.cbse-refreshed-dashboard section,.cbse-refreshed-dashboard article {border-radius:18px}
+.cbse-refreshed-dashboard button,.cbse-refreshed-dashboard a {transition:background-color .18s,transform .18s,box-shadow .18s}
+.cbse-refreshed-dashboard button:not(:disabled):hover {transform:translateY(-1px)}
+.cbse-refreshed-dashboard input:focus,.cbse-refreshed-dashboard select:focus {outline:2px solid #a5b4fc;outline-offset:1px}
+.cbse-refreshed-dashboard table {width:100%}
+.cbse-refreshed-dashboard [class*="shadow-sm"] {box-shadow:0 8px 26px rgba(30,41,59,.045)}
+.cbse-refreshed-admin {background:linear-gradient(135deg,#f7f9ff,#eef2ff);color:#172554}
+.cbse-refreshed-admin header {box-shadow:0 2px 18px rgba(30,41,59,.05)}
+.cbse-refreshed-admin section,.cbse-refreshed-admin article {border-radius:18px}
+.cbse-refreshed-admin button {transition:transform .18s,box-shadow .18s}
+.cbse-refreshed-admin button:not(:disabled):hover {transform:translateY(-1px)}
+.cbse-refreshed-admin input:focus,.cbse-refreshed-admin select:focus {outline:2px solid #a5b4fc;outline-offset:1px}
+.cbse-refreshed-admin [class*="shadow-sm"] {box-shadow:0 8px 26px rgba(30,41,59,.05)}
+@media(max-width:640px){.cbse-refreshed-admin table,.cbse-refreshed-dashboard table{font-size:12px}}

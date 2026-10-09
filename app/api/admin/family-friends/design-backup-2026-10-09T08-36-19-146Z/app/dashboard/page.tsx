@@ -1,5 +1,4 @@
 "use client";
-import "../design-refresh.css";
 
 
 
@@ -402,7 +401,7 @@ const subjectProgress=useMemo(()=>subjects.filter(s=>s.class_id===classId).map(s
   const card = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60 sm:p-6";
   const recommendations = subjectProgress.filter(s=>s.accuracy!==null&&s.accuracy<70).sort((a,b)=>(a.accuracy??0)-(b.accuracy??0)).slice(0,3);
   const metricCards = [{label:"Completed tests",value:String(completed.length),icon:"🏆"},{label:"Answer accuracy",value:`${stats.accuracy}%`,icon:"🎯"},{label:"Questions answered",value:String(stats.answered),icon:"📚"},{label:"Study time",value:fmtTime(stats.time),icon:"⏱️"}];
-  if(loading)return <main className="cbse-refreshed-dashboard min-h-screen bg-slate-50 p-8 text-slate-700">Loading your dashboard...</main>;
+  if(loading)return <main className="min-h-screen bg-slate-50 p-8 text-slate-700">Loading your dashboard...</main>;
   if(!user)return <main className="min-h-screen bg-slate-50 p-8"><div className="mx-auto max-w-xl rounded-2xl bg-white p-8 text-center shadow-sm"><h1 className="text-2xl font-bold">Sign in required</h1><p className="mt-2 text-slate-600">Please sign in to view your learning dashboard.</p><a href="/" className="mt-5 inline-block rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white">Go to sign in</a></div></main>;
   return <main className="min-h-screen bg-[#f5f7fc] pb-16 text-slate-900">
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-indigo-600 sm:text-xs">CBSE Question Bank</p><h1 className="text-lg font-extrabold tracking-tight sm:text-xl">My Learning</h1></div><a href="/" className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:px-5 sm:text-sm">← Back to Practice</a></div></header>
