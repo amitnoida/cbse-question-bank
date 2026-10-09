@@ -268,74 +268,41 @@ export default function Home() {
 
     setCouponLoading(true);
 
-    const { data, error: couponError } = await supabase
-      .from("coupons")
-      .select("coupon_code,discount_percentage,is_active,valid_from,valid_until,usage_limit,usage_count")
-      .eq("coupon_code", code)
-      .maybeSingle();
-
-    if (couponError) {
-      console.error("Coupon lookup error:", couponError);
-      setCouponMessage(
-        couponError.message ||
-          "Unable to validate the coupon. Please try again."
+    try {
+      // Validate through the authenticated, server-side database function.
+      // The browser must not read the private coupons table directly.
+      const { data, error: couponError } = await supabase.rpc(
+        "validate_coupon_for_student",
+        { p_coupon_code: code }
       );
+
+      if (couponError) {
+        console.error("Coupon validation error:", couponError);
+        setCouponMessage("Unable to validate the coupon. Please try again.");
+        return;
+      }
+
+      const result = Array.isArray(data) ? data[0] : data;
+
+      if (!result?.valid) {
+        setCouponMessage(result?.message || "Invalid coupon code.");
+        return;
+      }
+
+      const discount = Number(result.discount_percentage);
+      if (!Number.isFinite(discount) || discount < 10 || discount > 100) {
+        setCouponMessage("This coupon has an invalid discount.");
+        return;
+      }
+
+      setCouponDiscount(discount);
+      setCouponMessage(`${discount}% discount applied successfully.`);
+    } catch (validationError) {
+      console.error("Unexpected coupon validation error:", validationError);
+      setCouponMessage("Unable to validate the coupon. Please try again.");
+    } finally {
       setCouponLoading(false);
-      return;
     }
-
-    if (!data) {
-      setCouponMessage("Invalid coupon code.");
-      setCouponLoading(false);
-      return;
-    }
-
-    const now = new Date();
-    const validFrom = data.valid_from
-      ? new Date(data.valid_from)
-      : null;
-    const validUntil = data.valid_until
-      ? new Date(data.valid_until)
-      : null;
-
-    if (!data.is_active) {
-      setCouponMessage("This coupon is inactive.");
-      setCouponLoading(false);
-      return;
-    }
-
-    if (validFrom && now < validFrom) {
-      setCouponMessage("This coupon is not active yet.");
-      setCouponLoading(false);
-      return;
-    }
-
-    if (validUntil && now > validUntil) {
-      setCouponMessage("This coupon has expired.");
-      setCouponLoading(false);
-      return;
-    }
-
-    if (
-      data.usage_limit !== null &&
-      data.usage_count >= data.usage_limit
-    ) {
-      setCouponMessage("This coupon has reached its usage limit.");
-      setCouponLoading(false);
-      return;
-    }
-
-    const discount = Number(data.discount_percentage);
-
-    if (!Number.isFinite(discount) || discount < 10 || discount > 100) {
-      setCouponMessage("This coupon has an invalid discount.");
-      setCouponLoading(false);
-      return;
-    }
-
-    setCouponDiscount(discount);
-    setCouponMessage(`${discount}% discount applied successfully.`);
-    setCouponLoading(false);
   }
 
   const couponDiscountAmount =
