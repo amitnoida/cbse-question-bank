@@ -175,6 +175,11 @@ export default function Home() {
     useState("");
   const [practiceStartedAt, setPracticeStartedAt] =
     useState<number | null>(null);
+  const [practiceSessionId, setPracticeSessionId] = useState<string | null>(null);
+  const [practiceSaving, setPracticeSaving] = useState(false);
+  const [practiceStarting, setPracticeStarting] = useState(false);
+  const [practiceSavedCount, setPracticeSavedCount] = useState(0);
+  const practiceSaveLock = useRef(false);
 
   /* =========================
      REAL MOCK TEST
@@ -905,6 +910,9 @@ export default function Home() {
       setPracticeSubmitting(false);
       setPracticeSubmitError("");
       setPracticeStartedAt(null);
+      setPracticeSessionId(null);
+      setPracticeSavedCount(0);
+      practiceSaveLock.current = false;
 
       setMockMode(false);
       setMockQuestions([]);
@@ -1386,14 +1394,11 @@ export default function Home() {
   );
 
   const chapterSelected = selectedChapter !== ALL;
-  const totalPracticeSets = chapterSelected
-    ? 1
-    : Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE);
+  const totalPracticeSets = Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE);
 
   // Free members retain their 10-question subject allowance. They can
   // access eligible questions within the selected set, not the entire bank.
   const selectedSetQuestions = useMemo(() => {
-    if (chapterSelected) return orderedPracticeQuestions;
     const start = (practiceSet - 1) * PRACTICE_SET_SIZE;
     return orderedPracticeQuestions.slice(start, start + PRACTICE_SET_SIZE);
   }, [orderedPracticeQuestions, chapterSelected, practiceSet]);
@@ -1458,47 +1463,129 @@ export default function Home() {
      PRACTICE TEST
   ========================= */
 
-  function startPracticeTest() {
+  // Each practice set has a persistent Supabase session. Never rely only on
+  // localStorage: it would not survive switching devices or clearing storage.
+  async function startPracticeTest() {
+    if (!currentUser || !selectedSubjectObject || practiceStarting) return;
+    if (freeUsageLoading && !isPaidMember) return;
+    setPracticeStarting(true);
     setPracticeSubmitError("");
-
-    if (!currentUser) {
-      return;
+    try {
+      const chapterId = chapterSelected
+        ? availableChapters.find(c => c.chapter_name === selectedChapter)?.id ?? null
+        : null;
+      const findSession = () => {
+        let query = supabase.from("practice_sessions")
+          .select("id,question_ids,answers,current_index,started_at")
+          .eq("student_id", currentUser.id)
+          .eq("subject_id", selectedSubjectObject.id)
+          .eq("set_number", practiceSet)
+          .eq("status", "IN_PROGRESS");
+        query = chapterId === null ? query.is("chapter_id", null) : query.eq("chapter_id", chapterId);
+        return query.order("created_at", { ascending: false }).limit(1).maybeSingle();
+      };
+      let { data: existing, error: readError } = await findSession();
+      if (readError) throw readError;
+      let assigned: MCQ[];
+      let answers: Record<number, string> = {};
+      let index = 0;
+      let started = Date.now();
+      let sessionId: string;
+      if (existing) {
+        const byId = new Map(questions.map(q => [q.id, q]));
+        assigned = (existing.question_ids as number[]).map(id => byId.get(Number(id))).filter((q): q is MCQ => !!q);
+        if (assigned.length !== existing.question_ids.length) {
+          throw new Error("Some saved questions are no longer available. Please contact support.");
+        }
+        answers = (existing.answers || {}) as Record<number, string>;
+        index = Math.min(Math.max(0, existing.current_index ?? 0), assigned.length - 1);
+        if (answers[assigned[index]?.id] && index < assigned.length - 1) index += 1;
+        started = new Date(existing.started_at).getTime();
+        sessionId = existing.id;
+      } else {
+        assigned = eligibleSetQuestions;
+        if (!assigned.length) throw new Error(isPaidMember ? "No questions available for this set." : "No free questions remain for this subject.");
+        const { data: created, error: createError } = await supabase.from("practice_sessions")
+          .insert({ student_id: currentUser.id, subject_id: selectedSubjectObject.id,
+            chapter_id: chapterId, set_number: practiceSet,
+            question_ids: assigned.map(q => q.id), answers: {}, current_index: 0 })
+          .select("id,started_at").single();
+        if (createError || !created) {
+          // If another tab created the session concurrently, load that session.
+          const retry = await findSession();
+          if (retry.error || !retry.data) throw createError || retry.error || new Error("Unable to create practice session.");
+          const row = retry.data;
+          const byId = new Map(questions.map(q => [q.id, q]));
+          assigned = (row.question_ids as number[]).map(id => byId.get(Number(id))).filter((q): q is MCQ => !!q);
+          if (assigned.length !== row.question_ids.length) throw new Error("Saved questions are unavailable.");
+          answers = (row.answers || {}) as Record<number, string>;
+          index = Math.min(Math.max(0, row.current_index ?? 0), assigned.length - 1);
+          if (answers[assigned[index]?.id] && index < assigned.length - 1) index += 1;
+          started = new Date(row.started_at).getTime();
+          sessionId = row.id;
+        } else {
+          sessionId = created.id;
+          started = new Date(created.started_at).getTime();
+        }
+      }
+      setPracticeSessionId(sessionId);
+      setPracticeQuestions(assigned);
+      setPracticeIndex(index);
+      setPracticeAnswers(answers);
+      setPracticeSavedCount(Object.keys(answers).length);
+      setPracticeSubmitted(false);
+      setPracticeSubmitting(false);
+      setPracticeStartedAt(started);
+      setPracticeMode(true);
+      setMockMode(false);
+    } catch (err: any) {
+      setPracticeSubmitError(err?.message || "Could not load or save practice progress.");
+    } finally {
+      setPracticeStarting(false);
     }
+  }
 
-    if (selectedSubject === ALL) {
-      setPracticeSubmitError(
-        "Please select a subject before starting the Practice Paper."
-      );
-      return;
-    }
+  async function persistPracticeProgress(nextAnswers: Record<number, string>, nextIndex: number) {
+    if (!currentUser || !practiceSessionId) throw new Error("Practice session is missing.");
+    const { data, error: saveError } = await supabase.from("practice_sessions")
+      .update({ answers: nextAnswers, current_index: nextIndex, updated_at: new Date().toISOString() })
+      .eq("id", practiceSessionId).eq("student_id", currentUser.id)
+      .eq("status", "IN_PROGRESS").select("id").single();
+    if (saveError || !data) throw saveError || new Error("Unable to save practice progress.");
+  }
 
-    if (freeUsageLoading && !isPaidMember) {
-      return;
-    }
-
-    const eligibleQuestions = eligibleSetQuestions;
-
-    if (eligibleQuestions.length === 0) {
-      setPracticeSubmitError(
-        isPaidMember
-          ? "No questions are currently available for this subject."
-          : "No free questions remain for this subject."
-      );
-      return;
-    }
-
-    // Chapter mode uses the complete chapter. Subject mode uses one
-    // non-overlapping 60-question set (or the smaller final set).
-    setPracticeQuestions(eligibleQuestions);
-
-    setPracticeIndex(0);
-    setPracticeAnswers({});
-    setPracticeSubmitted(false);
-    setPracticeSubmitting(false);
+  async function choosePracticeAnswer(questionId: number, letter: string) {
+    if (practiceSaveLock.current || practiceSubmitting) return;
+    practiceSaveLock.current = true;
+    setPracticeSaving(true);
     setPracticeSubmitError("");
-    setPracticeStartedAt(Date.now());
-    setPracticeMode(true);
-    setMockMode(false);
+    const next = { ...practiceAnswers, [questionId]: letter };
+    try {
+      await persistPracticeProgress(next, practiceIndex);
+      setPracticeAnswers(next);
+      setPracticeSavedCount(Object.keys(next).length);
+    } catch (err: any) {
+      setPracticeSubmitError("Answer was not saved. Check your connection and select it again. " + (err?.message || ""));
+    } finally {
+      practiceSaveLock.current = false;
+      setPracticeSaving(false);
+    }
+  }
+
+  async function navigatePractice(nextIndex: number) {
+    if (practiceSaveLock.current || practiceSubmitting) return;
+    practiceSaveLock.current = true;
+    setPracticeSaving(true);
+    setPracticeSubmitError("");
+    try {
+      await persistPracticeProgress(practiceAnswers, nextIndex);
+      setPracticeIndex(nextIndex);
+    } catch (err: any) {
+      setPracticeSubmitError("Unable to save your position. Please retry. " + (err?.message || ""));
+    } finally {
+      practiceSaveLock.current = false;
+      setPracticeSaving(false);
+    }
   }
 
   /*
@@ -1617,11 +1704,19 @@ export default function Home() {
         .single();
 
     if (attemptError || !attempt) {
-      console.error(
-        "Quiz attempt save error:",
-        attemptError
-      );
-      return false;
+      const details = attemptError
+        ? [
+            attemptError.message,
+            attemptError.code,
+            attemptError.details,
+            attemptError.hint,
+          ]
+            .filter(Boolean)
+            .join(" | ")
+        : "Supabase returned no quiz attempt record.";
+
+      console.error("QUIZ DATABASE ERROR:", details);
+      throw new Error(`Quiz database error: ${details}`);
     }
 
     const answerRows = questions.map((q) => {
@@ -1728,6 +1823,15 @@ export default function Home() {
         );
       }
 
+      if (!historySaved) {
+        throw new Error("Could not save quiz history. Please retry submission.");
+      }
+      if (practiceSessionId) {
+        const { error: completionError } = await supabase.from("practice_sessions")
+          .update({ status: "COMPLETED", updated_at: new Date().toISOString() })
+          .eq("id", practiceSessionId).eq("student_id", currentUser.id);
+        if (completionError) throw completionError;
+      }
       setPracticeSubmitted(true);
     } catch (submitError: any) {
       console.error(
@@ -1753,6 +1857,8 @@ export default function Home() {
     setPracticeAnswers({});
     setPracticeIndex(0);
     setPracticeStartedAt(null);
+    setPracticeSessionId(null);
+    setPracticeSavedCount(0);
   }
 
   /* =========================
@@ -3155,9 +3261,11 @@ export default function Home() {
                         </div>
 
                         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          <p className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600">
+                          <p className={`rounded-lg border px-3 py-2.5 text-sm ${user && user === correct
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : "border-red-200 bg-red-50 text-red-800"}`}>
                             Your answer:{" "}
-                            <strong className="text-slate-900">
+                            <strong>
                               {user ||
                                 "Not answered"}
                             </strong>
@@ -3522,9 +3630,11 @@ export default function Home() {
                         </div>
 
                         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          <p className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600">
+                          <p className={`rounded-lg border px-3 py-2.5 text-sm ${user && user === correct
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : "border-red-200 bg-red-50 text-red-800"}`}>
                             Your answer:{" "}
-                            <strong className="text-slate-900">
+                            <strong>
                               {user ||
                                 "Not answered"}
                             </strong>
@@ -3618,6 +3728,10 @@ export default function Home() {
             </div>
           )}
 
+          <div className="mb-3 text-sm font-semibold text-slate-700" aria-live="polite">
+            {practiceSaving ? "Saving progress..." : `Saved answers: ${practiceSavedCount} / ${practiceQuestions.length}`}
+            {practiceSubmitError && <p className="mt-2 text-red-700">{practiceSubmitError}</p>}
+          </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
             <p className="text-lg font-semibold leading-7 text-slate-950 sm:text-xl sm:leading-8">
               {current.question_text}
@@ -3639,16 +3753,8 @@ export default function Home() {
                   return (
                     <button
                       key={letter}
-                      onClick={() =>
-                        setPracticeAnswers(
-                          (prev) => ({
-                            ...prev,
-                            [current.id]:
-                              letter,
-                          })
-                        )
-                      }
-                      disabled={practiceSubmitting}
+                      onClick={() => void choosePracticeAnswer(current.id, letter)}
+                      disabled={practiceSubmitting || practiceSaving}
                       className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${
                         selected
                           ? "border-blue-700 bg-blue-50"
@@ -3679,13 +3785,9 @@ export default function Home() {
             <button
               disabled={
                 practiceIndex === 0 ||
-                practiceSubmitting
+                practiceSubmitting || practiceSaving
               }
-              onClick={() =>
-                setPracticeIndex(
-                  (p) => p - 1
-                )
-              }
+              onClick={() => void navigatePractice(practiceIndex - 1)}
               className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-5"
             >
               ← Previous
@@ -3694,19 +3796,15 @@ export default function Home() {
             {practiceIndex <
             practiceQuestions.length - 1 ? (
               <button
-                disabled={practiceSubmitting}
-                onClick={() =>
-                  setPracticeIndex(
-                    (p) => p + 1
-                  )
-                }
+                disabled={practiceSubmitting || practiceSaving}
+                onClick={() => void navigatePractice(practiceIndex + 1)}
                 className="min-h-11 rounded-lg bg-blue-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
               >
                 Next →
               </button>
             ) : (
               <button
-                disabled={practiceSubmitting}
+                disabled={practiceSubmitting || practiceSaving}
                 onClick={submitPracticeTest}
                 className="min-h-11 rounded-lg bg-emerald-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
               >
@@ -3880,6 +3978,7 @@ export default function Home() {
               </p>
             </div>
 
+            <a href="/dashboard" className="min-h-10 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:px-4 sm:text-sm">📊 Dashboard</a>
             <button
               onClick={handleLogout}
               className="min-h-10 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 sm:px-4 sm:text-sm"
@@ -4218,7 +4317,7 @@ export default function Home() {
               </div>
 
               <div className="grid w-full gap-3 sm:flex sm:w-auto sm:flex-row">
-                {selectedSubject !== ALL && !chapterSelected && totalPracticeSets > 0 && (
+                {selectedSubject !== ALL && totalPracticeSets > 1 && (
                   <select
                     aria-label="Select practice set"
                     value={practiceSet}
@@ -4236,17 +4335,16 @@ export default function Home() {
                     })}
                   </select>
                 )}
-                {selectedSubject !== ALL && chapterSelected && (
+                {selectedSubject !== ALL && chapterSelected && totalPracticeSets <= 1 && (
                   <div className="flex min-h-11 items-center rounded-lg bg-white px-4 py-3 text-sm font-semibold text-blue-900">
-                    All {orderedPracticeQuestions.length} chapter questions
+                    {orderedPracticeQuestions.length} chapter questions
                   </div>
                 )}
 
                 <button
-                  onClick={startPracticeTest}
-                  disabled={
+                  onClick={() => void startPracticeTest()}
+                  disabled={practiceStarting ||
                     selectedSubject === ALL ||
-                    !eligibleSetQuestions.length ||
                     (!isPaidMember && freeUsageLoading)
                   }
                   className="min-h-12 w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-blue-900 shadow-sm hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-11 sm:w-auto"
@@ -4255,7 +4353,7 @@ export default function Home() {
                     ? "Select Subject First"
                     : (!isPaidMember && freeUsageLoading)
                     ? "Checking Free Usage..."
-                    : "Start Practice Paper →"}
+                    : practiceStarting ? "Loading saved practice..." : "Start / Resume Practice →"}
                 </button>
 
                 {isPaidMember && (
