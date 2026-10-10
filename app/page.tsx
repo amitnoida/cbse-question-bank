@@ -3614,9 +3614,6 @@ export default function Home() {
           <div className="mt-4 text-sm font-semibold text-slate-700" aria-live="polite">
             Answered: {mockQuestions.filter(q => Boolean(mockAnswers[q.id])).length} / {mockQuestions.length} · Unanswered: {mockQuestions.filter(q => !mockAnswers[q.id]).length}
           </div>
-          {mockIndex < mockQuestions.length - 1 && (
-            <button type="button" disabled={mockSubmitting} onClick={() => setMockConfirmSubmit(true)} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Mock Test</button>
-          )}
           {mockConfirmSubmit && (
             <div role="dialog" aria-label="Confirm mock submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
               <p className="font-bold text-slate-900">Ready to submit your Mock Test?</p>
@@ -3670,6 +3667,9 @@ export default function Home() {
                   : "Submit Mock Test"}
               </button>
             )}
+          {mockIndex < mockQuestions.length - 1 && (
+            <button type="button" disabled={mockSubmitting} onClick={() => setMockConfirmSubmit(true)} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Mock Test</button>
+          )}
           </div>
         </section>
       </main>
