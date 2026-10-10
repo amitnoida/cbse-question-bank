@@ -2527,8 +2527,8 @@ export default function Home() {
     return (
       <main className="min-h-screen overflow-x-hidden bg-[#f8f7ff] text-slate-950">
         {showSignup && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:items-center sm:px-4 sm:py-6">
-            <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
+            <div className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7">
               <button
                 type="button"
                 onClick={closeSignup}
@@ -2540,7 +2540,7 @@ export default function Home() {
               </button>
 
               <div className="mb-5 hidden overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100 sm:block">
-                <img src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-72 w-full object-contain object-center sm:max-h-80" />
+                <img src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
               </div>
               <div className="pr-10">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -2708,8 +2708,8 @@ export default function Home() {
         )}
 
         {showSignin && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:items-center sm:px-4 sm:py-6">
-            <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
+            <div className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7">
               <button
                 type="button"
                 onClick={closeSignin}
@@ -2721,7 +2721,7 @@ export default function Home() {
               </button>
 
               <div className="mb-5 overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100">
-                <img src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-72 w-full object-contain object-center sm:max-h-80" />
+                <img src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
               </div>
               <div className="pr-10">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -3010,15 +3010,16 @@ export default function Home() {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={openSignin}
-                className="hidden min-h-10 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700 sm:inline-flex"
+                className="min-h-10 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 sm:px-4 sm:text-sm"
               >
                 Sign In
               </button>
               <button
-                onClick={openSignin}
-                className="min-h-10 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 sm:px-4 sm:text-sm"
+                type="button"
+                onClick={openSignup}
+                className="min-h-10 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-200/60 transition hover:bg-amber-300 sm:px-4 sm:text-sm"
               >
-                Sign In
+                Start Free 🎯
               </button>
               <button
                 type="button"
