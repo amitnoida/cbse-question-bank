@@ -132,6 +132,7 @@ export default function Home() {
   const [questions, setQuestions] = useState<MCQ[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [subjectQuestionsLoading, setSubjectQuestionsLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -881,16 +882,17 @@ export default function Home() {
   useEffect(() => {
     if (!currentUser || selectedSubject === ALL || !subjects.length || !chapters.length || !classes.length) {
       setQuestions([]);
+      setSubjectQuestionsLoading(false);
       return;
     }
     let cancelled = false;
     const classId = studentProfile?.class_id ?? getMetadataClassId(currentUser);
     const subject = subjects.find(row => row.class_id === classId && row.subject_name === selectedSubject);
-    if (!subject) { setQuestions([]); return; }
+    if (!subject) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
     const chapterRows = chapters.filter(c => c.subject_id === subject.id);
     const chapterIds = chapterRows.map(c => c.id);
-    if (!chapterIds.length) { setQuestions([]); return; }
-    setLoading(true);
+    if (!chapterIds.length) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
+    setSubjectQuestionsLoading(true);
     setQuestions([]);
     (async () => {
       try {
@@ -905,7 +907,7 @@ export default function Home() {
           options: [q.option_a, q.option_b, q.option_c, q.option_d].filter(Boolean) })));
       } catch (err: any) {
         if (!cancelled) setError(err?.message || "Unable to load selected subject questions.");
-      } finally { if (!cancelled) setLoading(false); }
+      } finally { if (!cancelled) setSubjectQuestionsLoading(false); }
     })();
     return () => { cancelled = true; };
   }, [currentUser?.id, selectedSubject, subjects, chapters, classes, studentProfile?.class_id]);
@@ -1028,11 +1030,13 @@ export default function Home() {
     async function initializeApp() {
       setAuthLoading(true);
 
-      const classRows = await loadClasses();
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // Load public class metadata and the saved auth session concurrently.
+      // Neither operation depends on the other; this avoids two sequential waits.
+      const [classRows, sessionResult] = await Promise.all([
+        loadClasses(),
+        supabase.auth.getSession(),
+      ]);
+      const { data: { session } } = sessionResult;
 
       if (!mounted) {
         return;
@@ -4312,6 +4316,7 @@ export default function Home() {
 
               <select
                 value={selectedSubject}
+                aria-busy={subjectQuestionsLoading}
                 onChange={(e) =>
                   handleSubjectChange(
                     e.target.value
@@ -4332,6 +4337,12 @@ export default function Home() {
                   </option>
                 ))}
               </select>
+
+              {subjectQuestionsLoading && (
+                <p role="status" className="mt-1.5 text-[11px] font-semibold text-blue-700">
+                  Loading questions for this subject… You can choose a chapter now.
+                </p>
+              )}
 
               {selectedSubject === ALL && (
                 <p className="mt-1.5 text-[11px] font-semibold text-amber-700">
