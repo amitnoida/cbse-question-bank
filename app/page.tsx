@@ -68,6 +68,28 @@ const DEFAULT_FREE_QUESTIONS = 10;
 const MOCK_QUESTION_COUNT = 60;
 const MOCK_DURATION_SECONDS = 60 * 60;
 const ANNUAL_PLAN_PRICE = 99;
+// Prevent network requests from leaving the student on a loading screen forever.
+const SERVICE_REQUEST_TIMEOUT_MS = 12000;
+const AUTH_INITIALIZATION_TIMEOUT_MS = 15000;
+
+// Message shown after successful signup when email confirmation is required.
+const SIGNUP_EMAIL_VERIFICATION_MESSAGE =
+  "Registration successful! Please check your inbox for a verification email and click the confirmation link to activate your account. " +
+  "If you cannot find the email, check your Spam, Junk, or Promotions folder. " +
+  "Look for an email from CBSE Exam Prep Guide (cbse.exam.prep.guide@gmail.com). " +
+  "If it is in Spam, mark it as Not Spam.";
+
+
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("Service connection timed out")), ms);
+    Promise.resolve(promise).then(
+      value => { window.clearTimeout(timer); resolve(value); },
+      err => { window.clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 
 function shuffleQuestions<T>(items: T[]): T[] {
   const shuffled = [...items];
@@ -123,6 +145,22 @@ function Achievement({ correct, total }: { correct: number; total: number }) {
     <h3 className="mt-2 text-xl font-extrabold text-slate-900">{result.title}</h3>
     <p className="mt-2 text-sm leading-6 text-slate-700">{result.message}</p>
   </div>;
+}
+
+function ServiceUnavailable() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50 to-violet-100 px-5 py-12">
+      <section role="alert" className="w-full max-w-xl rounded-3xl border border-indigo-100 bg-white p-7 text-center shadow-xl sm:p-12">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-100 text-3xl" aria-hidden="true">📚</div>
+        <p className="mt-6 text-xs font-extrabold uppercase tracking-[0.2em] text-indigo-600">CBSE Exam Prep Guide</p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">We&apos;ll Be Back Shortly</h1>
+        <p className="mt-4 text-base leading-7 text-slate-600">Our learning platform is temporarily unavailable. We&apos;re working to restore access as soon as possible.</p>
+        <p className="mt-3 text-sm leading-6 text-slate-500">Please return in a little while. Thank you for your patience.</p>
+        <button type="button" onClick={() => window.location.reload()} className="mt-8 inline-flex min-h-12 items-center justify-center rounded-xl bg-indigo-600 px-7 py-3 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Try Again</button>
+        <p className="mt-7 text-xs text-slate-400">CBSE Question Bank · Practice • Learn • Improve</p>
+      </section>
+    </main>
+  );
 }
 
 export default function Home() {
@@ -494,14 +532,23 @@ export default function Home() {
   ========================= */
 
   async function loadClasses(): Promise<ClassRow[]> {
-    const { data, error: classError } = await supabase
-      .from("classes")
-      .select("id,class_name,is_active")
-      .eq("is_active", true)
-      .order("id");
+    let result;
+    try {
+      result = await withTimeout(supabase
+        .from("classes")
+        .select("id,class_name,is_active")
+        .eq("is_active", true)
+        .order("id"), SERVICE_REQUEST_TIMEOUT_MS);
+    } catch (connectionError) {
+      console.error("Class request timed out or failed:", connectionError);
+      setError("Unable to connect to the learning platform.");
+      return [];
+    }
+    const { data, error: classError } = result;
 
     if (classError) {
-      setError(classError.message);
+      console.error("Class data unavailable:", classError);
+      setError("Unable to connect to the learning platform.");
       return [];
     }
 
@@ -809,9 +856,9 @@ export default function Home() {
 
       if (configure) query = configure(query);
 
-      const { data, error: fetchError } = await query
+      const { data, error: fetchError } = await withTimeout<{ data: T[] | null; error: { message: string } | null }>(query
         .order("id", { ascending: true })
-        .range(offset, offset + pageSize - 1);
+        .range(offset, offset + pageSize - 1), SERVICE_REQUEST_TIMEOUT_MS);
 
       if (fetchError) {
         throw new Error(`${table}: ${fetchError.message}`);
@@ -1029,31 +1076,26 @@ export default function Home() {
 
     async function initializeApp() {
       setAuthLoading(true);
-
-      // Load public class metadata and the saved auth session concurrently.
-      // Neither operation depends on the other; this avoids two sequential waits.
-      const [classRows, sessionResult] = await Promise.all([
-        loadClasses(),
-        supabase.auth.getSession(),
-      ]);
-      const { data: { session } } = sessionResult;
-
-      if (!mounted) {
-        return;
-      }
-
-      if (session?.user) {
-        await loadAuthenticatedUser(
-          session.user,
-          classRows
-        );
-      } else {
-        clearAuthenticatedState();
-        setLoading(false);
-      }
-
-      if (mounted) {
-        setAuthLoading(false);
+      try {
+        // Class metadata and auth session are independent. Both have a deadline.
+        const [classRows, sessionResult] = await Promise.all([
+          loadClasses(),
+          withTimeout(supabase.auth.getSession(), AUTH_INITIALIZATION_TIMEOUT_MS),
+        ]);
+        if (!mounted) return;
+        const { data: { session }, error: sessionError } = sessionResult;
+        if (sessionError) throw sessionError;
+        if (session?.user) {
+          await withTimeout(loadAuthenticatedUser(session.user, classRows), AUTH_INITIALIZATION_TIMEOUT_MS);
+        } else {
+          clearAuthenticatedState();
+          setLoading(false);
+        }
+      } catch (initializationError) {
+        console.error("Application initialization failed:", initializationError);
+        if (mounted) setError("Unable to connect to the learning platform.");
+      } finally {
+        if (mounted) setAuthLoading(false);
       }
     }
 
@@ -2225,9 +2267,7 @@ export default function Home() {
         "Account created successfully. You can now start preparing for your CBSE exams."
       );
     } else {
-      setSignupSuccess(
-        "Account created successfully. Please check your email to confirm your account."
-      );
+      setSignupSuccess(SIGNUP_EMAIL_VERIFICATION_MESSAGE);
     }
 
     setSignupFullName("");
@@ -2519,6 +2559,10 @@ export default function Home() {
     );
   }
 
+  if (error && !practiceMode && !mockMode) {
+    return <ServiceUnavailable />;
+  }
+
   /* =========================
      PUBLIC HOME PAGE
   ========================= */
@@ -2564,11 +2608,12 @@ export default function Home() {
 
               {signupSuccess && (
                 <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm leading-5 text-emerald-800">
-                  {signupSuccess}
+                  <p className="font-bold">Please verify your email address</p>
+                  <p className="mt-2">{signupSuccess}</p>
                 </div>
               )}
 
-              <form
+              {!signupSuccess && <form
                 onSubmit={handleSignup}
                 className="mt-5 space-y-4"
               >
@@ -2691,7 +2736,7 @@ export default function Home() {
                     ? "Creating Account..."
                     : "Create Account"}
                 </button>
-              </form>
+              </form>}
 
               <div className="mt-4 text-center text-sm font-semibold text-slate-700">
                 Already have an account?{" "}
@@ -3252,32 +3297,10 @@ export default function Home() {
   }
 
   /* =========================
-     DATABASE ERROR
+     DATABASE / CONNECTION ERROR
   ========================= */
-
-  if (error) {
-    return (
-      <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-5 sm:py-10">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-red-200 bg-white p-5 shadow-sm sm:p-9">
-          <div className="mb-4 inline-flex rounded-md bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">
-            Connection Error
-          </div>
-
-          <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
-            Unable to load questions
-          </h1>
-
-          <p className="mt-3 break-words text-sm leading-6 text-slate-600">
-            {error}
-          </p>
-
-          <p className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            Check your Supabase URL/key and make sure
-            the tables allow SELECT access.
-          </p>
-        </div>
-      </main>
-    );
+  if (error && !practiceMode && !mockMode) {
+    return <ServiceUnavailable />;
   }
 
   /* =========================
@@ -3547,7 +3570,8 @@ export default function Home() {
 
           {mockSubmitError && (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
-              {mockSubmitError}
+              <strong>Unable to complete this request.</strong> Your current question remains visible. Check your connection and retry the action. Avoid refreshing while you have unsaved answers.
+              <p className="mt-2">{mockSubmitError}</p>
             </div>
           )}
 
@@ -3914,7 +3938,8 @@ export default function Home() {
 
           {practiceSubmitError && (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
-              {practiceSubmitError}
+              <strong>Answer or progress not saved.</strong> Your current question remains visible. Check your connection and retry the action. Avoid refreshing while you have unsaved answers.
+              <p className="mt-2">{practiceSubmitError}</p>
             </div>
           )}
 
