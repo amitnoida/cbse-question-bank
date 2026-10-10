@@ -3969,26 +3969,11 @@ export default function Home() {
               <p className="font-extrabold">{practiceAnswers[current.id] === current.correct_option.trim().toUpperCase() ? "✅ Correct answer!" : practiceAnswers[current.id] ? "❌ Incorrect answer" : "⏭️ Question skipped"}</p>
               <p>Correct answer: <strong>{current.correct_option.toUpperCase()} — {current.options[current.correct_option.toUpperCase().charCodeAt(0) - 65]}</strong></p>
               {current.explanation && <p className="mt-2">{current.explanation}</p>}
-              <p className="mt-2 font-semibold text-blue-800">This question is locked and cannot be changed.</p>
             </div>
           ) : (
             <div className="mt-4">
               <button type="button" disabled={practiceSaving || !practiceDraft[current.id]} onClick={() => void choosePracticeAnswer(current.id, practiceDraft[current.id])} className="min-h-12 w-full rounded-xl bg-emerald-700 px-3 py-3 text-sm font-bold text-white disabled:opacity-40">Submit Answer</button>
               <p className="mt-2 text-center text-xs text-slate-600">You can use Next without answering and return later. No answer is revealed when skipping.</p>
-            </div>
-          )}
-          {practiceQuestions.length > 0 && practiceIndex < practiceQuestions.length - 1 && (
-            <button type="button" disabled={practiceSubmitting || practiceSaving} onClick={() => setPracticeConfirmSubmit(true)} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Practice Test</button>
-          )}
-          {practiceConfirmSubmit && (
-            <div role="dialog" aria-label="Confirm practice submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
-              <p className="font-bold text-slate-900">Ready to submit your Practice Test?</p>
-              <p className="mt-1 text-sm text-slate-700">Answered: {practiceQuestions.filter(q => Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length} / {practiceQuestions.length}. Unanswered: {practiceQuestions.filter(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length}.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {practiceQuestions.some(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)) && <button type="button" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white" onClick={() => { setPracticeConfirmSubmit(false); void navigatePractice(practiceQuestions.findIndex(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id))); }}>Answer Skipped Questions</button>}
-                <button type="button" disabled={practiceSubmitting || practiceSaving} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50" onClick={() => void submitPracticeTest()}>Submit Anyway</button>
-                <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm" onClick={() => setPracticeConfirmSubmit(false)}>Continue Test</button>
-              </div>
             </div>
           )}
           <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5">
@@ -4024,6 +4009,21 @@ export default function Home() {
               </button>
             )}
           </div>
+          {practiceQuestions.length > 0 && practiceIndex < practiceQuestions.length - 1 && (
+            <button type="button" disabled={practiceSubmitting || practiceSaving} onClick={() => setPracticeConfirmSubmit(true)} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Practice Test</button>
+          )}
+          {practiceConfirmSubmit && (
+            <div role="dialog" aria-label="Confirm practice submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
+              <p className="font-bold text-slate-900">Ready to submit your Practice Test?</p>
+              <p className="mt-1 text-sm text-slate-700">Answered: {practiceQuestions.filter(q => Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length} / {practiceQuestions.length}. Unanswered: {practiceQuestions.filter(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length}.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {practiceQuestions.some(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)) && <button type="button" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white" onClick={() => { setPracticeConfirmSubmit(false); void navigatePractice(practiceQuestions.findIndex(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id))); }}>Answer Skipped Questions</button>}
+                <button type="button" disabled={practiceSubmitting || practiceSaving} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50" onClick={() => void submitPracticeTest()}>Submit Anyway</button>
+                <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm" onClick={() => setPracticeConfirmSubmit(false)}>Continue Test</button>
+              </div>
+            </div>
+          )}
+
         </section>
       </main>
     );
@@ -4032,6 +4032,17 @@ export default function Home() {
   /* =========================
      MAIN AUTHENTICATED PAGE
   ========================= */
+
+  const subscribeButton = (extraClass = "") => (
+    <button
+      type="button"
+      onClick={isPaidMember ? undefined : openSubscribe}
+      disabled={isPaidMember}
+      className={`inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-lg border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-300 disabled:cursor-default disabled:border-emerald-300 disabled:bg-emerald-100 disabled:text-emerald-800 sm:px-3 sm:text-xs ${extraClass}`}
+    >
+      {isPaidMember ? "✓ Premium Active" : "⭐ Subscribe ₹99"}
+    </button>
+  );
 
   return (
     <>
@@ -4164,38 +4175,29 @@ export default function Home() {
       )}
 
       <main className="min-h-screen overflow-x-hidden bg-slate-50">
+      <style>{`@keyframes welcome10-scroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } } @media (prefers-reduced-motion: reduce) { .welcome10-scroll { animation: none !important; transform: none !important; } }`}</style>
+      <div className="w-full overflow-hidden border-b border-amber-300 bg-amber-100 py-2 text-amber-950" role="note" aria-label="Welcome discount offer">
+        <div className="welcome10-scroll inline-block whitespace-nowrap text-xs font-extrabold sm:text-sm" style={{ animation: "welcome10-scroll 16s linear infinite", whiteSpace: "nowrap", width: "max-content" }}>
+          🎁 WELCOME10 — 10% Welcome Discount for eligible new students! &nbsp; ✨ Use code WELCOME10 at checkout — subject to verification. &nbsp; 🎁
+        </div>
+      </div>
       {/* HEADER */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-blue-700 sm:text-[11px] sm:tracking-[0.18em]">
-              CBSE Exam Preparation
-            </p>
-
-            <h1 className="truncate text-base font-bold tracking-tight text-slate-950 sm:text-xl">
-              CBSE Exam Question Bank
-            </h1>
+            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-blue-700 sm:text-[11px] sm:tracking-[0.18em]">CBSE Exam Preparation</p>
+            <h1 className="text-base font-bold tracking-tight text-slate-950 sm:text-xl">CBSE Exam Question Bank</h1>
           </div>
-
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
             <div className="hidden text-right sm:block">
-              <p className="max-w-32 truncate text-xs font-semibold text-slate-900">
-                {studentProfile?.full_name ||
-                  currentUser?.email}
-              </p>
-
-              <p className="text-[10px] text-emerald-700">
-                Signed in
-              </p>
+              <p className="max-w-32 truncate text-xs font-semibold text-slate-900">{studentProfile?.full_name || currentUser?.email}</p>
+              <p className="text-[10px] text-emerald-700">Signed in</p>
             </div>
-
-            <a href="/dashboard" className="min-h-10 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:px-4 sm:text-sm">📊 Dashboard</a>
-            <button
-              onClick={handleLogout}
-              className="min-h-10 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 sm:px-4 sm:text-sm"
-            >
-              Logout
-            </button>
+            <div className="col-span-1 flex min-w-0">{subscribeButton("w-full sm:w-auto")}</div>
+            <div className="col-span-1 flex flex-col gap-1.5 sm:gap-1">
+              <a href="/dashboard" className="inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700">📊 Dashboard</a>
+              <button type="button" onClick={handleLogout} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">Logout</button>
+            </div>
           </div>
         </div>
       </header>
@@ -4487,9 +4489,12 @@ export default function Home() {
           <div className="rounded-2xl border border-blue-800 bg-blue-900 p-4 text-white shadow-sm sm:p-7">
             <div className="flex h-full flex-col justify-between gap-5">
               <div>
-                <span className="inline-flex rounded-md border border-blue-700 bg-blue-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-blue-100 sm:px-3 sm:text-[11px]">
+                <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex min-h-10 items-center rounded-lg border border-blue-700 bg-blue-800 px-3 py-2 text-xs font-bold uppercase tracking-[0.1em] text-blue-100 sm:px-3 sm:text-[11px]">
                   Practice Paper
                 </span>
+                  {subscribeButton()}
+                </div>
 
                 <h3 className="mt-2.5 text-xl font-bold sm:mt-3 sm:text-2xl">
                   Practice Test
@@ -4588,13 +4593,14 @@ export default function Home() {
             <div className="flex h-full flex-col justify-between gap-5">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex rounded-md border border-orange-300 bg-orange-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-orange-900 sm:px-3 sm:text-[11px]">
+                  <span className="inline-flex min-h-10 items-center rounded-lg border border-orange-300 bg-orange-200 px-3 py-2 text-xs font-bold uppercase tracking-[0.1em] text-orange-900 sm:px-3 sm:text-[11px]">
                     Real Mock Test
                   </span>
 
-                  <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-emerald-800">
+                  <span className="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-emerald-800">
                     ⚡ Available to Paid Members
                   </span>
+                  {subscribeButton()}
                 </div>
 
                 <h3 className="mt-2.5 text-xl font-bold sm:mt-3 sm:text-2xl">
@@ -4717,15 +4723,7 @@ export default function Home() {
                       : `Start Mock Test ${selectedMockPaper} →`}
                   </button>
 
-                  {!isPaidMember && (
-                    <button
-                      type="button"
-                      onClick={openSubscribe}
-                      className="min-h-12 w-full rounded-lg border border-orange-400 bg-white/70 px-5 py-3 text-sm font-extrabold text-orange-900 hover:bg-white"
-                    >
-                      Subscribe ₹99
-                    </button>
-                  )}
+
                 </div>
               </div>
             </div>
