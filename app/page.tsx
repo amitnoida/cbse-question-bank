@@ -3146,10 +3146,10 @@ export default function Home() {
         <section id="home" className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 text-white">
           <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-3xl" />
-          <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-24">
+          <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 items-center gap-8 px-4 py-12 sm:gap-12 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:px-8 lg:py-24">
             <div>
               <span className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-amber-200 sm:text-[11px]">🇮🇳 Class 9 &amp; 10 • CBSE</span>
-              <h1 className="mt-5 max-w-3xl text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">Practice Smarter.<br /><span className="text-amber-300">Score Better.</span></h1>
+              <h1 className="mt-5 max-w-3xl text-[clamp(1.85rem,8vw,2.25rem)] font-black leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">Practice Smarter.<br /><span className="text-amber-300">Score Better.</span></h1>
               <p className="mt-5 max-w-2xl text-sm leading-6 text-indigo-100 sm:text-lg sm:leading-8">Practice chapter-wise MCQs, build subject confidence, get instant explanations, and prepare with focused practice tests designed for CBSE students.</p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <button onClick={openSignup} className="min-h-12 rounded-xl bg-amber-400 px-6 py-3 text-sm font-extrabold text-slate-950 shadow-xl shadow-indigo-950/20 transition hover:bg-amber-300">Start Free 🎯</button>
@@ -3162,12 +3162,12 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="relative mx-auto hidden w-full max-w-xl sm:block">
+            <div className="relative mx-auto w-full min-w-0 max-w-[250px] sm:max-w-xl">
               <div className="mb-5 overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-indigo-50 to-violet-100 shadow-2xl shadow-indigo-950/20">
                 <img src="/images/cbse-students.webp" alt="Illustration of two Indian secondary-school students wearing uniforms and holding books" className="h-auto max-h-[460px] w-full object-contain object-center" loading="eager" />
               </div>
-              <div className="absolute inset-8 rounded-[2rem] bg-white/10 blur-2xl pointer-events-none" />
-              <div className="relative rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-md sm:p-6">
+              <div className="pointer-events-none absolute inset-8 hidden rounded-[2rem] bg-white/10 blur-2xl sm:block" />
+              <div className="relative hidden rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-md sm:block sm:p-6">
                 <div className="rounded-[1.5rem] bg-white p-5 text-slate-950 shadow-xl sm:p-6">
                   <div className="flex items-center justify-between gap-3">
                     <div><p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-600">Smart Practice</p><h2 className="mt-1 text-xl font-black sm:text-2xl">Choose. Practice. Improve.</h2></div>
@@ -3272,7 +3272,7 @@ export default function Home() {
                 { q: "When does my membership expire?", a: "Purchased annual memberships are intended to run until 31 March. A free membership activated with a 100% coupon ends on that coupon's stated expiry date." },
                 { q: "What happens after my membership expires?", a: "Your account remains accessible, but premium access ends unless you have another valid membership. Your remaining free allowance still applies." },
                 { q: "Is this an official CBSE website?", a: "No. CBSE Exam Prep Guide is an independent educational practice platform, not affiliated with or endorsed by CBSE." },
-                { q: "How can I request help or deletion of my data?", a: "Please contact the website administrator through the support contact published on the website. A dedicated contact and account-deletion process will be added before public launch." }
+                { q: "How can I request help or deletion of my data?", a: "For technical support, subscription questions, or account deletion requests, email support.cbseexam@gmail.com. For account deletion, contact us from your registered email address so we can verify your request." }
               ].map((faq) => (
                 <details key={faq.q} className="group rounded-2xl border border-slate-200 bg-slate-50 p-4 open:border-indigo-200 open:bg-indigo-50/50">
                   <summary className="cursor-pointer list-none pr-6 text-sm font-bold text-slate-900 sm:text-base">{faq.q}<span aria-hidden="true" className="float-right text-indigo-600 group-open:rotate-45">+</span></summary>
@@ -3285,7 +3285,7 @@ export default function Home() {
 
         <section className="bg-slate-950 px-4 py-14 text-white sm:px-6 sm:py-20 lg:px-8"><div className="mx-auto max-w-4xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-300">Ready to start?</p><h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Your next practice session starts here. 🚀</h2><p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">Create your student account and start practicing CBSE MCQs today.</p><button onClick={openSignup} className="mt-7 min-h-12 rounded-xl bg-indigo-500 px-7 py-3 text-sm font-extrabold text-white shadow-xl shadow-indigo-950 transition hover:bg-indigo-400">Create Student Account</button></div></section>
 
-        <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><div><p className="font-black text-slate-950">CBSE Question Bank</p><p className="mt-1 text-xs text-slate-500">Practice • Learn • Improve</p></div><p className="text-xs text-slate-400">Independent CBSE practice platform • Not affiliated with CBSE</p></div></footer>
+        <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><div><p className="font-black text-slate-950">CBSE Question Bank</p><p className="mt-1 text-xs text-slate-500">Practice • Learn • Improve</p></div><div><p className="text-sm font-bold text-slate-950">Contact &amp; Support</p><a className="mt-1 inline-block break-all text-sm text-indigo-700 underline hover:text-indigo-900" href="mailto:support.cbseexam@gmail.com">support.cbseexam@gmail.com</a></div><p className="text-xs text-slate-400">Independent CBSE practice platform • Not affiliated with CBSE</p></div></footer>
       </main>
     );
   }
