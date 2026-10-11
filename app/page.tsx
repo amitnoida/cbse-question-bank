@@ -76,7 +76,7 @@ const AUTH_INITIALIZATION_TIMEOUT_MS = 15000;
 const SIGNUP_EMAIL_VERIFICATION_MESSAGE =
   "Registration successful! Please check your inbox for a verification email and click the confirmation link to activate your account. " +
   "If you cannot find the email, check your Spam, Junk, or Promotions folder. " +
-  "Look for an email from CBSE Exam Prep Guide (cbse.exam.prep.guide@gmail.com). " +
+  "Look for an email from CBSE Exam Prep Guide (support.cbseexam@gmail.com). " +
   "If it is in Spam, mark it as Not Spam.";
 
 
@@ -526,6 +526,9 @@ export default function Home() {
   const [updatePasswordSuccess, setUpdatePasswordSuccess] = useState("");
 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  // Explicit, read-only public homepage preview from the admin panel.
+  const isWebsitePreview = typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("preview") === "website";
 
   /* =========================
      LOAD PUBLIC CLASSES
@@ -961,7 +964,9 @@ export default function Home() {
 
   // The existing admin RPC verifies permissions on the server.
   // Never determine admin access from an email address or client metadata.
-  async function redirectAdminIfAuthorized(): Promise<boolean> {
+  async function redirectAdminIfAuthorized(forceAfterSignIn = false): Promise<boolean> {
+    // Preview bypass applies only to passive page visits, not an explicit sign-in.
+    if (isWebsitePreview && !forceAfterSignIn) return false;
     try {
       const { error: adminError } = await supabase.rpc("admin_dashboard_summary");
       if (adminError) {
@@ -1041,6 +1046,14 @@ export default function Home() {
       }
 
       const userId = user.id;
+
+      // Do not load student-only data for an admin viewing the public homepage.
+      if (isWebsitePreview) {
+        authUserIdRef.current = userId;
+        setCurrentUser(user);
+        setLoading(false);
+        return;
+      }
 
       // Covers both fresh logins and previously authenticated sessions.
       if (await redirectAdminIfAuthorized()) return;
@@ -2461,7 +2474,7 @@ export default function Home() {
      * Supabase's auth state listener is now the single source
      * of truth for post-login initialization.
      */
-    if (await redirectAdminIfAuthorized()) return;
+    if (await redirectAdminIfAuthorized(true)) return;
 
     setCurrentUser(data.user);
 
@@ -2567,9 +2580,9 @@ export default function Home() {
      PUBLIC HOME PAGE
   ========================= */
 
-  if (!currentUser) {
+  if (!currentUser || isWebsitePreview) {
     return (
-      <main className="min-h-screen overflow-x-hidden bg-[#f8f7ff] text-slate-950">
+      <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-[#f8f7ff] text-slate-950">
         {showSignup && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
             <div className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7">
@@ -3030,17 +3043,23 @@ export default function Home() {
          * Real Mock Test, subscription checks, usage tracking, and all
          * existing handlers continue to use the original state and functions.
          */}
+        {isWebsitePreview && (
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-indigo-950 px-4 py-2 text-xs font-semibold text-white sm:text-sm">
+            <span>Public website preview — administrator session remains active</span>
+            <a href="/admin" className="rounded-lg bg-white px-3 py-2 font-bold text-indigo-950">← Back to Admin</a>
+          </div>
+        )}
         <header className="sticky top-0 z-40 border-b border-indigo-100 bg-white/95 shadow-sm backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
+          <div className="mx-auto flex w-full min-w-0 max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
             <a
               href="#home"
               onClick={() => setShowMobileMenu(false)}
-              className="flex min-w-0 items-center gap-2.5"
+              className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5 lg:flex-none"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg shadow-lg shadow-indigo-200">📚</div>
-              <div className="min-w-0">
-                <p className="text-[8px] font-extrabold uppercase tracking-[0.14em] text-indigo-600 sm:text-[9px] sm:tracking-[0.18em]">CBSE Exam Preparation</p>
-                <p className="truncate text-sm font-extrabold tracking-tight text-slate-950 sm:text-lg">CBSE Question Bank</p>
+              <div className="min-w-0 flex-1">
+                <p className="hidden text-[8px] font-extrabold uppercase tracking-[0.14em] text-indigo-600 sm:block sm:text-[9px] sm:tracking-[0.18em]">CBSE Exam Preparation</p>
+                <p className="block truncate text-[11px] font-extrabold tracking-tight text-slate-950 min-[380px]:text-sm sm:text-lg">CBSE Question Bank</p>
               </div>
             </a>
 
@@ -3052,7 +3071,7 @@ export default function Home() {
               <a href="#how-it-works" className="transition hover:text-indigo-600">How It Works</a>
             </nav>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <button
                 onClick={openSignin}
                 className="min-h-10 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 sm:px-4 sm:text-sm"
@@ -3062,14 +3081,14 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="min-h-10 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-200/60 transition hover:bg-amber-300 sm:px-4 sm:text-sm"
+                className="hidden min-h-10 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-200/60 transition hover:bg-amber-300 lg:inline-flex lg:items-center lg:px-4 lg:text-sm"
               >
                 Start Free 🎯
               </button>
               <button
                 type="button"
                 onClick={() => setShowMobileMenu((previous) => !previous)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-800 shadow-sm sm:hidden"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-800 shadow-sm lg:hidden"
                 aria-label={showMobileMenu ? "Close menu" : "Open menu"}
                 aria-expanded={showMobileMenu}
               >
@@ -3079,7 +3098,7 @@ export default function Home() {
           </div>
 
           {showMobileMenu && (
-            <div className="border-t border-indigo-100 bg-white px-4 py-3 shadow-lg sm:hidden">
+            <div className="border-t border-indigo-100 bg-white px-4 py-3 shadow-lg lg:hidden">
               <nav className="grid gap-1">
                 {[
                   ["Home", "#home"],
@@ -3130,7 +3149,6 @@ export default function Home() {
           <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-24">
             <div>
               <span className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-amber-200 sm:text-[11px]">🇮🇳 Class 9 &amp; 10 • CBSE</span>
-              <img src="/images/cbse-students.webp" alt="CBSE students" className="float-right ml-2 mt-3 h-28 w-28 rounded-xl bg-indigo-50 object-contain shadow-lg sm:hidden" />
               <h1 className="mt-5 max-w-3xl text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">Practice Smarter.<br /><span className="text-amber-300">Score Better.</span></h1>
               <p className="mt-5 max-w-2xl text-sm leading-6 text-indigo-100 sm:text-lg sm:leading-8">Practice chapter-wise MCQs, build subject confidence, get instant explanations, and prepare with focused practice tests designed for CBSE students.</p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">

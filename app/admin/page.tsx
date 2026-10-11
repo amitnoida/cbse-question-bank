@@ -1393,7 +1393,7 @@ export default function AdminPage() {
 
 
 
-          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3"><a href="/" className="text-sm font-semibold text-indigo-700 hover:underline">← Website</a>{userEmail && <button onClick={signOut} className="inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-semibold">Sign out</button>}</div>
+          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3"><a href="/?preview=website" className="text-sm font-semibold text-indigo-700 hover:underline">← Website</a>{userEmail && <button onClick={signOut} className="inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-semibold">Sign out</button>}</div>
 
 
 
@@ -1521,7 +1521,7 @@ export default function AdminPage() {
 
 
 
-            <div className="mb-7 flex flex-wrap items-center justify-between gap-3"><div><p className="cbse-admin-eyebrow">ADMINISTRATOR WORKSPACE</p><h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Management overview</h2><p className="cbse-admin-overview-subtitle">Manage students, subscriptions and coupons from one place.</p><p className="text-sm text-slate-600">Signed in as {userEmail}</p></div>{stats && <button onClick={() => {setLoading(true);void refresh();}} className="rounded-lg border bg-white px-4 py-2 font-semibold">Refresh</button>}</div>
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-3"><div><p className="cbse-admin-eyebrow">ADMINISTRATOR WORKSPACE</p><h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Management overview</h2><a href="/admin/upgrade" className="mt-3 inline-flex rounded-lg bg-indigo-700 px-4 py-2 text-sm font-bold text-white">Admin roles, students &amp; announcements →</a><p className="cbse-admin-overview-subtitle">Manage students, subscriptions and coupons from one place.</p><p className="text-sm text-slate-600">Signed in as {userEmail}</p></div>{stats && <button onClick={() => {setLoading(true);void refresh();}} className="rounded-lg border bg-white px-4 py-2 font-semibold">Refresh</button>}</div>
 
 
 
