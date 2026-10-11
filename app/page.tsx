@@ -3619,7 +3619,7 @@ export default function Home() {
                         selected
                           ? "border-blue-700 bg-blue-50"
                           : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                      } disabled:cursor-not-allowed`}
                     >
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
@@ -3631,7 +3631,7 @@ export default function Home() {
                         {letter}
                       </span>
 
-                      <span className="min-w-0 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
+                      <span className="min-w-0 flex-1 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
                         {option}
                       </span>
                     </button>
@@ -3944,8 +3944,11 @@ export default function Home() {
                       65 + index
                     );
 
-                  const selected =
-                    (practiceAnswers[current.id] ?? practiceDraft[current.id]) === letter;
+                  const hasSavedAnswer = Object.prototype.hasOwnProperty.call(practiceAnswers, current.id);
+                  const selected = (practiceAnswers[current.id] ?? practiceDraft[current.id]) === letter;
+                  const correct = current.correct_option.trim().toUpperCase() === letter;
+                  const showCorrect = hasSavedAnswer && correct;
+                  const showWrong = hasSavedAnswer && selected && !correct;
 
                   return (
                     <button
@@ -3953,24 +3956,34 @@ export default function Home() {
                       onClick={() => setPracticeDraft(prev => ({ ...prev, [current.id]: letter }))}
                       disabled={practiceSubmitting || practiceSaving || Object.prototype.hasOwnProperty.call(practiceAnswers, current.id)}
                       className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${
-                        selected
-                          ? "border-blue-700 bg-blue-50"
-                          : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
+                        showCorrect
+                          ? "border-emerald-600 bg-emerald-50"
+                          : showWrong
+                            ? "border-red-600 bg-red-50"
+                            : selected
+                              ? "border-blue-700 bg-blue-50"
+                              : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
                       } disabled:cursor-not-allowed disabled:opacity-60`}
                     >
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                          selected
-                            ? "bg-blue-700 text-white"
-                            : "bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800"
+                          showCorrect
+                            ? "bg-emerald-600 text-white"
+                            : showWrong
+                              ? "bg-red-600 text-white"
+                              : selected
+                                ? "bg-blue-700 text-white"
+                                : "bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800"
                         }`}
                       >
                         {letter}
                       </span>
 
-                      <span className="min-w-0 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
+                      <span className="min-w-0 flex-1 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
                         {option}
                       </span>
+                      {showCorrect && <span className="shrink-0 text-xs font-bold text-emerald-800">✓ Correct</span>}
+                      {showWrong && <span className="shrink-0 text-xs font-bold text-red-800">✕ Your answer</span>}
                     </button>
                   );
                 }
