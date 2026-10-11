@@ -42,3 +42,5 @@ next-env.d.ts
 
 design-backup-*/
 **/design-backup-*/
+
+supabase/.temp/
