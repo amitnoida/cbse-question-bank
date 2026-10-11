@@ -74,7 +74,7 @@ export async function POST(req:NextRequest){try{const a=await identity(req);if(!
  if(!message||message.length>400||!Number.isFinite(Date.parse(starts))||!Number.isFinite(Date.parse(ends))||Date.parse(ends)<=Date.parse(starts))return response("Provide message (up to 400 characters) and valid start/end times",400);
  const {error}=await a.db.from("site_announcements").insert({message,starts_at:starts,ends_at:ends,enabled:true,created_by:a.user.id});if(error)return response(error.message,400);return NextResponse.json({ok:true});}
  if(action==="announcement-disable"){
- const announcementId=Number(body.id);if(!Number.isSafeInteger(announcementId)||announcementId<=0)return response("Invalid announcement ID",400);
+ const announcementId=String(body.id ?? "");if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(announcementId))return response("Invalid announcement ID",400);
   const {error}=await a.db.from("site_announcements").update({enabled:false}).eq("id",announcementId);if(error)return response(error.message,400);return NextResponse.json({ok:true});}
  return response("Unknown action",400);
  }catch(e){return response(e instanceof Error?e.message:"Server error",500);}}
