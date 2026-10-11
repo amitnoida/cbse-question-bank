@@ -3459,24 +3459,7 @@ export default function Home() {
                             </div>;
                           })}
                         </div>
-                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          <p className={`rounded-lg border px-3 py-2.5 text-sm ${user && user === correct
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-red-200 bg-red-50 text-red-800"}`}>
-                            Your answer:{" "}
-                            <strong>
-                              {user ||
-                                "Not answered"}
-                            </strong>
-                          </p>
-
-                          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
-                            Correct answer:{" "}
-                            <strong>
-                              {correct}
-                            </strong>
-                          </p>
-                        </div>
+                        {!user && <p className="mt-2 text-xs font-semibold text-amber-800">○ Question skipped</p>}
 
                         {q.explanation && (
                           <p className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
@@ -3861,24 +3844,7 @@ export default function Home() {
                             </div>;
                           })}
                         </div>
-                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          <p className={`rounded-lg border px-3 py-2.5 text-sm ${user && user === correct
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-red-200 bg-red-50 text-red-800"}`}>
-                            Your answer:{" "}
-                            <strong>
-                              {user ||
-                                "Not answered"}
-                            </strong>
-                          </p>
-
-                          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
-                            Correct answer:{" "}
-                            <strong>
-                              {correct}
-                            </strong>
-                          </p>
-                        </div>
+                        {!user && <p className="mt-2 text-xs font-semibold text-amber-800">○ Question skipped</p>}
 
                         {q.explanation && (
                           <p className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
@@ -4048,7 +4014,7 @@ export default function Home() {
             ) : (
               <button
                 disabled={practiceSubmitting || practiceSaving}
-                onClick={() => setPracticeConfirmSubmit(true)}
+                onClick={() => { if (practiceQuestions.some(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id))) setPracticeConfirmSubmit(true); else void submitPracticeTest(); }}
                 className="min-h-11 rounded-lg bg-emerald-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
               >
                 {practiceSubmitting
@@ -4060,7 +4026,7 @@ export default function Home() {
           {practiceQuestions.length > 0 && practiceIndex < practiceQuestions.length - 1 && (
             <button type="button" disabled={practiceSubmitting || practiceSaving} onClick={() => setPracticeConfirmSubmit(true)} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Practice Test</button>
           )}
-          {practiceConfirmSubmit && (
+          {practiceConfirmSubmit && practiceQuestions.some(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)) && (
             <div role="dialog" aria-label="Confirm practice submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
               <p className="font-bold text-slate-900">Ready to submit your Practice Test?</p>
               <p className="mt-1 text-sm text-slate-700">Answered: {practiceQuestions.filter(q => Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length} / {practiceQuestions.length}. Unanswered: {practiceQuestions.filter(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length}.</p>
@@ -4590,13 +4556,13 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="grid w-full gap-3 sm:flex sm:w-auto sm:flex-row">
+              <div className="grid w-full min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 {selectedSubject !== ALL && totalPracticeSets > 1 && (
                   <select
                     aria-label="Select practice set"
                     value={practiceSet}
                     onChange={(e) => setPracticeSet(Number(e.target.value))}
-                    className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-white/40 sm:min-h-11 sm:w-auto"
+                    className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-white/40 sm:min-h-11"
                   >
                     {Array.from({ length: totalPracticeSets }, (_, index) => {
                       const from = index * PRACTICE_SET_SIZE + 1;
@@ -4621,7 +4587,7 @@ export default function Home() {
                     selectedSubject === ALL ||
                     (!isPaidMember && freeUsageLoading)
                   }
-                  className="min-h-12 w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-blue-900 shadow-sm hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-11 sm:w-auto"
+                  className="min-h-12 w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-blue-900 shadow-sm hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-11"
                 >
                   {selectedSubject === ALL
                     ? "Select Subject First"
@@ -4629,16 +4595,6 @@ export default function Home() {
                     ? "Checking Free Usage..."
                     : practiceStarting ? "Loading saved practice..." : "Start / Resume Practice →"}
                 </button>
-
-                {isPaidMember && (
-                  <button
-                    type="button"
-                    disabled
-                    className="min-h-12 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-800 sm:min-h-11 sm:w-auto"
-                  >
-                    Membership Active
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -4745,12 +4701,11 @@ export default function Home() {
                     </select>
                     <p className="mt-2 text-xs text-slate-700">
                       {completedNumberedMocks}/{numberedMockCount} numbered papers completed.
-                      Each numbered paper has unique questions. Retakes unlock after completing all numbered papers.
+                      Each numbered paper has unique questions. {allNumberedCompleted ? "Randomized retakes are now unlocked." : "Randomized retakes unlock after completing all numbered papers."}
                     </p>
                     {mockPapers.filter(p => p.status === "COMPLETED").map(p => (
                       <p key={p.id} className="mt-1 text-xs text-slate-700">
-                        {p.paper_number ? `Paper ${p.paper_number}` : `Retake ${p.retake_number}`} completed
-                        {p.quiz_attempt_id ? ` • Attempt ${p.quiz_attempt_id}` : ""}
+                        {p.paper_number ? `Mock Test ${p.paper_number}` : `Randomized retake ${p.retake_number ?? ""}`} completed
                       </p>
                     ))}
                   </div>
