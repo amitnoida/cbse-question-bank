@@ -44,3 +44,5 @@ design-backup-*/
 **/design-backup-*/
 
 supabase/.temp/
+
+supabase/ADMIN_UPGRADE_MIGRATION.sql
