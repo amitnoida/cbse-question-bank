@@ -334,11 +334,11 @@ export default function Home() {
 
     setCouponLoading(true);
 
-    const { data, error: couponError } = await supabase
-      .from("coupons")
-      .select("coupon_code,discount_percentage,is_active,valid_from,valid_until,usage_limit,usage_count")
-      .eq("coupon_code", code)
-      .maybeSingle();
+    const { data: couponRows, error: couponError } = await supabase.rpc(
+      "validate_coupon_for_student",
+      { p_coupon_code: code }
+    );
+    const data = Array.isArray(couponRows) ? couponRows[0] : null;
 
     if (couponError) {
       console.error("Coupon lookup error:", couponError);
@@ -376,7 +376,7 @@ export default function Home() {
       return;
     }
 
-    if (validUntil && now > validUntil) {
+    if (validUntil && now >= validUntil) {
       setCouponMessage("This coupon has expired.");
       setCouponLoading(false);
       return;
