@@ -227,6 +227,8 @@ export default function Home() {
     Record<number, string>
   >({});
   const [practiceConfirmSubmit, setPracticeConfirmSubmit] = useState(false);
+  const [practiceSkippedReview, setPracticeSkippedReview] = useState(false);
+  const [mockSkippedReview, setMockSkippedReview] = useState(false);
   const [mockConfirmSubmit, setMockConfirmSubmit] = useState(false);
   const [practiceSubmitted, setPracticeSubmitted] =
     useState(false);
@@ -302,6 +304,7 @@ export default function Home() {
     useState(false);
   const [isPaidMember, setIsPaidMember] =
     useState(false);
+  const [membershipChecked, setMembershipChecked] = useState(false);
 
   function openSubscribe() {
     setCouponCode("");
@@ -492,6 +495,8 @@ export default function Home() {
   const [signupFullName, setSignupFullName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirm, setShowSignupConfirm] = useState(false);
   const [signupConfirmPassword, setSignupConfirmPassword] =
     useState("");
   const [signupClassId, setSignupClassId] = useState("");
@@ -507,6 +512,7 @@ export default function Home() {
   const [signinEmail, setSigninEmail] = useState("");
   const [signinPassword, setSigninPassword] = useState("");
   const [signinLoading, setSigninLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [signinError, setSigninError] = useState("");
 
   /* =========================
@@ -528,7 +534,7 @@ export default function Home() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   // Explicit, read-only public homepage preview from the admin panel.
   const isWebsitePreview = typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("preview") === "website";
+    new URLSearchParams(window.location.search).get("website") === "public";
 
   /* =========================
      LOAD PUBLIC CLASSES
@@ -756,6 +762,7 @@ export default function Home() {
       userId
     );
 
+    setMembershipChecked(false);
     const { data, error: subscriptionError } =
       await supabase
         .from("subscriptions")
@@ -777,6 +784,7 @@ export default function Home() {
         "Subscription lookup error:",
         subscriptionError
       );
+      setMembershipChecked(false);
       return isPaidMember;
     }
 
@@ -795,6 +803,7 @@ export default function Home() {
     );
 
     setIsPaidMember(membershipActive);
+    setMembershipChecked(true);
 
     return membershipActive;
   }
@@ -962,25 +971,9 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [currentUser?.id, selectedSubject, subjects, chapters, classes, studentProfile?.class_id]);
 
-  // The existing admin RPC verifies permissions on the server.
-  // Never determine admin access from an email address or client metadata.
-  async function redirectAdminIfAuthorized(forceAfterSignIn = false): Promise<boolean> {
-    // Preview bypass applies only to passive page visits, not an explicit sign-in.
-    if (isWebsitePreview && !forceAfterSignIn) return false;
-    try {
-      const { error: adminError } = await supabase.rpc("admin_dashboard_summary");
-      if (adminError) {
-        // Ordinary students are not permitted to call the admin RPC.
-        // Keep them on the student website.
-        return false;
-      }
-      window.location.replace("/admin");
-      return true;
-    } catch (adminCheckError) {
-      console.error("Unable to verify admin redirect:", adminCheckError);
-      return false;
-    }
-  }
+  // Administrator access is handled on /admin, where the protected RPC
+  // is called only within the administrator workflow. Do not probe admin
+  // permissions from the public/student homepage.
 
   /* =========================
      AUTH INITIALIZATION
@@ -996,6 +989,7 @@ export default function Home() {
       setStudentProfile(null);
       setFreeUsage({});
       setIsPaidMember(false);
+      setMembershipChecked(false);
       setQuestions([]);
       setSubjects([]);
       setChapters([]);
@@ -1005,7 +999,9 @@ export default function Home() {
       setSelectedChapter(ALL);
 
       setPracticeConfirmSubmit(false);
+      setPracticeSkippedReview(false);
       setMockConfirmSubmit(false);
+      setMockSkippedReview(false);
       setPracticeMode(false);
       setPracticeQuestions([]);
       setPracticeAnswers({});
@@ -1055,8 +1051,27 @@ export default function Home() {
         return;
       }
 
+      // Detect admin accounts using the existing role mapping. The admin page
+      // remains responsible for enforcing permissions; this is routing only.
+      // Use a short deadline so an unavailable role lookup cannot block students.
+      try {
+        const { data: adminRow, error: roleError } = await withTimeout(
+          supabase.from("admin_users").select("user_id").eq("user_id", userId).maybeSingle(),
+          3000
+        );
+        if (!mounted) return;
+        if (!roleError && adminRow) {
+          window.location.replace("/admin");
+          return;
+        }
+        if (roleError) {
+          console.warn("Admin role lookup unavailable; continuing with student login:", roleError.message);
+        }
+      } catch (roleError) {
+        console.warn("Admin role lookup timed out; continuing with student login:", roleError);
+      }
+
       // Covers both fresh logins and previously authenticated sessions.
-      if (await redirectAdminIfAuthorized()) return;
       if (!mounted || authUserIdRef.current !== null && authUserIdRef.current !== userId) return;
 
       /*
@@ -1687,6 +1702,16 @@ export default function Home() {
       setPracticeAnswers(saved as Record<number, string>);
       setPracticeDraft(prev => { const next = { ...prev }; delete next[questionId]; return next; });
       setPracticeSavedCount(Object.keys(saved).length);
+      if (practiceSkippedReview) {
+        const next = practiceQuestions.findIndex((q, i) => i > practiceIndex && !Object.prototype.hasOwnProperty.call(saved, q.id));
+        if (next >= 0) {
+          await persistPracticeProgress(saved as Record<number,string>, next);
+          setPracticeIndex(next);
+        } else {
+          setPracticeSkippedReview(false);
+          setPracticeConfirmSubmit(true);
+        }
+      }
     } catch (err: any) {
       setPracticeSubmitError("Could not lock this answer. Please retry. " + (err?.message || ""));
     } finally {
@@ -2474,9 +2499,17 @@ export default function Home() {
      * Supabase's auth state listener is now the single source
      * of truth for post-login initialization.
      */
-    if (await redirectAdminIfAuthorized(true)) return;
 
-    setCurrentUser(data.user);
+    // Public-preview mode intentionally hides the authenticated dashboard.
+    // Once sign-in succeeds, leave preview mode with a fresh session-aware load.
+    if (new URLSearchParams(window.location.search).get("website") === "public") {
+      window.location.replace("/");
+      return;
+    }
+
+    // Role-aware routing is handled by loadAuthenticatedUser().
+
+    // The auth-state listener performs role routing before showing a dashboard.
 
     setSigninEmail("");
     setSigninPassword("");
@@ -2489,10 +2522,18 @@ export default function Home() {
   ========================= */
 
   async function handleLogout() {
-    setIsPaidMember(false);
+    if (signingOut) return;
+    setSigningOut(true);
     setShowSubscribeModal(false);
 
-    await supabase.auth.signOut();
+    // Keep the premium state unchanged until Supabase confirms sign-out,
+    // preventing a transient "Subscribe ₹99" button.
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      console.error("Sign out failed:", signOutError);
+      setSigningOut(false);
+      return;
+    }
 
     authUserIdRef.current = null;
 
@@ -2528,6 +2569,7 @@ export default function Home() {
     );
     setMockStartedAt(null);
     setPracticeStartedAt(null);
+    setSigningOut(false);
   }
 
   const practiceScore =
@@ -2675,8 +2717,8 @@ export default function Home() {
                     Password
                   </label>
 
-                  <input
-                    type="password"
+                  <div className="relative"><input
+                    type={showSignupPassword ? "text" : "password"}
                     value={signupPassword}
                     onChange={(e) =>
                       setSignupPassword(
@@ -2686,8 +2728,8 @@ export default function Home() {
                     placeholder="Minimum 6 characters"
                     disabled={signupLoading}
                     autoComplete="new-password"
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
-                  />
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white pl-3.5 pr-14 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
+                  /><button type="button" aria-label={showSignupPassword ? "Hide password" : "Show password"} aria-pressed={showSignupPassword} onClick={() => setShowSignupPassword(v => !v)} className="absolute inset-y-0 right-1 flex min-h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-indigo-600">{showSignupPassword ? "🙈" : "👁️"}</button></div>
                 </div>
 
                 <div>
@@ -2695,8 +2737,8 @@ export default function Home() {
                     Confirm Password
                   </label>
 
-                  <input
-                    type="password"
+                  <div className="relative"><input
+                    type={showSignupConfirm ? "text" : "password"}
                     value={signupConfirmPassword}
                     onChange={(e) =>
                       setSignupConfirmPassword(
@@ -2706,8 +2748,8 @@ export default function Home() {
                     placeholder="Re-enter your password"
                     disabled={signupLoading}
                     autoComplete="new-password"
-                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
-                  />
+                    className="min-h-11 w-full rounded-lg border border-slate-300 bg-white pl-3.5 pr-14 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
+                  /><button type="button" aria-label={showSignupConfirm ? "Hide password" : "Show password"} aria-pressed={showSignupConfirm} onClick={() => setShowSignupConfirm(v => !v)} className="absolute inset-y-0 right-1 flex min-h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-indigo-600">{showSignupConfirm ? "🙈" : "👁️"}</button></div>
                 </div>
 
                 <div>
@@ -2792,6 +2834,9 @@ export default function Home() {
 
                 <p className="mt-1.5 text-sm leading-5 text-slate-500">
                   Sign in to access your CBSE Question Bank.
+                </p>
+                <p className="mt-2 text-sm text-slate-600">
+                  Administrator? <a href="/admin" className="font-bold text-indigo-700 underline underline-offset-2">Open Admin Login</a>
                 </p>
               </div>
 
@@ -3043,12 +3088,7 @@ export default function Home() {
          * Real Mock Test, subscription checks, usage tracking, and all
          * existing handlers continue to use the original state and functions.
          */}
-        {isWebsitePreview && (
-          <div className="flex flex-wrap items-center justify-between gap-2 bg-indigo-950 px-4 py-2 text-xs font-semibold text-white sm:text-sm">
-            <span>Public website preview — administrator session remains active</span>
-            <a href="/admin" className="rounded-lg bg-white px-3 py-2 font-bold text-indigo-950">← Back to Admin</a>
-          </div>
-        )}
+        
         <header className="sticky top-0 z-40 border-b border-indigo-100 bg-white/95 shadow-sm backdrop-blur-xl">
           <div className="mx-auto flex w-full min-w-0 max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
             <a
@@ -3605,15 +3645,15 @@ export default function Home() {
                   return (
                     <button
                       key={letter}
-                      onClick={() =>
-                        setMockAnswers(
-                          (prev) => ({
-                            ...prev,
-                            [current.id]:
-                              letter,
-                          })
-                        )
-                      }
+                      onClick={() => {
+                        const updated = { ...mockAnswers, [current.id]: letter };
+                        setMockAnswers(updated);
+                        if (mockSkippedReview) {
+                          const next = mockQuestions.findIndex((q,i) => i > mockIndex && !updated[q.id]);
+                          if (next >= 0) setMockIndex(next);
+                          else { setMockSkippedReview(false); setMockConfirmSubmit(true); }
+                        }
+                      }}
                       disabled={mockSubmitting}
                       className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${
                         selected
@@ -3649,7 +3689,7 @@ export default function Home() {
               <p className="font-bold text-slate-900">Ready to submit your Mock Test?</p>
               <p className="mt-1 text-sm text-slate-700">{mockQuestions.filter(q => !mockAnswers[q.id]).length} unanswered question(s). The timer continues running.</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {mockQuestions.some(q => !mockAnswers[q.id]) && <button type="button" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white" onClick={() => { setMockConfirmSubmit(false); setMockIndex(mockQuestions.findIndex(q => !mockAnswers[q.id])); }}>Review Unanswered Questions</button>}
+                {mockQuestions.some(q => !mockAnswers[q.id]) && <button type="button" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white" onClick={() => { setMockConfirmSubmit(false); setMockSkippedReview(true); setMockIndex(mockQuestions.findIndex(q => !mockAnswers[q.id])); }}>Review Unanswered Questions</button>}
                 <button type="button" disabled={mockSubmitting} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50" onClick={() => void submitMockTest(false)}>Submit Anyway</button>
                 <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm" onClick={() => setMockConfirmSubmit(false)}>Continue Test</button>
               </div>
@@ -3676,9 +3716,7 @@ export default function Home() {
               <button
                 disabled={mockSubmitting}
                 onClick={() =>
-                  setMockIndex(
-                    (p) => p + 1
-                  )
+                  (() => { if (mockSkippedReview) { const next = mockQuestions.findIndex((q,i) => i > mockIndex && !mockAnswers[q.id]); if (next < 0) { setMockSkippedReview(false); setMockConfirmSubmit(true); } else setMockIndex(next); } else setMockIndex(p => p + 1); })()
                 }
                 className="min-h-11 rounded-lg bg-blue-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
               >
@@ -4019,7 +4057,7 @@ export default function Home() {
             practiceQuestions.length - 1 ? (
               <button
                 disabled={practiceSubmitting || practiceSaving}
-                onClick={() => void navigatePractice(practiceIndex + 1)}
+                onClick={() => { if (practiceSkippedReview) { const next = practiceQuestions.findIndex((q,i) => i > practiceIndex && !Object.prototype.hasOwnProperty.call(practiceAnswers,q.id)); if(next < 0){setPracticeSkippedReview(false);setPracticeConfirmSubmit(true);} else void navigatePractice(next); } else void navigatePractice(practiceIndex + 1); }}
                 className="min-h-11 rounded-lg bg-blue-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
               >
                 Next →
@@ -4044,7 +4082,7 @@ export default function Home() {
               <p className="font-bold text-slate-900">Ready to submit your Practice Test?</p>
               <p className="mt-1 text-sm text-slate-700">Answered: {practiceQuestions.filter(q => Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length} / {practiceQuestions.length}. Unanswered: {practiceQuestions.filter(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length}.</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {practiceQuestions.some(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)) && <button type="button" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white" onClick={() => { setPracticeConfirmSubmit(false); void navigatePractice(practiceQuestions.findIndex(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id))); }}>Answer Skipped Questions</button>}
+                {practiceQuestions.some(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)) && <button type="button" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white" onClick={() => { setPracticeConfirmSubmit(false); setPracticeSkippedReview(true); void navigatePractice(practiceQuestions.findIndex(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id))); }}>Answer Skipped Questions</button>}
                 <button type="button" disabled={practiceSubmitting || practiceSaving} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50" onClick={() => void submitPracticeTest()}>Submit Anyway</button>
                 <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm" onClick={() => setPracticeConfirmSubmit(false)}>Continue Test</button>
               </div>
@@ -4063,11 +4101,11 @@ export default function Home() {
   const subscribeButton = (extraClass = "") => (
     <button
       type="button"
-      onClick={isPaidMember ? undefined : openSubscribe}
-      disabled={isPaidMember}
+      onClick={!membershipChecked || isPaidMember ? undefined : openSubscribe}
+      disabled={signingOut || !membershipChecked || isPaidMember}
       className={`inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-lg border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-300 disabled:cursor-default disabled:border-emerald-300 disabled:bg-emerald-100 disabled:text-emerald-800 sm:px-3 sm:text-xs ${extraClass}`}
     >
-      {isPaidMember ? "✓ Premium Active" : "⭐ Subscribe ₹99"}
+      {signingOut ? "Signing out…" : !membershipChecked ? "Checking membership…" : isPaidMember ? "✓ Premium Active" : "⭐ Subscribe ₹99"}
     </button>
   );
 
@@ -4223,7 +4261,7 @@ export default function Home() {
             <div className="col-span-1 flex min-w-0">{subscribeButton("w-full sm:w-auto")}</div>
             <div className="col-span-1 flex flex-col gap-1.5 sm:gap-1">
               <a href="/dashboard" className="inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700">📊 Dashboard</a>
-              <button type="button" onClick={handleLogout} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">Logout</button>
+              <button type="button" onClick={handleLogout} disabled={signingOut} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">{signingOut ? "Signing out…" : "Logout"}</button>
             </div>
           </div>
         </div>
