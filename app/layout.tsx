@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: { default: "CBSE Question Bank | Class 9 & 10 MCQ Practice", template: "%s | CBSE Question Bank" },
   description: "CBSE Class 9 and 10 MCQ practice, chapter-wise questions, explanations and mock tests for English, Hindi, Mathematics, Science and Social Science.",
   applicationName: "CBSE Question Bank",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "CBSE MCQs", statusBarStyle: "default" },
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
   robots: { index: true, follow: true },
   openGraph: { type: "website", siteName: "CBSE Question Bank", url: "https://cbse-question-bank.vercel.app", title: "CBSE Question Bank | Class 9 & 10 MCQ Practice", description: "Chapter-wise CBSE MCQs and mock tests for Classes 9 and 10." },
 };
