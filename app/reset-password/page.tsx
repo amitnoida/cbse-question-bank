@@ -92,7 +92,7 @@ export default function ResetPasswordPage() {
         <h1 className="mt-2 text-3xl font-black text-slate-950">Set new password</h1>
         <p className="mt-2 text-sm text-slate-600">Create a secure password for your CBSE Question Bank account.</p>
         {checking ? <p className="mt-6 text-sm">Verifying your reset link…</p> : done ? (
-          <div className="mt-6 space-y-4"><p className="rounded-xl bg-green-50 p-4 text-green-800">Password updated successfully. Please sign in using your new password.</p><a className="block rounded-xl bg-indigo-600 px-4 py-3 text-center font-bold text-white" href="/">Go to sign in</a></div>
+          <div className="mt-6 space-y-4"><p className="rounded-xl bg-green-50 p-4 text-green-800">Password updated successfully. Please sign in using your new password.</p><a className="block rounded-xl bg-indigo-600 px-4 py-3 text-center font-bold text-white" href="/app">Go to sign in</a></div>
         ) : authorized ? (
           <form onSubmit={submit} className="mt-6 space-y-4">
             <label className="block text-sm font-semibold text-slate-700">New password<input type="password" autoComplete="new-password" minLength={8} required value={password} onChange={e => setPassword(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 p-3 text-base" /></label>
@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
             {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
             <button type="submit" disabled={busy} className="w-full rounded-xl bg-indigo-600 p-3 font-bold text-white disabled:opacity-60">{busy ? "Updating…" : "Update password"}</button>
           </form>
-        ) : <div className="mt-6"><p role="alert" className="text-sm text-red-700">{error || "This reset link is invalid or expired."}</p><a href="/" className="mt-4 inline-block font-semibold text-indigo-600">Return to website to request another link →</a></div>}
+        ) : <div className="mt-6"><p role="alert" className="text-sm text-red-700">{error || "This reset link is invalid or expired."}</p><a href="/app" className="mt-4 inline-block font-semibold text-indigo-600">Return to website to request another link →</a></div>}
       </section>
     </main>
   );

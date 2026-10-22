@@ -14,8 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CBSE Question Bank App",
-  description: "CBSE Class 9 and 10 Question Bank App",
+  metadataBase: new URL("https://cbse-question-bank.vercel.app"),
+  title: { default: "CBSE Question Bank | Class 9 & 10 MCQ Practice", template: "%s | CBSE Question Bank" },
+  description: "CBSE Class 9 and 10 MCQ practice, chapter-wise questions, explanations and mock tests for English, Hindi, Mathematics, Science and Social Science.",
+  applicationName: "CBSE Question Bank",
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", siteName: "CBSE Question Bank", url: "https://cbse-question-bank.vercel.app", title: "CBSE Question Bank | Class 9 & 10 MCQ Practice", description: "Chapter-wise CBSE MCQs and mock tests for Classes 9 and 10." },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
