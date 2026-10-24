@@ -68,6 +68,8 @@ const DEFAULT_FREE_QUESTIONS = 10;
 const MOCK_QUESTION_COUNT = 60;
 const MOCK_DURATION_SECONDS = 60 * 60;
 const ANNUAL_PLAN_PRICE = 99;
+// 2027-04-01 00:00 IST is 2027-03-31 18:30 UTC.
+const FREETRIAL_PROMO_END_UTC_MS = Date.parse("2027-03-31T18:30:00.000Z");
 // Prevent network requests from leaving the student on a loading screen forever.
 const SERVICE_REQUEST_TIMEOUT_MS = 12000;
 const AUTH_INITIALIZATION_TIMEOUT_MS = 15000;
@@ -302,6 +304,19 @@ export default function Home() {
 
   const [showSubscribeModal, setShowSubscribeModal] =
     useState(false);
+  // Null avoids server/client hydration mismatch before the browser clock is checked.
+  const [showFreetrialPromotion, setShowFreetrialPromotion] = useState<boolean | null>(null);
+  useEffect(() => {
+    const refreshPromotion = () => setShowFreetrialPromotion(Date.now() < FREETRIAL_PROMO_END_UTC_MS);
+    refreshPromotion();
+    const interval = window.setInterval(refreshPromotion, 30_000);
+    const onVisible = () => { if (document.visibilityState === "visible") refreshPromotion(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, []);
+  const promotionText = showFreetrialPromotion === null ? null : showFreetrialPromotion
+    ? "🎁 FREETRIAL — 100% off the ₹99 membership for eligible students. Free access ends 31 March 2027. Enter FREETRIAL in the coupon field; eligibility is verified when activating."
+    : "🎁 WELCOME10 — 10% welcome discount for eligible new students. Offer eligibility and redemption are verified before purchase.";
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] =
     useState(0);
@@ -3279,7 +3294,7 @@ export default function Home() {
                   <div className="min-w-0 flex-1">
                     <span className="inline-flex rounded-lg bg-white/10 px-2.5 py-1 text-[10px] font-extrabold uppercase text-indigo-200">PREMIUM</span>
                     <h3 className="mt-4 text-2xl font-black">Financial-Year Membership</h3>
-                    <p className="mt-2 text-sm font-bold text-amber-300">🎁 Welcome Discount Offer: WELCOME10 (10% off for eligible new students; subject to verification at purchase)</p>
+                    {promotionText && <p className="mt-2 text-sm font-bold text-amber-300">{promotionText}</p>}
                   </div>
                   <div className="shrink-0 sm:text-right">
                     <p className="whitespace-nowrap text-3xl font-black [overflow-wrap:normal]">₹99</p>
@@ -4116,7 +4131,7 @@ export default function Home() {
               <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
                 Premium Access
               </h2>
-              <p className="mt-2 text-sm font-bold text-amber-700">🎁 Welcome Discount Offer: WELCOME10 — 10% for eligible new students. Offer eligibility and redemption must be confirmed before payment.</p>
+              {promotionText && <p className="mt-2 text-sm font-bold text-amber-700">{promotionText}</p>}
 
               <p className="mt-1.5 text-sm leading-5 text-slate-500">
                 Get access to paid practice questions and the Real Mock Test.
@@ -4225,11 +4240,11 @@ export default function Home() {
 
       <main className="min-h-screen overflow-x-hidden bg-slate-50">
       <style>{`@keyframes welcome10-scroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } } @media (prefers-reduced-motion: reduce) { .welcome10-scroll { animation: none !important; transform: none !important; } }`}</style>
-      <div className="w-full overflow-hidden border-b border-amber-300 bg-amber-100 py-2 text-amber-950" role="note" aria-label="Welcome discount offer">
+      {promotionText && <div className="w-full overflow-hidden border-b border-amber-300 bg-amber-100 py-2 text-amber-950" role="note" aria-label="Current membership offer">
         <div className="welcome10-scroll inline-block whitespace-nowrap text-xs font-extrabold sm:text-sm" style={{ animation: "welcome10-scroll 16s linear infinite", whiteSpace: "nowrap", width: "max-content" }}>
-          🎁 WELCOME10 — 10% Welcome Discount for eligible new students! &nbsp; ✨ Use code WELCOME10 at checkout — subject to verification. &nbsp; 🎁
+          {promotionText}
         </div>
-      </div>
+      </div>}
       {/* HEADER */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
