@@ -5,3 +5,8 @@
 h1,h2,h3,h4,h5,h6,p,span,button,select,option{overflow-wrap:anywhere}button,input,select,textarea{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{cursor:not-allowed}input::placeholder{color:#94a3b8}select{cursor:pointer}select:disabled{cursor:not-allowed}button,select{touch-action:manipulation}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(29,78,216,.25);outline-offset:2px}::selection{background:#bfdbfe;color:#172554}button,input,select,textarea{transition:border-color .2s ease,background-color .2s ease,box-shadow .2s ease,color .2s ease,transform .2s ease}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#f1f5f9}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}::-webkit-scrollbar-thumb:hover{background:#94a3b8}
 @media(max-width:639px){html{font-size:16px}body{width:100%}input,select,textarea{font-size:16px}button:active:not(:disabled){transform:scale(.99)}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+
+/* Readable keyboard navigation across links, cards and image-rich questions. */
+a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline:3px solid #4f46e5; outline-offset:4px; border-radius:6px; }
+@media (prefers-contrast: more) { :root { --muted:#334155; --border:#64748b; } }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { QuestionContent } from "../question-content";
 import { supabase } from "../../lib/supabase";
 
 type ClassRow = {
@@ -3285,7 +3286,7 @@ export default function Home() {
                           </span>
 
                           <p className="min-w-0 text-sm font-semibold leading-6 text-slate-900 sm:text-base">
-                            {q.question_text}
+                            <QuestionContent text={q.question_text} />
                           </p>
                         </div>
 
@@ -3293,7 +3294,7 @@ export default function Home() {
                           {[q.option_a, q.option_b, q.option_c, q.option_d].map((option, optionIndex) => {
                             const letter = String.fromCharCode(65 + optionIndex);
                             return <div key={letter} className={`rounded-lg border px-3 py-2 text-sm ${letter === correct ? "border-emerald-300 bg-emerald-50" : letter === user ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"}`}>
-                              <strong>{letter}.</strong> {option} {letter === correct ? "✓ Correct" : letter === user ? "• Your answer" : ""}
+                              <strong>{letter}.</strong> <QuestionContent text={option} /> {letter === correct ? "✓ Correct" : letter === user ? "• Your answer" : ""}
                             </div>;
                           })}
                         </div>
@@ -3304,7 +3305,7 @@ export default function Home() {
                             <strong>
                               Explanation:
                             </strong>{" "}
-                            {q.explanation}
+                            <QuestionContent text={q.explanation} />
                           </p>
                         )}
                       </div>
@@ -3424,7 +3425,7 @@ export default function Home() {
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
             <p className="text-lg font-semibold leading-7 text-slate-950 sm:text-xl sm:leading-8">
-              {current.question_text}
+              <QuestionContent text={current.question_text} />
             </p>
 
             <div className="mt-6 space-y-3 sm:mt-7">
@@ -3462,7 +3463,7 @@ export default function Home() {
                       </span>
 
                       <span className="min-w-0 flex-1 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
-                        {option}
+                        <QuestionContent text={option} />
                       </span>
                     </button>
                   );
@@ -3660,7 +3661,7 @@ export default function Home() {
                           </span>
 
                           <p className="min-w-0 text-sm font-semibold leading-6 text-slate-900 sm:text-base">
-                            {q.question_text}
+                            <QuestionContent text={q.question_text} />
                           </p>
                         </div>
 
@@ -3668,7 +3669,7 @@ export default function Home() {
                           {[q.option_a, q.option_b, q.option_c, q.option_d].map((option, optionIndex) => {
                             const letter = String.fromCharCode(65 + optionIndex);
                             return <div key={letter} className={`rounded-lg border px-3 py-2 text-sm ${letter === correct ? "border-emerald-300 bg-emerald-50" : letter === user ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"}`}>
-                              <strong>{letter}.</strong> {option} {letter === correct ? "✓ Correct" : letter === user ? "• Your answer" : ""}
+                              <strong>{letter}.</strong> <QuestionContent text={option} /> {letter === correct ? "✓ Correct" : letter === user ? "• Your answer" : ""}
                             </div>;
                           })}
                         </div>
@@ -3679,7 +3680,7 @@ export default function Home() {
                             <strong>
                               Explanation:
                             </strong>{" "}
-                            {q.explanation}
+                            <QuestionContent text={q.explanation} />
                           </p>
                         )}
                       </div>
@@ -3761,7 +3762,7 @@ export default function Home() {
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
             <p className="text-lg font-semibold leading-7 text-slate-950 sm:text-xl sm:leading-8">
-              {current.question_text}
+              <QuestionContent text={current.question_text} />
             </p>
 
             <div className="mt-6 space-y-3 sm:mt-7">
@@ -3808,7 +3809,7 @@ export default function Home() {
                       </span>
 
                       <span className="min-w-0 flex-1 pt-0.5 text-sm leading-6 text-slate-800 sm:text-base">
-                        {option}
+                        <QuestionContent text={option} />
                       </span>
                       {showCorrect && <span className="shrink-0 text-xs font-bold text-emerald-800">✓ Correct</span>}
                       {showWrong && <span className="shrink-0 text-xs font-bold text-red-800">✕ Your answer</span>}
@@ -3823,7 +3824,7 @@ export default function Home() {
             <div role="status" className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-slate-900">
               <p className="font-extrabold">{practiceAnswers[current.id] === current.correct_option.trim().toUpperCase() ? "✅ Correct answer!" : practiceAnswers[current.id] ? "❌ Incorrect answer" : "⏭️ Question skipped"}</p>
               <p>Correct answer: <strong>{current.correct_option.toUpperCase()} — {current.options[current.correct_option.toUpperCase().charCodeAt(0) - 65]}</strong></p>
-              {current.explanation && <p className="mt-2">{current.explanation}</p>}
+              {current.explanation && <p className="mt-2"><QuestionContent text={current.explanation} /></p>}
             </div>
           ) : (
             <div className="mt-4">
@@ -4074,20 +4075,19 @@ export default function Home() {
                 : ""}
               .
               <br />
-              Let's prepare.
+              What will you learn today?
             </h2>
 
             <p className="mt-4 max-w-2xl text-sm leading-6 text-indigo-100 sm:mt-5 sm:text-base sm:leading-7">
               Your{" "}
               {enrolledClass?.class_name ||
                 "enrolled class"}{" "}
-              is locked to your account. Practice MCQ
-              questions by subject and chapter, or take
+              is ready to explore. Practice by subject and chapter, or take
               a 60-question Real Mock Test.
             </p>
           </div>
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/20 bg-indigo-50 shadow-2xl shadow-indigo-950/30 lg:max-w-md">
-            <img src="/images/cbse-students.webp" alt="Two students ready to learn" className="h-auto max-h-[390px] w-full object-contain" />
+            <img src="/images/cbse-students.webp" alt="Two students ready to learn" className="h-auto max-h-[220px] sm:max-h-[300px] w-full object-contain" />
           </div>
         </div>
       </section>
@@ -4110,8 +4110,7 @@ export default function Home() {
               </h3>
 
               <p className="mt-1 text-sm leading-5 text-slate-500">
-                Your class is locked. Select a subject
-                and optionally choose a chapter.
+                Choose a subject, then a chapter to focus your practice.
               </p>
             </div>
 
@@ -4161,11 +4160,12 @@ export default function Home() {
 
             {/* SUBJECT */}
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
+              <label htmlFor="practice-subject" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
                 Subject
               </label>
 
               <select
+                id="practice-subject"
                 value={selectedSubject}
                 aria-busy={subjectQuestionsLoading}
                 onChange={(e) =>
