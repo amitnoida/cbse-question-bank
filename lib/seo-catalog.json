@@ -271,7 +271,7 @@
     "chapterNumber": 10,
     "title": "4-gons (Quadrilaterals)",
     "slug": "4-gons-quadrilaterals-187",
-    "activeQuestionCount": 45,
+    "activeQuestionCount": 138,
     "hindiCourse": null
   },
   {
@@ -293,7 +293,7 @@
     "chapterNumber": 13,
     "title": "Surface Area and Volume",
     "slug": "surface-area-and-volume-189",
-    "activeQuestionCount": 45,
+    "activeQuestionCount": 149,
     "hindiCourse": null
   },
   {
@@ -348,7 +348,7 @@
     "chapterNumber": 5,
     "title": "Linear Equations in Two Variables",
     "slug": "linear-equations-in-two-variables-4",
-    "activeQuestionCount": 45,
+    "activeQuestionCount": 152,
     "hindiCourse": null
   },
   {
@@ -381,7 +381,7 @@
     "chapterNumber": 14,
     "title": "Statistics",
     "slug": "statistics-12",
-    "activeQuestionCount": 45,
+    "activeQuestionCount": 152,
     "hindiCourse": null
   },
   {
@@ -1702,6 +1702,28 @@
     "title": "Consumer Rights",
     "slug": "consumer-rights-177",
     "activeQuestionCount": 68,
+    "hindiCourse": null
+  },
+  {
+    "classNumber": 9,
+    "subject": "Mathematics",
+    "subjectSlug": "mathematics",
+    "chapterId": 636,
+    "chapterNumber": 16,
+    "title": "Propositions and their Converses",
+    "slug": "propositions-and-their-converses-636",
+    "activeQuestionCount": 100,
+    "hindiCourse": null
+  },
+  {
+    "classNumber": 9,
+    "subject": "Mathematics",
+    "subjectSlug": "mathematics",
+    "chapterId": 637,
+    "chapterNumber": 17,
+    "title": "The World of Algorithms",
+    "slug": "the-world-of-algorithms-637",
+    "activeQuestionCount": 92,
     "hindiCourse": null
   }
 ]
