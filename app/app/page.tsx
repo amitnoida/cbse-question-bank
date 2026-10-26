@@ -4423,6 +4423,11 @@ export default function Home() {
                 )}
 
                 <p className="mb-3 text-xs font-semibold text-slate-700">Your test history is saved for 2 weeks only.</p>
+                {practiceSubmitError && (
+                  <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800 sm:col-span-2">
+                    {practiceSubmitError}
+                  </p>
+                )}
                 <button
                   onClick={() => void startPracticeTest()}
                   disabled={practiceStarting ||
