@@ -17,10 +17,12 @@
 - Supabase functions present and executable by authenticated role; SQL 03 not yet applied.
 
 ## Outstanding release gates (NOT YET COMPLETE)
-- [ ] Confirm current preview build is READY at the latest review branch commit.
+- [ ] Confirm current preview build is READY at the latest review branch commit (documentation-only commits can trigger new previews).
 - [ ] Authenticated free/paid/admin workflows tested on the deployed preview (not only localhost).
 - [ ] Verify old production account and mock history against preview, including read-only error-free review.
 - [ ] Confirm production database backup and previous deployment rollback are available.
+- [ ] Resolve release-impacting Supabase advisor warnings: check anon EXECUTE on SECURITY DEFINER `handle_new_user`, `start_chapter_mock`, `start_mock_paper`, `submit_practice_answer_locked`; also review mutable search paths on `get_financial_year_end` and `cbse_protect_practice_answers`. Warnings are not confirmed exploits.
+- [ ] Confirm rollback does not rely on direct `practice_sessions UPDATE` (permission already absent before cutover).
 - [ ] Obtain explicit production release authorization from project owner.
 - [ ] Merge only the reviewed commit to main and verify correct Vercel PRODUCTION build.
 - [ ] Smoke test production paid/free/admin workflows before SQL 03.
@@ -31,6 +33,6 @@
 ## Emergency only
 1. If cutover blocks legitimate production workflows, use **security-release/04_EMERGENCY_RESTORE_ACCESS.sql** under incident approval.
 2. Revert frontend to known-good production release (commit ea43c2b at time of review) and verify.
-3. Emergency restore reopens known direct-access security weaknesses; investigate and replan a safe cutover.
+3. Emergency restore reopens known direct-access security weaknesses; investigate and replan a safe cutover. The reviewed emergency script excludes `practice_sessions UPDATE`, which was not granted at audit time; confirm the older frontend can operate under that baseline.
 
 Never commit Playwright auth files, tokens, browser storage state or local .env credentials.
