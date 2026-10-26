@@ -252,10 +252,7 @@ export default function Home() {
   ========================= */
 
   const [mockMode, setMockMode] = useState(false);
-  const [mockScope, setMockScope] = useState<"full" | "chapters">("full");
-  const [mockChapterIds, setMockChapterIds] = useState<number[]>([]);
   const [mockDuration, setMockDuration] = useState(MOCK_DURATION_SECONDS);
-  const [chapterMockId, setChapterMockId] = useState<string | null>(null);
   const [mockReviewFilter, setMockReviewFilter] = useState<"all" | "wrong">("all");
   const [mockQuestions, setMockQuestions] = useState<MCQ[]>(
     []
@@ -1765,7 +1762,7 @@ export default function Home() {
       setPracticeSubmitError("Your practice session is missing. Please sign in again.");
       return;
     }
-    if (practiceSubmitting || practiceSubmitted) return;
+    if (practiceSubmitting || practiceSubmitted || practiceSaveLock.current) return;
     if (!practiceQuestions.length) {
       setPracticeSubmitError("There are no questions to submit.");
       return;
@@ -1859,25 +1856,12 @@ export default function Home() {
     if (!currentUser || !selectedSubjectObject || mockStarting) return;
     if (!isPaidMember) { openSubscribe(); return; }
     if (subjectQuestionsLoading) { setMockSubmitError("Wait for questions to load."); return; }
-    if (mockScope === "full" && selectedSubjectQuestionCount < MOCK_QUESTION_COUNT) return;
-    if (mockScope === "chapters" && mockChapterIds.length === 0) { setMockSubmitError("Select at least one chapter."); return; }
-    if (mockScope === "full" && selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED") {
+    if (selectedSubjectQuestionCount < MOCK_QUESTION_COUNT) return;
+    if (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED") {
       setMockSubmitError("This paper is completed. Choose another paper or a retake."); return;
     }
     setMockStarting(true);
     try {
-      if (mockScope === "chapters") {
-        const { data, error } = await supabase.rpc("mock_get_or_start_chapter", {
-          p_subject_id: selectedSubjectObject.id, p_chapter_ids: mockChapterIds,
-        });
-        if (error || !data) throw error || new Error("Unable to load chapter mock.");
-        const paper = data as { id: string; question_ids: number[] };
-        const byId = new Map(selectedSubjectQuestions.map(q => [q.id, q]));
-        const assigned = paper.question_ids.map(id => byId.get(Number(id)));
-        if (assigned.some(q => !q) || !assigned.length) throw new Error("Assigned questions unavailable. Refresh and retry.");
-        setChapterMockId(paper.id); setActiveMockPaperId(null);
-        await openSavedMock("chapters", paper.id, assigned as MCQ[]);
-      } else {
         // Resume a specific unfinished retake instead of accidentally allocating another.
         const resumeRetake = selectedMockPaper.startsWith("resume-retake:")
           ? mockPapers.find(p => p.id === selectedMockPaper.slice("resume-retake:".length)
@@ -1900,10 +1884,9 @@ export default function Home() {
         const byId = new Map(selectedSubjectQuestions.map(q => [q.id, q]));
         const assigned = paper.question_ids.map(id => byId.get(Number(id)));
         if (assigned.some(q => !q) || assigned.length !== MOCK_QUESTION_COUNT) throw new Error("Assigned questions unavailable. Contact support.");
-        setChapterMockId(null); setActiveMockPaperId(paper.id);
+        setActiveMockPaperId(paper.id);
         await openSavedMock("full", paper.id, assigned as MCQ[]);
         await refreshMockPapers(selectedSubjectObject.id);
-      }
     } catch (err: any) { setMockSubmitError(err?.message || "Unable to resume mock test."); }
     finally { setMockStarting(false); }
   }
@@ -1944,8 +1927,8 @@ export default function Home() {
       const { error } = await supabase.rpc("mock_finish_exam", { p_session_id: mockSessionId });
       if (error) throw error;
       const { data: completedData, error: completedError } = await supabase.rpc("mock_open_exam", {
-        p_kind: chapterMockId ? "chapters" : "full",
-        p_paper_id: chapterMockId || activeMockPaperId,
+        p_kind: "full",
+        p_paper_id: activeMockPaperId,
       });
       if (!completedError && completedData) {
         const completed = Array.isArray(completedData) ? completedData[0] : completedData;
@@ -3882,7 +3865,7 @@ export default function Home() {
             )}
           </div>
           {practiceQuestions.length > 0 && practiceIndex < practiceQuestions.length - 1 && (
-            <button type="button" disabled={practiceSubmitting || practiceSaving} onClick={() => setPracticeConfirmSubmit(true)} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Practice Test</button>
+            <button type="button" disabled={practiceSubmitting || practiceSaving} onClick={() => { if (practiceQuestions.every(q => Object.prototype.hasOwnProperty.call(practiceAnswers, q.id))) void submitPracticeTest(); else setPracticeConfirmSubmit(true); }} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Practice Test</button>
           )}
           {practiceConfirmSubmit && practiceQuestions.some(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)) && (
             <div role="dialog" aria-label="Confirm practice submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
@@ -4439,6 +4422,7 @@ export default function Home() {
                   </div>
                 )}
 
+                <p className="mb-3 text-xs font-semibold text-slate-700">Your test history is saved for 2 weeks only.</p>
                 <button
                   onClick={() => void startPracticeTest()}
                   disabled={practiceStarting ||
@@ -4473,11 +4457,11 @@ export default function Home() {
                 </div>
 
                 <h3 className="mt-2.5 text-xl font-bold sm:mt-3 sm:text-2xl">
-                  Chapter-Based &amp; Full Syllabus tests
+                  Full Syllabus Mock Tests
                 </h3>
 
                 <p className="mt-1 max-w-xl text-sm leading-6 text-slate-700">
-                  Choose Chapter-Based to test topics already studied, or Full Syllabus for 60-question numbered papers and retakes.
+                  Take 60-question numbered papers covering the full subject syllabus, followed by randomized retakes.
                 </p>
 
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:max-w-sm">
@@ -4510,7 +4494,7 @@ export default function Home() {
                   ) : (
                     <p
                       className={`text-xs font-semibold ${
-                        mockScope === "chapters" || selectedSubjectQuestionCount >=
+                        selectedSubjectQuestionCount >=
                         MOCK_QUESTION_COUNT
                           ? "text-emerald-700"
                           : "text-red-700"
@@ -4518,7 +4502,7 @@ export default function Home() {
                     >
                       {selectedSubjectQuestionCount} active
                       questions available in this subject.
-                      {mockScope === "full" && selectedSubjectQuestionCount <
+                      {selectedSubjectQuestionCount <
                         MOCK_QUESTION_COUNT &&
                         ` ${MOCK_QUESTION_COUNT} are required for Full Syllabus mode.`}
                     </p>
@@ -4527,21 +4511,7 @@ export default function Home() {
               </div>
 
               <div>
-                <div className="mb-4 rounded-xl border border-orange-300 bg-white/80 p-4">
-                  <p className="mb-2 text-sm font-extrabold">Choose test type</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" aria-pressed={mockScope === "chapters"} onClick={() => setMockScope("chapters")} className={`min-h-11 rounded-lg border p-2 text-sm font-bold ${mockScope === "chapters" ? "bg-orange-600 text-white" : "bg-white"}`}>📚 Chapter-Based</button>
-                    <button type="button" aria-pressed={mockScope === "full"} onClick={() => setMockScope("full")} className={`min-h-11 rounded-lg border p-2 text-sm font-bold ${mockScope === "full" ? "bg-orange-600 text-white" : "bg-white"}`}>🏆 Full Syllabus</button>
-                  </div>
-                  {mockScope === "chapters" && <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
-                    <p className="text-xs text-slate-700">Select one or more chapters. Up to 60 random questions; 60-minute timer.</p>
-                    {availableChapters.map(ch => <label key={ch.id} className="flex min-h-10 items-center gap-2 rounded-lg border bg-white p-2 text-sm">
-                      <input type="checkbox" checked={mockChapterIds.includes(ch.id)} onChange={e => setMockChapterIds(prev => e.target.checked ? [...prev, ch.id] : prev.filter(id => id !== ch.id))} />
-                      <span>{ch.chapter_number ? `Chapter ${ch.chapter_number}: ` : ""}{ch.chapter_name}</span>
-                    </label>)}
-                  </div>}
-                </div>
-                {mockScope === "full" && selectedSubject !== ALL && numberedMockCount > 0 && (
+                {selectedSubject !== ALL && numberedMockCount > 0 && (
                   <div className="mb-4 rounded-lg border border-orange-300 bg-white/70 p-3">
                     <label htmlFor="mock-paper-selector" className="mb-2 block text-sm font-bold">
                       Choose a numbered paper or retake
@@ -4579,15 +4549,15 @@ export default function Home() {
                   </div>
                 )}
 
+                <p className="mb-3 text-xs font-semibold text-slate-700">Your test history is saved for 2 weeks only.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     onClick={startMockTest}
-                    disabled={mockStarting || mockHistoryLoading || selectedSubject === ALL || (mockScope === "full" ? (!mockCanStart || (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED")) : mockChapterIds.length === 0)}
+                    disabled={mockStarting || mockHistoryLoading || selectedSubject === ALL || (!mockCanStart || (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED"))}
                     className="min-h-12 w-full rounded-lg bg-orange-500 px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {selectedSubject === ALL
                       ? "Select Subject First"
-                      : mockScope === "chapters" ? (mockChapterIds.length ? "Start Chapter Mock →" : "Choose Chapters")
                       : selectedSubjectQuestionCount <
                         MOCK_QUESTION_COUNT
                       ? `Need ${MOCK_QUESTION_COUNT} Questions`
