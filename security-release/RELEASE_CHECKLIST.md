@@ -18,13 +18,14 @@
 
 ## Outstanding release gates (NOT YET COMPLETE)
 - [ ] Confirm current preview build is READY at the latest review branch commit (documentation-only commits can trigger new previews).
-- [ ] Authenticated free/paid/admin workflows tested on the deployed preview (not only localhost).
+- [ ] Authenticated free/paid/admin workflows tested on the deployed preview (not only localhost). Preview Supabase URL/anon key settings exist, but `SUPABASE_SERVICE_ROLE_KEY` is configured for production only, so preview admin-upgrade API routes may fail until separately and securely configured; do not copy the production secret without a dedicated preview-scope decision.
 - [ ] Verify old production account and mock history against preview, including read-only error-free review.
 - [x] Project owner confirmed a production database backup was already completed (26 Oct 2026); restoration has not been independently tested.
 - [ ] Confirm the previous production deployment and rollback route remain available before cutover.
 - [x] Inspected SECURITY DEFINER functions, their existing auth.uid() checks, and both mutable search-path function bodies.
 - [x] Prepared **security-release/05_RPC_EXPOSURE_HARDENING_REVIEW.sql** for review, not executed. It narrows anonymous RPC access and fixes two function search paths.
 - [ ] Review and validate SQL 05 in a nonproduction environment before separately approving any production execution. Warnings are not proof of an exploit.
+- [ ] Review Vercel production `SUPABASE_SERVICE_ROLE_KEY` visibility: platform reports `readable-secret`. Address as an independent secret-management improvement, without exposing or printing the value.
 - [ ] Confirm rollback does not rely on direct `practice_sessions UPDATE` (permission already absent before cutover).
 - [ ] Obtain explicit production release authorization from project owner.
 - [ ] Merge only the reviewed commit to main and verify correct Vercel PRODUCTION build.
