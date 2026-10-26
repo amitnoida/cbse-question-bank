@@ -45,3 +45,10 @@ Never commit Playwright auth files, tokens, browser storage state or local .env 
 - Current Playwright end-to-end tests exercised localhost connected to production Supabase; this is not equivalent to authenticated end-to-end tests against the Vercel preview.
 - Vercel preview unauthenticated GET route smoke tests pass, build is READY and the latest branch SHA must be checked again after every documentation commit.
 - Do not apply SQL 03 or SQL 05 merely because Vercel is READY. Merge, cutover and role/privilege changes require explicit production release approval.
+
+## Preview login incident (26 October 2026)
+- User reproduced generic `We'll Be Back Shortly` after sign-in on the original preview.
+- Root cause configuration mismatch found: original generic preview `NEXT_PUBLIC_SUPABASE_URL` and publishable key differ from the tested production Supabase project.
+- Added **branch-scoped preview** overrides for `security-fixes-review` only, pointing to the same Supabase configuration used by local Playwright tests; no production environment variables changed.
+- IMPORTANT: this branch preview now uses live production Supabase; restrict browser testing to designated test accounts. Do not submit destructive writes or connect ordinary student accounts.
+- A new Vercel preview build is required after the environment override. The preview sign-in outcome must be retested before approving release.
