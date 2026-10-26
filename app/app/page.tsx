@@ -984,11 +984,27 @@ export default function Home() {
       try {
         // Question bodies are delivered through a server-authorized RPC.
         // Correct answers and explanations are never sent before a saved answer.
-        const { data: questionData, error: questionError } = await supabase.rpc("cbse_subject_questions_v1", {
-          p_subject_id: subject.id,
-        });
-        if (questionError) throw questionError;
-        const { data: countsData, error: countsError } = await supabase.rpc("cbse_chapter_counts_v1", { p_subject_id: subject.id });
+        // PostgREST limits a single response; fetch secure, ordered pages as the bank grows.
+        const loadQuestionPages = async (): Promise<QuestionRow[]> => {
+          const result: QuestionRow[] = [];
+          const pageSize = 500;
+          for (let offset = 0; !cancelled; offset += pageSize) {
+            const { data, error } = await supabase.rpc("cbse_subject_questions_v1", {
+              p_subject_id: subject.id,
+            }).order("id", { ascending: true }).range(offset, offset + pageSize - 1);
+            if (error) throw error;
+            if (cancelled) return [];
+            const page = (data || []) as QuestionRow[];
+            result.push(...page);
+            if (page.length < pageSize) break;
+          }
+          return result;
+        };
+        const [questionData, countsResponse] = await Promise.all([
+          loadQuestionPages(),
+          supabase.rpc("cbse_chapter_counts_v1", { p_subject_id: subject.id }),
+        ]);
+        const { data: countsData, error: countsError } = countsResponse;
         if (countsError) throw countsError;
         if (!cancelled) setChapterQuestionCounts(Object.fromEntries(((countsData || []) as Array<{chapter_id:number,question_count:number}>).map(c => [Number(c.chapter_id),Number(c.question_count)])));
         const rows = (questionData || []) as QuestionRow[];
