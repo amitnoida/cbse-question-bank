@@ -170,6 +170,7 @@ export default function Home() {
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [chapters, setChapters] = useState<ChapterRow[]>([]);
   const [questions, setQuestions] = useState<MCQ[]>([]);
+  const [chapterQuestionCounts, setChapterQuestionCounts] = useState<Record<number,number>>({});
 
   const [loading, setLoading] = useState(true);
   const [subjectQuestionsLoading, setSubjectQuestionsLoading] = useState(false);
@@ -963,6 +964,7 @@ export default function Home() {
   useEffect(() => {
     if (!currentUser || selectedSubject === ALL || !subjects.length || !chapters.length || !classes.length) {
       setQuestions([]);
+      setChapterQuestionCounts({});
       setSubjectQuestionsLoading(false);
       return;
     }
@@ -975,11 +977,19 @@ export default function Home() {
     if (!chapterIds.length) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
     setSubjectQuestionsLoading(true);
     setQuestions([]);
+    setChapterQuestionCounts({});
     (async () => {
       try {
-        const rows = await fetchAllRows<QuestionRow>("questions",
-          "id,chapter_id,question_text,option_a,option_b,option_c,option_d,correct_option,explanation,difficulty,marks,question_type,is_active",
-          query => query.eq("question_type", "MCQ").in("chapter_id", chapterIds));
+        // Question bodies are delivered through a server-authorized RPC.
+        // Correct answers and explanations are never sent before a saved answer.
+        const { data: questionData, error: questionError } = await supabase.rpc("cbse_subject_questions_v1", {
+          p_subject_id: subject.id,
+        });
+        if (questionError) throw questionError;
+        const { data: countsData, error: countsError } = await supabase.rpc("cbse_chapter_counts_v1", { p_subject_id: subject.id });
+        if (countsError) throw countsError;
+        if (!cancelled) setChapterQuestionCounts(Object.fromEntries(((countsData || []) as Array<{chapter_id:number,question_count:number}>).map(c => [Number(c.chapter_id),Number(c.question_count)])));
+        const rows = (questionData || []) as QuestionRow[];
         if (cancelled) return;
         const chapterMap = new Map(chapterRows.map(c => [c.id, c]));
         const className = classes.find(c => c.id === classId)?.class_name || "";
@@ -1521,7 +1531,16 @@ export default function Home() {
   );
 
   const chapterSelected = selectedChapter !== ALL;
-  const totalPracticeSets = Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE);
+  const selectedChapterId = chapterSelected
+    ? availableChapters.find(c => c.chapter_name === selectedChapter)?.id ?? null : null;
+  const questionCountForSelection = isPaidMember ? filteredQuestions.length
+    : (selectedChapterId === null
+        ? Object.values(chapterQuestionCounts).reduce((sum,n) => sum+n,0)
+        : (chapterQuestionCounts[selectedChapterId] ?? 0));
+  const freeQuestionCountForSelection = Math.min(questionCountForSelection, selectedSubjectRemaining);
+  const totalPracticeSets = isPaidMember
+    ? Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE)
+    : (questionCountForSelection > 0 ? 1 : 0);
 
   // Free members retain their 10-question subject allowance. They can
   // access eligible questions within the selected set, not the entire bank.
@@ -1601,61 +1620,45 @@ export default function Home() {
       const chapterId = chapterSelected
         ? availableChapters.find(c => c.chapter_name === selectedChapter)?.id ?? null
         : null;
-      const findSession = () => {
-        let query = supabase.from("practice_sessions")
-          .select("id,question_ids,answers,current_index,started_at")
-          .eq("student_id", currentUser.id)
-          .eq("subject_id", selectedSubjectObject.id)
-          .eq("set_number", practiceSet)
-          .eq("status", "IN_PROGRESS");
-        query = chapterId === null ? query.is("chapter_id", null) : query.eq("chapter_id", chapterId);
-        return query.order("created_at", { ascending: false }).limit(1).maybeSingle();
-      };
-      let { data: existing, error: readError } = await findSession();
-      if (readError) throw readError;
-      let assigned: MCQ[];
-      let answers: Record<number, string> = {};
-      let index = 0;
-      let started = Date.now();
-      let sessionId: string;
-      if (existing) {
-        const byId = new Map(questions.map(q => [q.id, q]));
-        assigned = (existing.question_ids as number[]).map(id => byId.get(Number(id))).filter((q): q is MCQ => !!q);
-        if (assigned.length !== existing.question_ids.length) {
-          throw new Error("Some saved questions are no longer available. Please contact support.");
-        }
-        answers = (existing.answers || {}) as Record<number, string>;
-        index = Math.min(Math.max(0, existing.current_index ?? 0), assigned.length - 1);
-        if (answers[assigned[index]?.id] && index < assigned.length - 1) index += 1;
-        started = new Date(existing.started_at).getTime();
-        sessionId = existing.id;
-      } else {
-        assigned = eligibleSetQuestions;
-        if (!assigned.length) throw new Error(isPaidMember ? "No questions available for this set." : "No free questions remain for this subject.");
-        const { data: created, error: createError } = await supabase.from("practice_sessions")
-          .insert({ student_id: currentUser.id, subject_id: selectedSubjectObject.id,
-            chapter_id: chapterId, set_number: practiceSet,
-            question_ids: assigned.map(q => q.id), answers: {}, current_index: 0 })
-          .select("id,started_at").single();
-        if (createError || !created) {
-          // If another tab created the session concurrently, load that session.
-          const retry = await findSession();
-          if (retry.error || !retry.data) throw createError || retry.error || new Error("Unable to create practice session.");
-          const row = retry.data;
-          const byId = new Map(questions.map(q => [q.id, q]));
-          assigned = (row.question_ids as number[]).map(id => byId.get(Number(id))).filter((q): q is MCQ => !!q);
-          if (assigned.length !== row.question_ids.length) throw new Error("Saved questions are unavailable.");
-          answers = (row.answers || {}) as Record<number, string>;
-          index = Math.min(Math.max(0, row.current_index ?? 0), assigned.length - 1);
-          if (answers[assigned[index]?.id] && index < assigned.length - 1) index += 1;
-          started = new Date(row.started_at).getTime();
-          sessionId = row.id;
-        } else {
-          sessionId = created.id;
-          started = new Date(created.started_at).getTime();
-        }
+      // Always resume or assign on the server. The client never picks free question IDs.
+      const { data: session, error: sessionError } = await supabase.rpc("cbse_start_practice_v1", {
+        p_subject_id: selectedSubjectObject.id,
+        p_chapter_id: chapterId,
+        p_set_number: practiceSet,
+      });
+      if (sessionError || !session) throw sessionError || new Error("Could not start practice.");
+      // Secure, session-scoped delivery is necessary for free chapter selection and
+      // for resuming assignments that are not in the current subject listing.
+      const { data: delivered, error: deliveryError } = await supabase.rpc("cbse_practice_session_questions_v1", {
+        p_session_id: session.id,
+      });
+      if (deliveryError) throw deliveryError;
+      const byChapterId = new Map(availableChapters.map(ch => [ch.id, ch.chapter_name]));
+      const className = enrolledClass?.class_name || "";
+      let assigned: MCQ[] = ((delivered || []) as QuestionRow[]).map(q => ({
+        ...q,
+        classId: enrolledClassId!, subjectId: selectedSubjectObject.id,
+        className, subjectName: selectedSubjectObject.subject_name,
+        chapterName: byChapterId.get(q.chapter_id) || "",
+        options: [q.option_a,q.option_b,q.option_c,q.option_d].filter(Boolean),
+      }));
+      if (!assigned.length || assigned.length !== (session.question_ids as number[]).length) {
+        throw new Error("Saved practice questions could not be loaded. Contact support.");
       }
-      setPracticeSessionId(sessionId);
+      const answers = (session.answers || {}) as Record<number,string>;
+      let index = Math.min(Math.max(0,session.current_index ?? 0),assigned.length-1);
+      if (answers[assigned[index]?.id] && index < assigned.length-1) index++;
+      const answeredIds = assigned.filter(q => answers[q.id] != null).map(q => q.id);
+      if (answeredIds.length) {
+        const { data: feedback, error: feedbackError } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: answeredIds });
+        if (feedbackError) throw feedbackError;
+        const byFeedback = new Map(((feedback || []) as Array<{id:number,correct_option:string,explanation:string|null}>).map(q => [Number(q.id),q]));
+        assigned = assigned.map(q => {
+          const item = byFeedback.get(q.id);
+          return item ? {...q,correct_option:item.correct_option,explanation:item.explanation} : q;
+        });
+      }
+      setPracticeSessionId(session.id);
       setPracticeQuestions(assigned);
       setPracticeIndex(index);
       setPracticeAnswers(answers);
@@ -1664,22 +1667,21 @@ export default function Home() {
       setPracticeSubmitted(false);
       setPracticeConfirmSubmit(false);
       setPracticeSubmitting(false);
-      setPracticeStartedAt(started);
+      setPracticeStartedAt(new Date(session.started_at).getTime());
       setPracticeMode(true);
       setMockMode(false);
     } catch (err: any) {
-      setPracticeSubmitError(err?.message || "Could not load or save practice progress.");
+      setPracticeSubmitError(err?.message || "Could not load or resume practice.");
     } finally {
       setPracticeStarting(false);
     }
   }
 
-  async function persistPracticeProgress(nextAnswers: Record<number, string>, nextIndex: number) {
+  async function persistPracticeProgress(_nextAnswers: Record<number, string>, nextIndex: number) {
     if (!currentUser || !practiceSessionId) throw new Error("Practice session is missing.");
-    const { data, error: saveError } = await supabase.from("practice_sessions")
-      .update({ current_index: nextIndex, updated_at: new Date().toISOString() })
-      .eq("id", practiceSessionId).eq("student_id", currentUser.id)
-      .eq("status", "IN_PROGRESS").select("id").single();
+    const { data, error: saveError } = await supabase.rpc("cbse_save_practice_progress_v1", {
+      p_session_id: practiceSessionId, p_index: nextIndex,
+    });
     if (saveError || !data) throw saveError || new Error("Unable to save practice progress.");
   }
 
@@ -1697,6 +1699,13 @@ export default function Home() {
       const saved = (data || {}) as Record<string, string | null>;
       // Reload authoritative answers; a second tab cannot overwrite a submitted choice.
       setPracticeAnswers(saved as Record<number, string>);
+      // Answer feedback is returned only after the server has locked the answer.
+      const { data: feedback, error: feedbackError } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: [questionId] });
+      if (feedbackError) throw feedbackError;
+      const item = ((feedback || []) as Array<{ id: number; correct_option: string; explanation: string | null }>).find(q => Number(q.id) === questionId);
+      if (item) {
+        setPracticeQuestions(prev => prev.map(q => q.id === questionId ? { ...q, correct_option: item.correct_option, explanation: item.explanation } : q));
+      }
       setPracticeDraft(prev => { const next = { ...prev }; delete next[questionId]; return next; });
       setPracticeSavedCount(Object.keys(saved).length);
       if (practiceSkippedReview) {
@@ -1748,247 +1757,39 @@ export default function Home() {
      SAVE QUIZ HISTORY
   ========================= */
 
-  async function saveQuizAttempt({
-    quizType,
-    questions,
-    answers,
-    startedAt,
-    timeTakenSeconds,
-  }: {
-    quizType: "PRACTICE" | "MOCK";
-    questions: MCQ[];
-    answers: Record<number, string>;
-    startedAt: number | null;
-    timeTakenSeconds?: number;
-  }) {
-    if (!currentUser || questions.length === 0) {
-      return false;
-    }
-
-    const submittedAt = new Date();
-    const startedAtDate = new Date(
-      startedAt || submittedAt.getTime()
-    );
-
-    const correctAnswers = questions.filter(
-      (q) =>
-        answers[q.id] ===
-        q.correct_option.trim().toUpperCase()
-    ).length;
-
-    const answeredQuestions = questions.filter(
-      (q) => Boolean(answers[q.id])
-    ).length;
-
-    const unansweredQuestions =
-      questions.length - answeredQuestions;
-
-    const wrongAnswers =
-      answeredQuestions - correctAnswers;
-
-    const totalMarks = questions.reduce(
-      (sum, q) => sum + Number(q.marks ?? 1),
-      0
-    );
-
-    const obtainedMarks = questions.reduce(
-      (sum, q) => {
-        const isCorrect =
-          answers[q.id] ===
-          q.correct_option.trim().toUpperCase();
-
-        return isCorrect
-          ? sum + Number(q.marks ?? 1)
-          : sum;
-      },
-      0
-    );
-
-    const percentage = totalMarks > 0
-      ? Number(((obtainedMarks / totalMarks) * 100).toFixed(2))
-      : 0;
-
-    const calculatedTimeTaken =
-      timeTakenSeconds ??
-      Math.max(0, Math.round((submittedAt.getTime() - startedAtDate.getTime()) / 1000));
-
-    // Practice/mock tests can contain multiple chapters, so chapter_id
-    // is only stored when every question belongs to the same chapter.
-    const uniqueChapterIds = Array.from(
-      new Set(questions.map((q) => q.chapter_id))
-    );
-
-    const subjectId = questions[0]?.subjectId ?? null;
-    const chapterId =
-      uniqueChapterIds.length === 1
-        ? uniqueChapterIds[0]
-        : null;
-
-    const { data: attempt, error: attemptError } =
-      await supabase
-        .from("quiz_attempts")
-        .insert({
-          student_id: currentUser.id,
-          subject_id: subjectId,
-          chapter_id: chapterId,
-          quiz_type: quizType,
-          total_questions: questions.length,
-          answered_questions: answeredQuestions,
-          correct_answers: correctAnswers,
-          wrong_answers: wrongAnswers,
-          unanswered_questions: unansweredQuestions,
-          total_marks: totalMarks,
-          obtained_marks: obtainedMarks,
-          percentage,
-          status: "COMPLETED",
-          started_at: startedAtDate.toISOString(),
-          submitted_at: submittedAt.toISOString(),
-          time_taken_seconds: calculatedTimeTaken,
-        })
-        .select("id")
-        .single();
-
-    if (attemptError || !attempt) {
-      const details = attemptError
-        ? [
-            attemptError.message,
-            attemptError.code,
-            attemptError.details,
-            attemptError.hint,
-          ]
-            .filter(Boolean)
-            .join(" | ")
-        : "Supabase returned no quiz attempt record.";
-
-      console.error("QUIZ DATABASE ERROR:", details);
-      throw new Error(`Quiz database error: ${details}`);
-    }
-
-    const answerRows = questions.map((q) => {
-      const selectedAnswer = answers[q.id] || null;
-      const isCorrect =
-        selectedAnswer ===
-        q.correct_option.trim().toUpperCase();
-
-      return {
-        attempt_id: attempt.id,
-        question_id: q.id,
-        selected_answer: selectedAnswer,
-        correct_answer: q.correct_option.trim().toUpperCase(),
-        is_correct: Boolean(selectedAnswer) && isCorrect,
-        marks_obtained: isCorrect ? Number(q.marks ?? 1) : 0,
-        answered_at: selectedAnswer ? submittedAt.toISOString() : null,
-      };
-    });
-
-    const { error: answerError } = await supabase
-      .from("quiz_attempt_answers")
-      .insert(answerRows);
-
-    if (answerError) {
-      console.error(
-        "Quiz answer history save error:",
-        answerError
-      );
-
-      // Remove the parent attempt so we never leave a partial history record.
-      await supabase
-        .from("quiz_attempts")
-        .delete()
-        .eq("id", attempt.id)
-        .eq("student_id", currentUser.id);
-
-      return false;
-    }
-
-    return attempt.id;
-  }
-
+  // Trusted grading: answers are taken from locked practice_sessions on the server.
+  // Do not deploy this client change before installing and testing the matching RPC.
   async function submitPracticeTest() {
     setPracticeConfirmSubmit(false);
-    if (!currentUser) {
-      setPracticeSubmitError(
-        "Your session has expired. Please sign in again."
-      );
+    if (!currentUser || !practiceSessionId) {
+      setPracticeSubmitError("Your practice session is missing. Please sign in again.");
       return;
     }
-
-    if (practiceSubmitting || practiceSubmitted) {
+    if (practiceSubmitting || practiceSubmitted) return;
+    if (!practiceQuestions.length) {
+      setPracticeSubmitError("There are no questions to submit.");
       return;
     }
-
-    if (practiceQuestions.length === 0) {
-      setPracticeSubmitError(
-        "There are no questions to submit."
-      );
-      return;
-    }
-
     setPracticeSubmitting(true);
     setPracticeSubmitError("");
-
     try {
-      if (!isPaidMember) {
-        for (const question of practiceQuestions) {
-          const { error: usageError } =
-            await supabase.rpc(
-              "record_free_question_usage",
-              {
-                p_student_id: currentUser.id,
-                p_subject_id: question.subjectId,
-                p_chapter_id: question.chapter_id,
-              }
-            );
-
-          if (usageError) {
-            console.error(
-              "Free usage RPC error:",
-              usageError
-            );
-
-            throw new Error(
-              usageError.message ||
-                "Unable to record free question usage."
-            );
-          }
-        }
-
-        await loadFreeUsage(currentUser.id);
-      }
-
-      const historySaved = await saveQuizAttempt({
-        quizType: "PRACTICE",
-        questions: practiceQuestions,
-        answers: practiceAnswers,
-        startedAt: practiceStartedAt,
-      });
-
-      if (!historySaved) {
-        setPracticeSubmitError(
-          "Test completed, but the quiz history could not be saved. Please contact support if this continues."
-        );
-      }
-
-      if (!historySaved) {
-        throw new Error("Could not save quiz history. Please retry submission.");
-      }
-      if (practiceSessionId) {
-        const { error: completionError } = await supabase.from("practice_sessions")
-          .update({ status: "COMPLETED", updated_at: new Date().toISOString() })
-          .eq("id", practiceSessionId).eq("student_id", currentUser.id);
-        if (completionError) throw completionError;
-      }
+      const { data: attemptId, error: submitError } = await supabase.rpc(
+        "cbse_finish_practice_secure_v1", { p_session_id: practiceSessionId }
+      );
+      if (submitError) throw submitError;
+      if (!attemptId) throw new Error("No quiz attempt was returned.");
+      await loadFreeUsage(currentUser.id);
+      const { data: resultFeedback, error: resultFeedbackError } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: practiceQuestions.map(q => q.id) });
+      if (resultFeedbackError) throw resultFeedbackError;
+      const resultById = new Map((resultFeedback || []).map((item: {id:number,correct_option:string,explanation:string|null}) => [Number(item.id),item]));
+      setPracticeQuestions(prev => prev.map(q => {
+        const item = resultById.get(q.id) as { id: number; correct_option: string; explanation: string | null } | undefined;
+        return item ? { ...q, correct_option: item.correct_option, explanation: item.explanation } : q;
+      }));
       setPracticeSubmitted(true);
-    } catch (submitError: any) {
-      console.error(
-        "Practice test submission error:",
-        submitError
-      );
-
-      setPracticeSubmitError(
-        submitError?.message ||
-          "Unable to submit the practice test. Please try again."
-      );
+    } catch (err: any) {
+      console.error("Secure practice submission error:", err);
+      setPracticeSubmitError(err?.message || "Unable to submit practice test. Please retry.");
     } finally {
       setPracticeSubmitting(false);
     }
@@ -2150,6 +1951,13 @@ export default function Home() {
         const completed = Array.isArray(completedData) ? completedData[0] : completedData;
         if (completed?.answers) setMockAnswers(completed.answers as Record<number, string>);
       }
+      const { data: feedback, error: feedbackError } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: mockQuestions.map(q => q.id) });
+      if (feedbackError) throw feedbackError;
+      const byFeedback = new Map((feedback || []).map((item: {id:number,correct_option:string,explanation:string|null}) => [Number(item.id),item]));
+      setMockQuestions(prev => prev.map(q => {
+        const item = byFeedback.get(q.id) as { id: number; correct_option: string; explanation: string | null } | undefined;
+        return item ? { ...q, correct_option: item.correct_option, explanation: item.explanation } : q;
+      }));
       setMockSubmitted(true);
       if (automaticSubmit) setMockTimeLeft(0);
       if (selectedSubjectObject) await refreshMockPapers(selectedSubjectObject.id);
@@ -4325,7 +4133,7 @@ export default function Home() {
             </div>
 
             <div className="w-fit rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-bold text-blue-800">
-              {filteredQuestions.length} MCQs
+              {isPaidMember ? filteredQuestions.length : questionCountForSelection} MCQs
             </div>
           </div>
 
@@ -4580,21 +4388,21 @@ export default function Home() {
                 {selectedSubject !== ALL ? (
                   <div className="mt-3 space-y-1.5">
                     <p className="text-sm font-semibold text-white">
-                      {filteredQuestions.length} total questions available
+                      {questionCountForSelection} total questions available
                     </p>
 
                     <p className="text-sm font-semibold text-green-200">
                       {isPaidMember
-                        ? `${filteredQuestions.length} questions unlocked`
-                        : `${freeAvailableQuestions.length} free questions available`}
+                        ? `${questionCountForSelection} questions unlocked`
+                        : `${freeQuestionCountForSelection} free questions available after starting practice`}
                     </p>
 
                     {!isPaidMember &&
-                      filteredQuestions.length >
-                        freeAvailableQuestions.length && (
+                      questionCountForSelection >
+                        freeQuestionCountForSelection && (
                       <p className="text-xs leading-5 text-blue-200">
-                        {filteredQuestions.length -
-                          freeAvailableQuestions.length}{" "}
+                        {questionCountForSelection -
+                          freeQuestionCountForSelection}{" "}
                         questions require a paid plan to access.
                       </p>
                     )}
@@ -4627,7 +4435,7 @@ export default function Home() {
                 )}
                 {selectedSubject !== ALL && chapterSelected && totalPracticeSets <= 1 && (
                   <div className="flex min-h-11 items-center rounded-lg bg-white px-4 py-3 text-sm font-semibold text-blue-900">
-                    {orderedPracticeQuestions.length} chapter questions
+                    {questionCountForSelection} chapter questions
                   </div>
                 )}
 
