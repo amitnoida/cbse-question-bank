@@ -20,14 +20,17 @@
 - [ ] Confirm current preview build is READY at the latest review branch commit (documentation-only commits can trigger new previews).
 - [ ] Authenticated free/paid/admin workflows tested on the deployed preview (not only localhost).
 - [ ] Verify old production account and mock history against preview, including read-only error-free review.
-- [ ] Confirm production database backup and previous deployment rollback are available.
-- [ ] Resolve release-impacting Supabase advisor warnings: check anon EXECUTE on SECURITY DEFINER `handle_new_user`, `start_chapter_mock`, `start_mock_paper`, `submit_practice_answer_locked`; also review mutable search paths on `get_financial_year_end` and `cbse_protect_practice_answers`. Warnings are not confirmed exploits.
+- [x] Project owner confirmed a production database backup was already completed (26 Oct 2026); restoration has not been independently tested.
+- [ ] Confirm the previous production deployment and rollback route remain available before cutover.
+- [x] Inspected SECURITY DEFINER functions, their existing auth.uid() checks, and both mutable search-path function bodies.
+- [x] Prepared **security-release/05_RPC_EXPOSURE_HARDENING_REVIEW.sql** for review, not executed. It narrows anonymous RPC access and fixes two function search paths.
+- [ ] Review and validate SQL 05 in a nonproduction environment before separately approving any production execution. Warnings are not proof of an exploit.
 - [ ] Confirm rollback does not rely on direct `practice_sessions UPDATE` (permission already absent before cutover).
 - [ ] Obtain explicit production release authorization from project owner.
 - [ ] Merge only the reviewed commit to main and verify correct Vercel PRODUCTION build.
 - [ ] Smoke test production paid/free/admin workflows before SQL 03.
 - [ ] Apply **security-release/03_CUTOVER_AFTER_FRONTEND.sql** once; do not use outdated standalone version revoking practice_sessions INSERT only.
-- [ ] Post-cutover negative tests: authenticated direct SELECT questions denied, INSERT/DELETE practice_sessions denied, quiz_attempts/answers INSERT/UPDATE/DELETE denied; legacy free-usage RPC denied.
+- [ ] Post-cutover negative tests: authenticated direct SELECT questions denied, INSERT/DELETE practice_sessions denied, quiz_attempts/answers INSERT/UPDATE/DELETE denied; legacy free-usage RPC denied. Use **security-release/06_POST_CUTOVER_READ_ONLY_VERIFICATION.sql** for catalog checks, plus API probes.
 - [ ] Post-cutover positive tests: secure question RPC, paid/free grading/history, mock and admin actions remain functional.
 
 ## Emergency only
@@ -36,3 +39,8 @@
 3. Emergency restore reopens known direct-access security weaknesses; investigate and replan a safe cutover. The reviewed emergency script excludes `practice_sessions UPDATE`, which was not granted at audit time; confirm the older frontend can operate under that baseline.
 
 Never commit Playwright auth files, tokens, browser storage state or local .env credentials.
+
+## Important limits
+- Current Playwright end-to-end tests exercised localhost connected to production Supabase; this is not equivalent to authenticated end-to-end tests against the Vercel preview.
+- Vercel preview unauthenticated GET route smoke tests pass, build is READY and the latest branch SHA must be checked again after every documentation commit.
+- Do not apply SQL 03 or SQL 05 merely because Vercel is READY. Merge, cutover and role/privilege changes require explicit production release approval.
