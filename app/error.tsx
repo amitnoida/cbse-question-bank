@@ -12,8 +12,9 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
         <h1 className="mt-3 text-3xl font-black text-slate-950">We're Having a Temporary Issue</h1>
         <p className="mt-4 text-base leading-7 text-slate-600">We couldn't load this page right now. Please try again shortly.</p>
         <button type="button" onClick={reset} className="mt-8 rounded-xl bg-indigo-600 px-7 py-3 font-bold text-white hover:bg-indigo-700">Try Again</button>
-        <p className="mt-7 text-xs text-slate-400">CBSE Question Bank · Practice • Learn • Improve</p>
+        <p className="mt-5 text-sm"><a className="font-bold text-indigo-700 underline" href="/">Return to home</a> · <a className="font-bold text-indigo-700 underline" href="mailto:support.cbseexam@gmail.com">Contact support</a></p><p className="mt-7 text-xs text-slate-500">CBSE Question Bank · Practice • Learn • Improve</p>
       </section>
     </main>
   );
 }
+

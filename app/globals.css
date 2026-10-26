@@ -10,3 +10,8 @@ h1,h2,h3,h4,h5,h6,p,span,button,select,option{overflow-wrap:anywhere}button,inpu
 /* Readable keyboard navigation across links, cards and image-rich questions. */
 a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline:3px solid #4f46e5; outline-offset:4px; border-radius:6px; }
 @media (prefers-contrast: more) { :root { --muted:#334155; --border:#64748b; } }
+
+
+/* Study flow: reachable focus, clearer disabled states, comfortable reading. */
+[id]{scroll-margin-top:1.5rem} summary{touch-action:manipulation} [role="dialog"]{overscroll-behavior:contain} dialog::backdrop{background:rgba(15,23,42,.7)}
+@media print { header,footer,button{display:none!important} body{background:white!important;color:black!important} }

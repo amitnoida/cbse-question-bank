@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DialogFocus } from "../dialog-focus";
+import { QuestionNavigator } from "../question-navigator";
 import { QuestionContent } from "../question-content";
 import { supabase } from "../../lib/supabase";
 
@@ -170,6 +172,8 @@ export default function Home() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [chapters, setChapters] = useState<ChapterRow[]>([]);
+  const [chapterSearch, setChapterSearch] = useState("");
+  const preferredSubjectApplied = useRef(false);
   const [questions, setQuestions] = useState<MCQ[]>([]);
   const [chapterQuestionCounts, setChapterQuestionCounts] = useState<Record<number,number>>({});
 
@@ -1332,6 +1336,17 @@ export default function Home() {
     enrolledClassId,
   ]);
 
+  useEffect(() => {
+    if (!currentUser || !availableSubjects.length || preferredSubjectApplied.current) return;
+    const preferred = new URLSearchParams(window.location.search).get("subject");
+    preferredSubjectApplied.current = true;
+    if (preferred && availableSubjects.some(s => s.subject_name === preferred)) {
+      setSelectedSubject(preferred);
+      setSelectedChapter(ALL);
+      setPracticeSet(1);
+    }
+  }, [currentUser, availableSubjects]);
+
   const filteredQuestions = useMemo(() => {
     if (enrolledClassId === null) {
       return [];
@@ -2426,7 +2441,7 @@ export default function Home() {
       <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-[#f8f7ff] text-slate-950">
         {showSignup && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
-            <div className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7">
+            <div role="dialog" aria-modal="true" aria-label="Create student account" tabIndex={-1} className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7"><DialogFocus />
               <button
                 type="button"
                 onClick={closeSignup}
@@ -2472,11 +2487,11 @@ export default function Home() {
                 className="mt-5 space-y-4"
               >
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-1" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Full Name
                   </label>
 
-                  <input
+                  <input id="student-field-1"
                     type="text"
                     value={signupFullName}
                     onChange={(e) =>
@@ -2492,11 +2507,11 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-2" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Email ID
                   </label>
 
-                  <input
+                  <input id="student-field-2"
                     type="email"
                     value={signupEmail}
                     onChange={(e) =>
@@ -2512,11 +2527,11 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-3" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Password
                   </label>
 
-                  <div className="relative"><input
+                  <div className="relative"><input id="student-field-3"
                     type={showSignupPassword ? "text" : "password"}
                     value={signupPassword}
                     onChange={(e) =>
@@ -2532,11 +2547,11 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-4" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Confirm Password
                   </label>
 
-                  <div className="relative"><input
+                  <div className="relative"><input id="student-field-4"
                     type={showSignupConfirm ? "text" : "password"}
                     value={signupConfirmPassword}
                     onChange={(e) =>
@@ -2552,11 +2567,11 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-5" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Class
                   </label>
 
-                  <select
+                  <select id="student-field-5"
                     value={signupClassId}
                     onChange={(e) =>
                       setSignupClassId(
@@ -2608,7 +2623,7 @@ export default function Home() {
 
         {showSignin && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
-            <div className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7">
+            <div role="dialog" aria-modal="true" aria-label="Student sign in" tabIndex={-1} className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7"><DialogFocus />
               <button
                 type="button"
                 onClick={closeSignin}
@@ -2650,11 +2665,11 @@ export default function Home() {
                 className="mt-5 space-y-4"
               >
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-6" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Email ID
                   </label>
 
-                  <input
+                  <input id="student-field-6"
                     type="email"
                     value={signinEmail}
                     onChange={(e) =>
@@ -2671,11 +2686,11 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-7" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Password
                   </label>
 
-                  <input
+                  <input id="student-field-7"
                     type="password"
                     value={signinPassword}
                     onChange={(e) =>
@@ -2729,7 +2744,7 @@ export default function Home() {
 
         {showForgotPassword && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-950/70 px-4 py-5 backdrop-blur-sm sm:py-8">
-            <div className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+            <div role="dialog" aria-modal="true" aria-label="Request reset email" tabIndex={-1} className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7"><DialogFocus />
               <button
                 type="button"
                 onClick={closeForgotPassword}
@@ -2766,10 +2781,10 @@ export default function Home() {
 
               <form onSubmit={handleForgotPassword} className="mt-5 space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-8" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Email ID
                   </label>
-                  <input
+                  <input id="student-field-8"
                     type="email"
                     value={forgotPasswordEmail}
                     onChange={(e) => setForgotPasswordEmail(e.target.value)}
@@ -2810,7 +2825,7 @@ export default function Home() {
 
         {showUpdatePassword && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/70 px-4 py-5 backdrop-blur-sm sm:py-8">
-            <div className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+            <div role="dialog" aria-modal="true" aria-label="Create new password" tabIndex={-1} className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7"><DialogFocus />
               <div className="pr-2">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-600">
                   Secure Password Reset
@@ -2837,10 +2852,10 @@ export default function Home() {
 
               <form onSubmit={handleUpdatePassword} className="mt-5 space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-9" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     New Password
                   </label>
-                  <input
+                  <input id="student-field-9"
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -2853,10 +2868,10 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
+                  <label htmlFor="student-field-10" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Confirm New Password
                   </label>
-                  <input
+                  <input id="student-field-10"
                     type="password"
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
@@ -3444,6 +3459,7 @@ export default function Home() {
                   return (
                     <button
                       key={letter}
+                      aria-pressed={selected}
                       onClick={() => { void chooseMockAnswer(current.id, letter); }}
                       disabled={mockSubmitting || mockAnswerSaving || mockTimeLeft <= 0 || mockSubmitted}
                       className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${
@@ -3476,7 +3492,7 @@ export default function Home() {
             Answered: {mockQuestions.filter(q => Boolean(mockAnswers[q.id])).length} / {mockQuestions.length} · Unanswered: {mockQuestions.filter(q => !mockAnswers[q.id]).length}
           </div>
           {mockConfirmSubmit && (
-            <div role="dialog" aria-label="Confirm mock submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
+            <div role="region" aria-label="Confirm mock submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
               <p className="font-bold text-slate-900">Ready to submit your Mock Test?</p>
               <p className="mt-1 text-sm text-slate-700">{mockQuestions.filter(q => !mockAnswers[q.id]).length} unanswered question(s). The timer continues running.</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -3526,6 +3542,7 @@ export default function Home() {
                   : "Submit Mock Test"}
               </button>
             )}
+          <QuestionNavigator questions={mockQuestions} current={mockIndex} answers={mockAnswers} disabled={mockSubmitting || mockAnswerSaving} onNavigate={index=>{setMockSkippedReview(false);setMockIndex(index);}} />
           {mockIndex < mockQuestions.length - 1 && (
             <button type="button" disabled={mockSubmitting} onClick={() => setMockConfirmSubmit(true)} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Mock Test</button>
           )}
@@ -3782,6 +3799,7 @@ export default function Home() {
                   return (
                     <button
                       key={letter}
+                      aria-pressed={selected}
                       onClick={() => setPracticeDraft(prev => ({ ...prev, [current.id]: letter }))}
                       disabled={practiceSubmitting || practiceSaving || Object.prototype.hasOwnProperty.call(practiceAnswers, current.id)}
                       className={`group flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left sm:gap-4 sm:p-4 ${
@@ -3792,7 +3810,7 @@ export default function Home() {
                             : selected
                               ? "border-blue-700 bg-blue-50"
                               : "border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                      } disabled:cursor-not-allowed`}
                     >
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
@@ -3823,13 +3841,13 @@ export default function Home() {
           {Object.prototype.hasOwnProperty.call(practiceAnswers, current.id) ? (
             <div role="status" className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-slate-900">
               <p className="font-extrabold">{practiceAnswers[current.id] === current.correct_option.trim().toUpperCase() ? "✅ Correct answer!" : practiceAnswers[current.id] ? "❌ Incorrect answer" : "⏭️ Question skipped"}</p>
-              <p>Correct answer: <strong>{current.correct_option.toUpperCase()} — {current.options[current.correct_option.toUpperCase().charCodeAt(0) - 65]}</strong></p>
+              <p>Correct answer: <strong>{current.correct_option.toUpperCase()} — <QuestionContent text={current.options[current.correct_option.toUpperCase().charCodeAt(0) - 65]} /></strong></p>
               {current.explanation && <p className="mt-2"><QuestionContent text={current.explanation} /></p>}
             </div>
           ) : (
             <div className="mt-4">
               <button type="button" disabled={practiceSaving || !practiceDraft[current.id]} onClick={() => void choosePracticeAnswer(current.id, practiceDraft[current.id])} className="min-h-12 w-full rounded-xl bg-emerald-700 px-3 py-3 text-sm font-bold text-white disabled:opacity-40">Submit Answer</button>
-              <p className="mt-2 text-center text-xs text-slate-600">You can use Next without answering and return later. No answer is revealed when skipping.</p>
+              <p className="mt-2 text-center text-xs text-slate-600">Select an option, then Submit Answer to save and lock it. Use Next to leave a question unanswered and return later.</p>
             </div>
           )}
           <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5">
@@ -3865,11 +3883,12 @@ export default function Home() {
               </button>
             )}
           </div>
+          <QuestionNavigator questions={practiceQuestions} current={practiceIndex} answers={practiceAnswers} disabled={practiceSubmitting || practiceSaving} onNavigate={index=>{setPracticeSkippedReview(false); void navigatePractice(index);}} />
           {practiceQuestions.length > 0 && practiceIndex < practiceQuestions.length - 1 && (
             <button type="button" disabled={practiceSubmitting || practiceSaving} onClick={() => { if (practiceQuestions.every(q => Object.prototype.hasOwnProperty.call(practiceAnswers, q.id))) void submitPracticeTest(); else setPracticeConfirmSubmit(true); }} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Practice Test</button>
           )}
           {practiceConfirmSubmit && practiceQuestions.some(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)) && (
-            <div role="dialog" aria-label="Confirm practice submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
+            <div role="region" aria-label="Confirm practice submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
               <p className="font-bold text-slate-900">Ready to submit your Practice Test?</p>
               <p className="mt-1 text-sm text-slate-700">Answered: {practiceQuestions.filter(q => Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length} / {practiceQuestions.length}. Unanswered: {practiceQuestions.filter(q => !Object.prototype.hasOwnProperty.call(practiceAnswers, q.id)).length}.</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -3904,7 +3923,7 @@ export default function Home() {
     <>
       {showSubscribeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 px-4 py-6 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+          <div role="dialog" aria-modal="true" aria-label="Premium membership" tabIndex={-1} className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7"><DialogFocus />
             <button
               type="button"
               onClick={closeSubscribe}
@@ -3948,12 +3967,12 @@ export default function Home() {
             </div>
 
             <div className="mt-5">
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
+              <label htmlFor="student-field-11" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
                 Coupon Code
               </label>
 
               <div className="flex gap-2">
-                <input
+                <input id="student-field-11"
                   type="text"
                   value={couponCode}
                   onChange={(e) => {
@@ -4122,11 +4141,11 @@ export default function Home() {
           <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-2 lg:grid-cols-3">
             {/* CLASS */}
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
+              <label htmlFor="student-field-12" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
                 Your Class
               </label>
 
-              <select
+              <select id="student-field-12"
                 value={
                   enrolledClassId !== null
                     ? String(enrolledClassId)
@@ -4169,9 +4188,7 @@ export default function Home() {
                 value={selectedSubject}
                 aria-busy={subjectQuestionsLoading}
                 onChange={(e) =>
-                  handleSubjectChange(
-                    e.target.value
-                  )
+                  { setChapterSearch(""); handleSubjectChange(e.target.value); }
                 }
                 className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none hover:border-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 sm:min-h-11"
               >
@@ -4204,11 +4221,12 @@ export default function Home() {
 
             {/* CHAPTER */}
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
+              <label htmlFor="practice-chapter" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
                 Chapter
               </label>
 
               <select
+                id="practice-chapter"
                 value={selectedChapter}
                 onChange={(e) => {
                   setSelectedChapter(e.target.value);
@@ -4228,7 +4246,7 @@ export default function Home() {
                     : "No Chapters Available"}
                 </option>
 
-                {availableChapters.map((c) => (
+                {availableChapters.filter(c => c.chapter_name === selectedChapter || c.chapter_name.toLocaleLowerCase().includes(chapterSearch.trim().toLocaleLowerCase())).map((c) => (
                   <option
                     key={c.id}
                     value={c.chapter_name}
@@ -4242,6 +4260,8 @@ export default function Home() {
               </select>
             </div>
           </div>
+
+          {selectedSubject !== ALL && availableChapters.length > 8 && <div className="mt-4 max-w-md"><label htmlFor="chapter-search" className="mb-2 block text-xs font-bold text-slate-600">Find a chapter by name</label><input id="chapter-search" type="search" value={chapterSearch} onChange={e=>setChapterSearch(e.target.value)} placeholder="Search chapter names…" className="min-h-11 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"/><p role="status" className="mt-1 text-xs text-slate-500">{availableChapters.filter(c=>c.chapter_name.toLocaleLowerCase().includes(chapterSearch.trim().toLocaleLowerCase())).length} matching chapters. Choose one in the Chapter menu above.</p></div>}
 
           {/* FREE TRIAL STATUS — shown only to non-paid members */}
           {!isPaidMember && selectedSubjectObject && (
@@ -4596,3 +4616,4 @@ export default function Home() {
     </>
   );
 }
+
