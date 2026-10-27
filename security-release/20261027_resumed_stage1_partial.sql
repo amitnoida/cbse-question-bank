@@ -1,6 +1,6 @@
 -- CBSE Question Bank: resumed Stage 1 from the interrupted Work import, 27 Oct 2026.
 -- APPLIED to production in controlled batches. Archive for audit/restore; no need to re-run.
--- IMPORTANT: Remaining CSV rows are NOT in cbse_import.master_rows. Do not mark batch COMPLETE until staged.
+-- IMPORTANT: All 32,966 rows have since been staged and mapped. Media assets remain unpublished.
 -- Restaging must verify SHA256 e5ddf80c7d1085dca679e7bac58cf10b95ee6e1d6e004605dcc8ee8e1ffd3ec6.
 -- This SQL assumes the pre-existing cbse_import schema, staged payload positional JSON arrays,
 -- prior question_usage/content_review_status/media_ready/import_key columns, and all class/chapter IDs.
@@ -357,4 +357,6 @@ GRANT EXECUTE ON FUNCTION public.cbse_assigned_mock_questions_v2(uuid) TO authen
 GRANT EXECUTE ON FUNCTION public.start_next_mock_paper_v2(bigint) TO authenticated;
 COMMIT;
 -- Preserves all original existing questions and every past mock assignment.
--- Full CSV import completion awaits JEE Advanced and NEET remaining 6,319 CSV rows.
+-- The outstanding 6,319 JEE Advanced / NEET rows were subsequently staged/imported inactive;
+-- all 613 embedded asset payloads are retained in cbse_import.master_rows, awaiting Storage upload.
+-- Batch: IMPORTED_INACTIVE_MEDIA_PENDING.
