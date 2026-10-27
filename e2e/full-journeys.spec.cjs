@@ -70,7 +70,8 @@ test('free student: practice answer, feedback, submission and dashboard history'
   await loginStudent(page,account);
   await chooseSubject(page);
   await page.getByRole('button',{name:/Start \/ Resume Practice/i}).click();
-  await expect(page.getByRole('heading',{name:/Question 1 of/i})).toBeVisible({timeout:30000});
+  // A saved practice session may resume at Question 2 or later; the UI renders this as an h2.
+  await expect(page.getByRole('heading',{level:2,name:/^Question\s+\d+\s+of\s+\d+$/i})).toBeVisible({timeout:30000});
   const answer=page.locator('button[aria-pressed]').first();
   if(await page.getByRole('button',{name:'Submit Answer'}).isVisible()){
     await answer.click();
