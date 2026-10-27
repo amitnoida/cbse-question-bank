@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {notFound} from "next/navigation";
 import type {Metadata} from "next";
-import {chapters,classPath,getClass,getSubject,getChapter,subjects,subjectPath,chapterPath} from "@/lib/seo-catalog";
+import {chapters,classPath,getClass,getSubject,getChapter,subjectPath,chapterPath} from "@/lib/seo-catalog";
 type Props={params:Promise<{classSlug:string;subjectSlug:string;chapterSlug:string}>};
 const steps:Record<string,string[]>={
  English:["Read the prescribed text carefully and identify its central ideas.","Record important characters, events, imagery or language features where applicable.","Explain key passages in your own words and check unfamiliar vocabulary.","Practice interpretation and inference questions, then review your reasoning."],
