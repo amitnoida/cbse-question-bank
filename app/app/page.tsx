@@ -1,6 +1,10 @@
 "use client";
+import Image from "next/image";
+import Link from "next/link";
+import { errorMessage } from "../../lib/error-message";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { useEffectEvent, useEffect, useMemo, useRef, useState } from "react";
 import { DialogFocus } from "../dialog-focus";
 import { QuestionNavigator } from "../question-navigator";
 import { QuestionContent } from "../question-content";
@@ -98,20 +102,7 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
 }
 
 
-function shuffleQuestions<T>(items: T[]): T[] {
-  const shuffled = [...items];
 
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-
-    [shuffled[i], shuffled[j]] = [
-      shuffled[j],
-      shuffled[i],
-    ];
-  }
-
-  return shuffled;
-}
 
 function formatTime(totalSeconds: number) {
   const safeSeconds = Math.max(0, totalSeconds);
@@ -184,7 +175,7 @@ export default function Home() {
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const authUserIdRef = useRef<string | null>(null);
   const [studentProfile, setStudentProfile] =
     useState<StudentProfile | null>(null);
@@ -217,7 +208,7 @@ export default function Home() {
   const [freeUsageLoading, setFreeUsageLoading] =
     useState(false);
 
-  const [selectedClass, setSelectedClass] = useState(ALL);
+  const [, setSelectedClass] = useState(ALL);
   const [selectedSubject, setSelectedSubject] = useState(ALL);
   const [selectedChapter, setSelectedChapter] = useState(ALL);
 
@@ -226,7 +217,7 @@ export default function Home() {
   ========================= */
 
   const [practiceMode, setPracticeMode] = useState(false);
-  const [practiceSet, setPracticeSet] = useState(1);
+  const [requestedPracticeSet, setPracticeSet] = useState(1);
   const [practiceQuestions, setPracticeQuestions] = useState<
     MCQ[]
   >([]);
@@ -246,7 +237,7 @@ export default function Home() {
     useState(false);
   const [practiceSubmitError, setPracticeSubmitError] =
     useState("");
-  const [practiceStartedAt, setPracticeStartedAt] =
+  const [, setPracticeStartedAt] =
     useState<number | null>(null);
   const [practiceSessionId, setPracticeSessionId] = useState<string | null>(null);
   const [practiceSaving, setPracticeSaving] = useState(false);
@@ -259,7 +250,7 @@ export default function Home() {
   ========================= */
 
   const [mockMode, setMockMode] = useState(false);
-  const [mockDuration, setMockDuration] = useState(MOCK_DURATION_SECONDS);
+  const [, setMockDuration] = useState(MOCK_DURATION_SECONDS);
   const [mockReviewFilter, setMockReviewFilter] = useState<"all" | "wrong">("all");
   const [mockQuestions, setMockQuestions] = useState<MCQ[]>(
     []
@@ -284,7 +275,7 @@ export default function Home() {
   const [mockTimeLeft, setMockTimeLeft] = useState(
     MOCK_DURATION_SECONDS
   );
-  const [mockStartedAt, setMockStartedAt] =
+  const [, setMockStartedAt] =
     useState<number | null>(null);
   type MockPaper = {
     id: string;
@@ -499,14 +490,14 @@ export default function Home() {
       }
 
       setShowSubscribeModal(false);
-    } catch (activationError: any) {
+    } catch (activationError: unknown) {
       console.error(
         "Unexpected membership activation error:",
         activationError
       );
 
       setCouponMessage(
-        activationError?.message ||
+        errorMessage(activationError) ||
           "Unable to activate membership. Please try again."
       );
     } finally {
@@ -599,7 +590,7 @@ export default function Home() {
      GET ENROLLED CLASS
   ========================= */
 
-  function getMetadataClassId(user: any): number | null {
+  function getMetadataClassId(user: User | null | undefined): number | null {
     const metadataValue = user?.user_metadata?.class_id;
 
     if (
@@ -644,7 +635,7 @@ export default function Home() {
 
   async function loadStudentProfile(
     userId: string,
-    authUser?: any
+    authUser?: User
   ) {
     const { data, error: profileError } = await supabase
       .from("student_profiles")
@@ -843,14 +834,14 @@ export default function Home() {
     return freeUsage[subjectId] || 0;
   }
 
-  function getSubjectAllowed(subjectId: number) {
+  function getSubjectAllowed() {
     return DEFAULT_FREE_QUESTIONS;
   }
 
   function getSubjectRemaining(subjectId: number) {
     return Math.max(
       0,
-      getSubjectAllowed(subjectId) -
+      getSubjectAllowed() -
         getSubjectUsage(subjectId)
     );
   }
@@ -860,17 +851,8 @@ export default function Home() {
   ) {
     return (
       getSubjectUsage(subjectId) >=
-      getSubjectAllowed(subjectId)
+      getSubjectAllowed()
     );
-  }
-
-  /*
-   * A question is available for the free trial only
-   * when its SUBJECT still has at least one question
-   * remaining.
-   */
-  function isQuestionFreeAvailable(q: MCQ) {
-    return getSubjectRemaining(q.subjectId) > 0;
   }
 
   /* =========================
@@ -881,21 +863,19 @@ export default function Home() {
   // Fetch all pages so newly imported subjects and questions are visible.
   async function fetchAllRows<T>(
     table: string,
-    columns: string,
-    configure?: (query: any) => any
+    columns: string
   ): Promise<T[]> {
     const pageSize = 1000;
     const results: T[] = [];
 
     for (let offset = 0; ; offset += pageSize) {
-      let query: any = supabase
+      const query = supabase
         .from(table)
         .select(columns)
         .eq("is_active", true);
 
-      if (configure) query = configure(query);
 
-      const { data, error: fetchError } = await withTimeout<{ data: T[] | null; error: { message: string } | null }>(query
+      const { data, error: fetchError } = await withTimeout(query
         .order("id", { ascending: true })
         .range(offset, offset + pageSize - 1), SERVICE_REQUEST_TIMEOUT_MS);
 
@@ -903,7 +883,7 @@ export default function Home() {
         throw new Error(`${table}: ${fetchError.message}`);
       }
 
-      const batch = (data || []) as T[];
+      const batch = (data || []) as unknown as T[];
       results.push(...batch);
       if (batch.length < pageSize) break;
     }
@@ -938,9 +918,6 @@ export default function Home() {
         ]);
 
       const classRows = loadedClasses;
-      const classMap = new Map(classRows.map((item) => [item.id, item]));
-      const subjectMap = new Map(subjectRows.map((item) => [item.id, item]));
-      const chapterMap = new Map(chapterRows.map((item) => [item.id, item]));
 
       // Load subject metadata first; question text is fetched only for the selected subject.
       const mcqs: MCQ[] = [];
@@ -956,33 +933,38 @@ export default function Home() {
         chapters: chapterRows.length,
         activeMCQs: mcqs.length,
       });
-    } catch (loadError: any) {
+    } catch (loadError: unknown) {
       console.error("Question bank loading failed:", loadError);
-      setError(loadError?.message || "Unable to load questions.");
+      setError(errorMessage(loadError) || "Unable to load questions.");
     } finally {
       setLoading(false);
     }
   }
 
   // Lazy-load MCQs for one subject at a time. Avoid downloading both classes' entire question bank at login.
+  const subjectUserId = currentUser?.id;
+  const subjectClassId = studentProfile?.class_id ?? getMetadataClassId(currentUser);
   useEffect(() => {
-    if (!currentUser || selectedSubject === ALL || !subjects.length || !chapters.length || !classes.length) {
+    let cancelled = false;
+    const loadSubject = async () => {
+      // Defer external-data initialization so cleanup can cancel an obsolete selection.
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!subjectUserId || selectedSubject === ALL || !subjects.length || !chapters.length || !classes.length) {
+        setQuestions([]);
+        setChapterQuestionCounts({});
+        setSubjectQuestionsLoading(false);
+        return;
+      }
+      const classId = subjectClassId;
+      const subject = subjects.find(row => row.class_id === classId && row.subject_name === selectedSubject);
+      if (!subject) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
+      const chapterRows = chapters.filter(c => c.subject_id === subject.id);
+      const chapterIds = chapterRows.map(c => c.id);
+      if (!chapterIds.length) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
+      setSubjectQuestionsLoading(true);
       setQuestions([]);
       setChapterQuestionCounts({});
-      setSubjectQuestionsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    const classId = studentProfile?.class_id ?? getMetadataClassId(currentUser);
-    const subject = subjects.find(row => row.class_id === classId && row.subject_name === selectedSubject);
-    if (!subject) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
-    const chapterRows = chapters.filter(c => c.subject_id === subject.id);
-    const chapterIds = chapterRows.map(c => c.id);
-    if (!chapterIds.length) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
-    setSubjectQuestionsLoading(true);
-    setQuestions([]);
-    setChapterQuestionCounts({});
-    (async () => {
       try {
         // Question bodies are delivered through a server-authorized RPC.
         // Correct answers and explanations are never sent before a saved answer.
@@ -1016,12 +998,13 @@ export default function Home() {
         setQuestions(rows.map(q => ({ ...q, classId: classId!, subjectId: subject.id, className,
           subjectName: subject.subject_name, chapterName: chapterMap.get(q.chapter_id)?.chapter_name || "",
           options: [q.option_a, q.option_b, q.option_c, q.option_d].filter(Boolean) })));
-      } catch (err: any) {
-        if (!cancelled) setError(err?.message || "Unable to load selected subject questions.");
+      } catch (err: unknown) {
+        if (!cancelled) setError(errorMessage(err) || "Unable to load selected subject questions.");
       } finally { if (!cancelled) setSubjectQuestionsLoading(false); }
-    })();
+    };
+    void loadSubject();
     return () => { cancelled = true; };
-  }, [currentUser?.id, selectedSubject, subjects, chapters, classes, studentProfile?.class_id]);
+  }, [subjectUserId, subjectClassId, selectedSubject, subjects, chapters, classes]);
 
   // Administrator access is handled on /admin, where the protected RPC
   // is called only within the administrator workflow. Do not probe admin
@@ -1031,6 +1014,15 @@ export default function Home() {
      AUTH INITIALIZATION
   ========================= */
 
+  const loadAuthResources = useEffectEvent(async (user: User, classRowsOverride: ClassRow[] | undefined, isCurrent: () => boolean) => {
+    await loadStudentProfile(user.id, user);
+    if (!isCurrent() || authUserIdRef.current !== user.id) return;
+    await loadFreeUsage(user.id);
+    if (!isCurrent() || authUserIdRef.current !== user.id) return;
+    await loadPaidMembership(user.id);
+    if (!isCurrent() || authUserIdRef.current !== user.id) return;
+    await loadQuestionData(classRowsOverride);
+  });
   useEffect(() => {
     let mounted = true;
 
@@ -1089,7 +1081,7 @@ export default function Home() {
     }
 
     async function loadAuthenticatedUser(
-      user: any,
+      user: User | null,
       classRowsOverride?: ClassRow[]
     ) {
       if (!mounted || !user) {
@@ -1136,25 +1128,7 @@ export default function Home() {
       authUserIdRef.current = userId;
       setCurrentUser(user);
 
-      await loadStudentProfile(userId, user);
-
-      if (!mounted || authUserIdRef.current !== userId) {
-        return;
-      }
-
-      await loadFreeUsage(userId);
-
-      if (!mounted || authUserIdRef.current !== userId) {
-        return;
-      }
-
-      await loadPaidMembership(userId);
-
-      if (!mounted || authUserIdRef.current !== userId) {
-        return;
-      }
-
-      await loadQuestionData(classRowsOverride);
+      await loadAuthResources(user, classRowsOverride, () => mounted);
     }
 
     async function initializeApp() {
@@ -1246,7 +1220,7 @@ export default function Home() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [isWebsitePreview]);
 
   /* =========================
       SERVER-DEADLINE MOCK TIMER
@@ -1261,10 +1235,11 @@ export default function Home() {
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, [mockMode, mockSubmitted, mockDeadlineAt, mockClockOffsetMs]);
 
+  const submitExpiredMock = useEffectEvent(() => submitMockTest(true));
   useEffect(() => {
     if (mockMode && !mockSubmitted && !mockSubmitting && !mockAnswerSaving && mockSessionId && !mockAutoSubmitAttempted.current && mockTimeLeft === 0) {
       mockAutoSubmitAttempted.current = true;
-      void submitMockTest(true);
+      void submitExpiredMock();
     }
   }, [mockMode, mockSubmitted, mockSubmitting, mockAnswerSaving, mockSessionId, mockTimeLeft, mockSyncRetry]);
 
@@ -1357,12 +1332,15 @@ export default function Home() {
   useEffect(() => {
     if (!currentUser || !availableSubjects.length || preferredSubjectApplied.current) return;
     const preferred = new URLSearchParams(window.location.search).get("subject");
-    preferredSubjectApplied.current = true;
-    if (preferred && availableSubjects.some(s => s.subject_name === preferred)) {
-      setSelectedSubject(preferred);
-      setSelectedChapter(ALL);
-      setPracticeSet(1);
-    }
+    const timer = window.setTimeout(() => {
+      preferredSubjectApplied.current = true;
+      if (preferred && availableSubjects.some(s => s.subject_name === preferred)) {
+        setSelectedSubject(preferred);
+        setSelectedChapter(ALL);
+        setPracticeSet(1);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [currentUser, availableSubjects]);
 
   const filteredQuestions = useMemo(() => {
@@ -1446,11 +1424,14 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    setMockPapers([]);
-    setSelectedMockPaper("1");
-    if (!currentUser?.id || !availableSubjects.find(s => s.subject_name === selectedSubject)?.id) return;
-
     const load = async () => {
+      // Cancel stale history initialization when the selected subject changes.
+      await Promise.resolve();
+      if (cancelled) return;
+      setMockPapers([]);
+      setSelectedMockPaper("1");
+      if (!currentUser?.id || !availableSubjects.find(s => s.subject_name === selectedSubject)?.id) { setMockHistoryLoading(false); return; }
+
       setMockHistoryLoading(true);
       const { data, error: historyError } = await supabase
         .from("mock_papers")
@@ -1468,54 +1449,6 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [currentUser?.id, selectedSubject, availableSubjects]);
 
-
-  /*
-   * FREE AVAILABLE QUESTIONS
-   *
-   * Subject-level allowance is enforced here.
-   */
-  const freeAvailableQuestions = useMemo(() => {
-    const subjectRemaining = new Map<
-      number,
-      number
-    >();
-
-    const result: MCQ[] = [];
-
-    const shuffledQuestions =
-      shuffleQuestions(filteredQuestions);
-
-    for (const question of shuffledQuestions) {
-      let remaining =
-        subjectRemaining.get(
-          question.subjectId
-        );
-
-      if (remaining === undefined) {
-        remaining =
-          getSubjectRemaining(
-            question.subjectId
-          );
-      }
-
-      if (remaining <= 0) {
-        continue;
-      }
-
-      result.push(question);
-
-      subjectRemaining.set(
-        question.subjectId,
-        remaining - 1
-      );
-    }
-
-    return result;
-  }, [filteredQuestions, freeUsage]);
-
-  const availablePracticeQuestions = isPaidMember
-    ? filteredQuestions
-    : freeAvailableQuestions;
 
   const selectedSubjectObject = useMemo(() => {
     if (selectedSubject === ALL) {
@@ -1571,29 +1504,13 @@ export default function Home() {
         ? Object.values(chapterQuestionCounts).reduce((sum,n) => sum+n,0)
         : (chapterQuestionCounts[selectedChapterId] ?? 0));
   const freeQuestionCountForSelection = Math.min(questionCountForSelection, selectedSubjectRemaining);
+  // Keep the selected paper valid as the loaded subject/chapter size changes.
+  const practiceSet = Math.min(requestedPracticeSet, Math.max(1, isPaidMember && !chapterSelected
+    ? Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE) : 1));
   const totalPracticeSets = isPaidMember
     ? (chapterSelected ? (orderedPracticeQuestions.length > 0 ? 1 : 0)
         : Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE))
     : (questionCountForSelection > 0 ? 1 : 0);
-
-  // Free members retain their 10-question subject allowance. They can
-  // access eligible questions within the selected set, not the entire bank.
-  const selectedSetQuestions = useMemo(() => {
-    const start = (practiceSet - 1) * PRACTICE_SET_SIZE;
-    return orderedPracticeQuestions.slice(start, start + PRACTICE_SET_SIZE);
-  }, [orderedPracticeQuestions, chapterSelected, practiceSet]);
-
-  const eligibleSetQuestions = useMemo(() => {
-    if (isPaidMember) return selectedSetQuestions;
-    const remaining = selectedSetQuestions[0]
-      ? getSubjectRemaining(selectedSetQuestions[0].subjectId)
-      : 0;
-    return selectedSetQuestions.slice(0, remaining);
-  }, [selectedSetQuestions, isPaidMember, freeUsage]);
-
-  useEffect(() => {
-    if (practiceSet > Math.max(1, totalPracticeSets)) setPracticeSet(1);
-  }, [practiceSet, totalPracticeSets]);
 
   /* =========================
      FILTER HANDLERS
@@ -1707,8 +1624,8 @@ export default function Home() {
       setPracticeStartedAt(new Date(session.started_at).getTime());
       setPracticeMode(true);
       setMockMode(false);
-    } catch (err: any) {
-      setPracticeSubmitError(err?.message || "Could not load or resume practice.");
+    } catch (err: unknown) {
+      setPracticeSubmitError(errorMessage(err) || "Could not load or resume practice.");
     } finally {
       setPracticeStarting(false);
     }
@@ -1755,8 +1672,8 @@ export default function Home() {
           setPracticeConfirmSubmit(true);
         }
       }
-    } catch (err: any) {
-      setPracticeSubmitError("Could not lock this answer. Please retry. " + (err?.message || ""));
+    } catch (err: unknown) {
+      setPracticeSubmitError("Could not lock this answer. Please retry. " + (errorMessage(err) || ""));
     } finally {
       practiceSaveLock.current = false;
       setPracticeSaving(false);
@@ -1771,8 +1688,8 @@ export default function Home() {
     try {
       await persistPracticeProgress(practiceAnswers, nextIndex);
       setPracticeIndex(nextIndex);
-    } catch (err: any) {
-      setPracticeSubmitError("Unable to save your position. Please retry. " + (err?.message || ""));
+    } catch (err: unknown) {
+      setPracticeSubmitError("Unable to save your position. Please retry. " + (errorMessage(err) || ""));
     } finally {
       practiceSaveLock.current = false;
       setPracticeSaving(false);
@@ -1827,9 +1744,9 @@ export default function Home() {
         return item ? { ...q, correct_option: item.correct_option, explanation: item.explanation } : q;
       }));
       setPracticeSubmitted(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Secure practice submission error:", err);
-      setPracticeSubmitError(err?.message || "Unable to submit practice test. Please retry.");
+      setPracticeSubmitError(errorMessage(err) || "Unable to submit practice test. Please retry.");
     } finally {
       setPracticeSubmitting(false);
     }
@@ -1933,7 +1850,7 @@ export default function Home() {
         setActiveMockPaperId(paper.id);
         await openSavedMock("full", paper.id, assigned as MCQ[]);
         await refreshMockPapers(selectedSubjectObject.id);
-    } catch (err: any) { setMockSubmitError(err?.message || "Unable to resume mock test."); }
+    } catch (err: unknown) { setMockSubmitError(errorMessage(err) || "Unable to resume mock test."); }
     finally { setMockStarting(false); }
   }
 
@@ -1959,8 +1876,8 @@ export default function Home() {
         if (next >= 0) setMockIndex(next);
         else { setMockSkippedReview(false); setMockConfirmSubmit(true); }
       }
-    } catch (err: any) {
-      setMockSubmitError("Answer was not saved. Please reconnect and select it again. " + (err?.message || ""));
+    } catch (err: unknown) {
+      setMockSubmitError("Answer was not saved. Please reconnect and select it again. " + (errorMessage(err) || ""));
     } finally { mockAnswerLock.current = false; setMockAnswerSaving(false); }
   }
 
@@ -1990,8 +1907,8 @@ export default function Home() {
       setMockSubmitted(true);
       if (automaticSubmit) setMockTimeLeft(0);
       if (selectedSubjectObject) await refreshMockPapers(selectedSubjectObject.id);
-    } catch (err: any) {
-      setMockSubmitError((automaticSubmit ? "Time is over. " : "") + "Result synchronization failed. Reconnect and retry. " + (err?.message || ""));
+    } catch (err: unknown) {
+      setMockSubmitError((automaticSubmit ? "Time is over. " : "") + "Result synchronization failed. Reconnect and retry. " + (errorMessage(err) || ""));
       if (automaticSubmit) mockAutoSubmitAttempted.current = false;
     } finally { setMockSubmitting(false); }
   }
@@ -2226,10 +2143,10 @@ export default function Home() {
       setForgotPasswordSuccess(
         "Password reset link sent. Please check your email and open the link to create a new password."
       );
-    } catch (resetError: any) {
+    } catch (resetError: unknown) {
       console.error("Password reset error:", resetError);
       setForgotPasswordError(
-        resetError?.message ||
+        errorMessage(resetError) ||
           "Unable to send the password reset email. Please try again."
       );
     } finally {
@@ -2276,10 +2193,10 @@ export default function Home() {
         setShowUpdatePassword(false);
         setUpdatePasswordSuccess("");
       }, 1800);
-    } catch (updateError: any) {
+    } catch (updateError: unknown) {
       console.error("Password update error:", updateError);
       setUpdatePasswordError(
-        updateError?.message ||
+        errorMessage(updateError) ||
           "Unable to update your password. Please try again."
       );
     } finally {
@@ -2483,7 +2400,7 @@ export default function Home() {
               </button>
 
               <div className="mb-5 hidden overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100 sm:block">
-                <img src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
+                <Image width={640} height={480} src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
               </div>
               <div className="pr-10">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -2665,7 +2582,7 @@ export default function Home() {
               </button>
 
               <div className="mb-5 overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100">
-                <img src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
+                <Image width={640} height={480} src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
               </div>
               <div className="pr-10">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -2680,7 +2597,7 @@ export default function Home() {
                   Sign in to access your CBSE Question Bank.
                 </p>
                 <p className="mt-2 text-sm text-slate-600">
-                  Administrator? <a href="/admin" className="font-bold text-indigo-700 underline underline-offset-2">Open Admin Login</a>
+                  Administrator? <Link href="/admin" className="font-bold text-indigo-700 underline underline-offset-2">Open Admin Login</Link>
                 </p>
               </div>
 
@@ -2758,7 +2675,7 @@ export default function Home() {
               </form>
 
               <div className="mt-4 text-center text-xs text-slate-500">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <button
                   type="button"
                   onClick={openSignup}
@@ -3048,7 +2965,7 @@ export default function Home() {
 
             <div className="relative mx-auto w-full min-w-0 max-w-[250px] sm:max-w-xl">
               <div className="mb-5 overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-indigo-50 to-violet-100 shadow-2xl shadow-indigo-950/20">
-                <img src="/images/cbse-students.webp" alt="Illustration of two Indian secondary-school students wearing uniforms and holding books" className="h-auto max-h-[460px] w-full object-contain object-center" loading="eager" />
+                <Image width={640} height={480} src="/images/cbse-students.webp" alt="Illustration of two Indian secondary-school students wearing uniforms and holding books" className="h-auto max-h-[460px] w-full object-contain object-center" loading="eager" />
               </div>
               <div className="pointer-events-none absolute inset-8 hidden rounded-[2rem] bg-white/10 blur-2xl sm:block" />
               <div className="relative hidden rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-md sm:block sm:p-6">
@@ -4100,7 +4017,7 @@ export default function Home() {
             </div>
             <div className="col-span-1 flex min-w-0">{subscribeButton("w-full sm:w-auto")}</div>
             <div className="col-span-1 flex flex-col gap-1.5 sm:gap-1">
-              <a href="/dashboard" className="inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700">📊 Dashboard</a>
+              <Link href="/dashboard" className="inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700">📊 Dashboard</Link>
               <button type="button" onClick={handleLogout} disabled={signingOut} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">{signingOut ? "Signing out…" : "Logout"}</button>
             </div>
           </div>
@@ -4136,7 +4053,7 @@ export default function Home() {
             </p>
           </div>
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/20 bg-indigo-50 shadow-2xl shadow-indigo-950/30 lg:max-w-md">
-            <img src="/images/cbse-students.webp" alt="Two students ready to learn" className="h-auto max-h-[220px] sm:max-h-[300px] w-full object-contain" />
+            <Image width={640} height={480} src="/images/cbse-students.webp" alt="Two students ready to learn" className="h-auto max-h-[220px] sm:max-h-[300px] w-full object-contain" />
           </div>
         </div>
       </section>
