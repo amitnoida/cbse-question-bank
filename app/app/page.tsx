@@ -1572,7 +1572,8 @@ export default function Home() {
         : (chapterQuestionCounts[selectedChapterId] ?? 0));
   const freeQuestionCountForSelection = Math.min(questionCountForSelection, selectedSubjectRemaining);
   const totalPracticeSets = isPaidMember
-    ? Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE)
+    ? (chapterSelected ? (orderedPracticeQuestions.length > 0 ? 1 : 0)
+        : Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE))
     : (questionCountForSelection > 0 ? 1 : 0);
 
   // Free members retain their 10-question subject allowance. They can
