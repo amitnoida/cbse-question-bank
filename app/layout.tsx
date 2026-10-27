@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AnnouncementBanner from "./announcement-banner";
 import InstallPrompt from "./install-prompt";
+import { Suspense } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><AnnouncementBanner />{children}<InstallPrompt /></body>
+      <body className="min-h-full flex flex-col"><AnnouncementBanner />{children}<Suspense fallback={null}><InstallPrompt /></Suspense></body>
     </html>
   );
 }
