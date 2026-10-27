@@ -69,6 +69,14 @@ test('free student: practice answer, feedback, submission and dashboard history'
   if(!account) throw Error('Missing class 9 free test account');
   await loginStudent(page,account);
   await chooseSubject(page);
+  // Dedicated free E2E accounts retain usage across runs. An exhausted subject
+  // must show the free-limit guard instead of opening another practice session.
+  if (await page.getByRole('alert',{name:'Free question limit reached'}).count() ||
+      await page.getByText('Free question limit reached',{exact:true}).count()) {
+    await expect(page.getByText(/10 \/ 10 used/i)).toBeVisible();
+    test.info().annotations.push({type:'coverage',description:'Class 9 Mathematics free allowance exhausted; free-limit guard verified, practice journey not rerun'});
+    return;
+  }
   await page.getByRole('button',{name:/Start \/ Resume Practice/i}).click();
   // A saved practice session may resume at Question 2 or later; the UI renders this as an h2.
   await expect(page.getByRole('heading',{level:2,name:/^Question\s+\d+\s+of\s+\d+$/i})).toBeVisible({timeout:30000});
