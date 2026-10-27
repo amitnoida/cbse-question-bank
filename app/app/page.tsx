@@ -163,6 +163,12 @@ function ServiceUnavailable() {
 
 export default function Home() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
+  // Registration options are class-scoped and numerically ordered, not sorted by database ID.
+  // Competitive exam categories remain separate from the Class 8–12 signup list.
+  const signupClasses = useMemo(() => classes
+    .filter(c => /^Class\s+(8|9|10|11|12)$/i.test(c.class_name.trim()))
+    .sort((a,b) => Number(a.class_name.match(/\d+/)?.[0] ?? 0) - Number(b.class_name.match(/\d+/)?.[0] ?? 0)),
+  [classes]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [chapters, setChapters] = useState<ChapterRow[]>([]);
   const [chapterSearch, setChapterSearch] = useState("");
@@ -2500,7 +2506,7 @@ export default function Home() {
               </button>
 
               <div className="mb-5 hidden overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100 sm:block">
-                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
+                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Indian students preparing for CBSE Classes 8 to 12" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
               </div>
               <div className="pr-10">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -2632,7 +2638,7 @@ export default function Home() {
                       Select your class
                     </option>
 
-                    {classes.map((c) => (
+                    {signupClasses.map((c) => (
                       <option
                         key={c.id}
                         value={c.id}
@@ -2682,7 +2688,7 @@ export default function Home() {
               </button>
 
               <div className="mb-5 overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100">
-                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
+                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Indian students preparing for CBSE Classes 8 to 12" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
               </div>
               <div className="pr-10">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -3049,7 +3055,7 @@ export default function Home() {
           <div className="absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-3xl" />
           <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 items-center gap-8 px-4 py-12 sm:gap-12 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:px-8 lg:py-24">
             <div>
-              <span className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-amber-200 sm:text-[11px]">🇮🇳 Class 9 &amp; 10 • CBSE</span>
+              <span className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-amber-200 sm:text-[11px]">🇮🇳 Classes 8–12 • CBSE</span>
               <h1 className="mt-5 max-w-3xl text-[clamp(1.85rem,8vw,2.25rem)] font-black leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">Practice Smarter.<br /><span className="text-amber-300">Score Better.</span></h1>
               <p className="mt-5 max-w-2xl text-sm leading-6 text-indigo-100 sm:text-lg sm:leading-8">Practice chapter-wise MCQs, build subject confidence, get instant explanations, and prepare with focused practice tests designed for CBSE students.</p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -3092,8 +3098,8 @@ export default function Home() {
             <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">Simple process</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">How It Works</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Get started in three simple steps and build a smarter CBSE preparation routine.</p></div>
             <div className="mt-10 grid gap-5 md:grid-cols-3">
               {[
-                { n: "01", icon: "🎓", title: "Pick Your Class", text: "Choose Class 9 or Class 10 and your account stays connected to the right question bank." },
-                { n: "02", icon: "📚", title: "Choose a Subject", text: "Select Mathematics, Science, English, Social Science or Hindi, then focus on a chapter if you want." },
+                { n: "01", icon: "🎓", title: "Pick Your Class", text: "Choose Class 8, 9, 10, 11 or 12. Your registered class determines the subject and chapter selection." },
+                { n: "02", icon: "📚", title: "Choose a Subject", text: "Classes 8–10 offer five core subjects; Classes 11–12 offer Physics, Chemistry, Mathematics and Biology. Then choose a chapter." },
                 { n: "03", icon: "🎯", title: "Attempt the Quiz", text: "Answer MCQs, see explanations and use practice tests to improve your exam readiness." },
               ].map((step) => (
                 <div key={step.n} className="relative rounded-3xl border border-indigo-100 bg-[#f8f7ff] p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="flex items-center justify-between"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl shadow-lg shadow-indigo-200">{step.icon}</div><span className="text-4xl font-black text-indigo-100">{step.n}</span></div><h3 className="mt-6 text-lg font-extrabold text-slate-950">{step.title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{step.text}</p></div>
@@ -3104,14 +3110,17 @@ export default function Home() {
 
         <section id="subjects" className="bg-[#f8f7ff] px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-7xl">
-            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">CBSE question bank</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">All CBSE Subjects Covered 📚</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Comprehensive MCQ practice for the core Class 9 and Class 10 subjects.</p></div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">CBSE question bank</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">All CBSE Subjects Covered 📚</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Explore subject-wise MCQs for Classes 8–12, including senior secondary science and mathematics.</p></div>
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { name: "Mathematics", icon: "📐", tone: "from-violet-500 to-purple-600", tag: "Class 9 & 10" },
-                { name: "Science", icon: "🔬", tone: "from-sky-500 to-cyan-500", tag: "Class 9 & 10" },
-                { name: "English", icon: "📖", tone: "from-emerald-500 to-teal-500", tag: "Class 9 & 10" },
-                { name: "Social Science", icon: "🌍", tone: "from-orange-500 to-amber-500", tag: "Class 9 & 10" },
-                { name: "Hindi", icon: "IN", tone: "from-pink-500 to-rose-500", tag: "Class 9 & 10" },
+                { name: "Mathematics", icon: "📐", tone: "from-violet-500 to-purple-600", tag: "Classes 8–12" },
+                { name: "Science", icon: "🔬", tone: "from-sky-500 to-cyan-500", tag: "Classes 8–10" },
+                { name: "English", icon: "📖", tone: "from-emerald-500 to-teal-500", tag: "Classes 8–10" },
+                { name: "Social Science", icon: "🌍", tone: "from-orange-500 to-amber-500", tag: "Classes 8–10" },
+                { name: "Hindi", icon: "IN", tone: "from-pink-500 to-rose-500", tag: "Classes 8–10" },
+                { name: "Physics", icon: "⚛️", tone: "from-blue-500 to-indigo-600", tag: "Classes 11–12" },
+                { name: "Chemistry", icon: "⚗️", tone: "from-emerald-600 to-cyan-600", tag: "Classes 11–12" },
+                { name: "Biology", icon: "🧬", tone: "from-green-500 to-lime-600", tag: "Classes 11–12" },
               ].map((subject) => (
                 <button key={subject.name} type="button" onClick={openSignup} className={`group min-h-44 rounded-3xl bg-gradient-to-br ${subject.tone} p-5 text-left text-white shadow-lg transition hover:-translate-y-1 hover:shadow-xl`}><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 text-2xl font-black backdrop-blur">{subject.icon}</div><h3 className="mt-7 text-lg font-black">{subject.name}</h3><span className="mt-2 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold">{subject.tag}</span></button>
               ))}
@@ -3166,7 +3175,7 @@ export default function Home() {
             <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-600">Answers to common questions about practice, mock tests and membership.</p>
             <div className="mt-8 space-y-3">
               {[
-                { q: "Who can use this website?", a: "Students in CBSE Classes 9 and 10 can register and practise available chapter-wise MCQs." },
+                { q: "Who can use this website?", a: "Students in CBSE Classes 8, 9, 10, 11 and 12 can register and practise available chapter-wise MCQs." },
                 { q: "What is included in the free plan?", a: "The free plan includes up to 10 MCQs per subject. The allowance is tracked separately for each subject." },
                 { q: "Will I see explanations?", a: "Practice questions provide answer feedback and explanations when available in the question bank." },
                 { q: "How do Real Mock Tests work?", a: "Each mock test has a 60-minute timer and 60 questions. Paid students can take available numbered papers and unlock randomized retakes after completing the series. A subject needs at least 60 active questions." },
