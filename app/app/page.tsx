@@ -3211,14 +3211,9 @@ export default function Home() {
     }
 
     if (mockSubmitted) {
-      const percentage =
-        mockQuestions.length
-          ? Math.round(
-              (mockScore /
-                mockQuestions.length) *
-                100
-            )
-          : 0;
+      const percentage = mockFeedbackReady && mockQuestions.length
+        ? Math.round((mockScore / mockQuestions.length) * 100)
+        : null;
 
       return (
         <main className="min-h-screen overflow-x-hidden bg-slate-50">
@@ -3247,7 +3242,7 @@ export default function Home() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-9">
               <div className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-4 border-blue-100 bg-blue-50 text-xl font-bold text-blue-700">
-                  {percentage}%
+                  {percentage === null ? "Saved" : percentage + "%"}
                 </div>
 
                 <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-700">
@@ -3263,7 +3258,10 @@ export default function Home() {
                 </p>
               </div>
 
-              <Achievement correct={mockScore} total={mockQuestions.length} />
+              {mockFeedbackReady ? <Achievement correct={mockScore} total={mockQuestions.length} /> :
+                <p role="status" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                  Your exam has been saved. Open the complete report for your scores and answers.
+                </p>}
               {completedMockAttemptId && <Link href={"/report/mock/"+completedMockAttemptId} className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-800">Download Complete Report PDF</Link>}
               <div className="mt-7 grid gap-3 sm:mt-8 sm:grid-cols-3 sm:gap-4">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
@@ -3282,7 +3280,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-2 text-2xl font-bold text-emerald-700 sm:text-3xl">
-                    {mockScore}
+                    {mockFeedbackReady ? mockScore : "—"}
                   </p>
                 </div>
 
@@ -3292,11 +3290,13 @@ export default function Home() {
                   </p>
 
                   <p className="mt-2 text-2xl font-bold text-blue-700 sm:text-3xl">
-                    {percentage}%
+                    {percentage === null ? "—" : percentage + "%"}
                   </p>
                 </div>
               </div>
 
+                {mockSubmitError && <p role="alert" className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{mockSubmitError}</p>}
+                {mockFeedbackReady && <>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <label className="text-sm font-bold" htmlFor="mock-review-filter">Review:</label>
                   <select id="mock-review-filter" value={mockReviewFilter} onChange={e => setMockReviewFilter(e.target.value as "all" | "wrong")} className="rounded-lg border border-slate-300 p-2 text-sm">
@@ -3321,7 +3321,7 @@ export default function Home() {
                       >
                         <div className="flex items-start gap-3">
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-100 text-xs font-bold text-blue-700">
-                            {index + 1}
+                            {mockQuestions.findIndex(item => item.id === q.id) + 1}
                           </span>
 
                           <p className="min-w-0 text-sm font-semibold leading-6 text-slate-900 sm:text-base">
@@ -3352,6 +3352,7 @@ export default function Home() {
                   }
                 )}
               </div>
+              </>}
 
               <div className="mt-7 flex justify-center sm:mt-9">
                 <button
@@ -4555,17 +4556,15 @@ export default function Home() {
                   ) : (
                     <p
                       className={`text-xs font-semibold ${
-                        selectedSubjectQuestionCount >=
-                        MOCK_QUESTION_COUNT
+                        (mockPoolAvailable || Boolean(unfinishedMock))
                           ? "text-emerald-700"
                           : "text-red-700"
                       }`}
                     >
-                      {selectedSubjectQuestionCount} active
-                      questions available in this subject.
-                      {selectedSubjectQuestionCount <
-                        MOCK_QUESTION_COUNT &&
-                        ` ${MOCK_QUESTION_COUNT} are required for Full Syllabus mode.`}
+                      {mockPoolCounts.mock} MOCK-only + {mockPoolCounts.shared} SHARED eligible questions.
+                      {unfinishedMock ? " Your existing unfinished paper can be resumed." :
+                       !mockPoolAvailable ? " At least 48 MOCK and 12 SHARED are needed to start a new paper." :
+                       " Each new paper uses 48 MOCK and 12 SHARED."}
                     </p>
                   )}
                 </div>
@@ -4577,13 +4576,15 @@ export default function Home() {
                     <p className="text-sm font-bold">Next numbered mock / resume saved mock</p>
                     <p className="mt-2 text-xs text-slate-700">
                       {completedNumberedMocks}/{numberedMockCount} numbered papers completed.
-                      New papers use exactly 48 MOCK + 12 SHARED questions, prioritizing unseen questions.
-                      Saved unfinished papers are resumed automatically. Retakes unlock after the numbered series.
+                      {unfinishedMock ? " Your unfinished paper will resume with its original questions." :
+                        " The next paper uses 48 MOCK + 12 SHARED questions and prefers questions you have not seen."}
+                      {" "}Retakes begin after all numbered mocks are completed.
                     </p>
                     <p className="mt-2 text-xs text-slate-600">
                       Eligible pool: {mockPoolCounts.mock} mock-only and {mockPoolCounts.shared} shared questions.
                     </p>
-                    {mockPapers.filter(p=>p.status==="COMPLETED" && p.quiz_attempt_id).map(p => (
+                    {mockPapers.filter(p=>p.status==="COMPLETED" && p.quiz_attempt_id &&
+                      p.completed_at && new Date(p.completed_at).getTime() >= Date.now() - 14 * 86400000).map(p => (
                       <p key={p.id} className="mt-2 text-xs text-indigo-700">
                         <Link href={"/report/mock/"+p.quiz_attempt_id} className="font-bold underline">
                           Download Complete Report PDF — {p.paper_number ? "Mock "+p.paper_number : "Retake "+p.retake_number}
@@ -4607,10 +4608,10 @@ export default function Home() {
                   >
                     {selectedSubject === ALL ? "Select Subject First"
                       : !isPaidMember ? "Unlock Real Mock Tests →"
+                      : mockStarting ? "Preparing your mock..."
+                      : mockHistoryLoading || subjectQuestionsLoading ? "Loading availability..."
                       : !mockCanStart ? "Need 48 MOCK and 12 SHARED questions"
-                      : mockStarting ? "Preparing paper..."
-                      : mockPapers.some(p=>p.status==="STARTED") ? "Resume Unfinished Mock →"
-                      : "Start Next Mock / Retake →"}
+                      : mockActionLabel}
                   </button>
 
 
