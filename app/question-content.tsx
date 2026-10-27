@@ -38,7 +38,7 @@ function Diagram({ source, label }: { source: string; label: string }) {
   </span>;
 }
 
-export function QuestionContent({ text }: { text: string | null | undefined }) {
+export function QuestionContent({ text, printFriendly = false }: { text: string | null | undefined; printFriendly?: boolean }) {
   const value = text || "";
   const imagePattern = /!\[([^\]\r\n]*)\]\(([^\s)]+)\)/g;
   const parts: ReactNode[] = [];
@@ -46,7 +46,15 @@ export function QuestionContent({ text }: { text: string | null | undefined }) {
   let match: RegExpExecArray | null;
   while ((match = imagePattern.exec(value))) {
     parts.push(value.slice(cursor, match.index));
-    parts.push(safeImageSource(match[2]) ? <Diagram key={match.index} source={match[2]} label={match[1]} /> : <span key={match.index}>[Diagram unavailable: unsupported image location]</span>);
+    parts.push(safeImageSource(match[2]) ? (
+      printFriendly
+        ? <span key={match.index} className="my-3 block break-inside-avoid rounded-lg border border-slate-200 bg-white p-2">
+            <Image unoptimized width={1200} height={800} loading="eager" decoding="async"
+              src={match[2]} alt={match[1] || "Question diagram"}
+              className="mx-auto block h-auto max-h-[28rem] w-auto max-w-full object-contain" />
+          </span>
+        : <Diagram key={match.index} source={match[2]} label={match[1]} />
+    ) : <span key={match.index}>[Diagram unavailable: unsupported image location]</span>);
     cursor = imagePattern.lastIndex;
   }
   parts.push(value.slice(cursor));
