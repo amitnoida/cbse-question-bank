@@ -285,11 +285,16 @@ export default function Home() {
     question_ids: number[];
     status: "STARTED" | "COMPLETED";
     started_at: string;
+    completed_at: string | null;
     quiz_attempt_id: string | null;
   };
   const [mockPapers, setMockPapers] = useState<MockPaper[]>([]);
   const [mockPoolCounts, setMockPoolCounts] = useState<{ mock: number; shared: number; capacity: number }>({ mock: 0, shared: 0, capacity: 0 });
   const [completedMockAttemptId, setCompletedMockAttemptId] = useState<number | null>(null);
+  const [mockFeedbackReady, setMockFeedbackReady] = useState(false);
+  const [savedMockScore, setSavedMockScore] = useState<{
+    correct_answers: number; total_questions: number; percentage: number;
+  } | null>(null);
   const [activeMockPaperId, setActiveMockPaperId] = useState<string | null>(null);
   const [mockStarting, setMockStarting] = useState(false);
   const [mockHistoryLoading, setMockHistoryLoading] = useState(false);
@@ -1421,10 +1426,23 @@ export default function Home() {
   const completedNumberedMocks = mockPapers.filter(
     (p) => p.paper_number !== null && p.status === "COMPLETED"
   ).length;
+  const unfinishedMock = mockPapers.find(p => p.status === "STARTED");
+  const mockPoolAvailable = mockPoolCounts.mock >= 48 && mockPoolCounts.shared >= 12;
   const mockCanStart =
     selectedSubject !== ALL &&
-    mockPoolCounts.mock >= 48 && mockPoolCounts.shared >= 12 &&
-    !mockStarting && !mockHistoryLoading;
+    (Boolean(unfinishedMock) || mockPoolAvailable) &&
+    !mockStarting && !mockHistoryLoading && !subjectQuestionsLoading;
+  const nextMockNumber = Math.max(0, ...mockPapers.map(p => p.paper_number ?? 0)) + 1;
+  const numberedSeriesComplete = numberedMockCount > 0 &&
+    completedNumberedMocks >= numberedMockCount && !unfinishedMock;
+  const nextRetakeNumber = Math.max(0, ...mockPapers.map(p => p.retake_number ?? 0)) + 1;
+  const mockActionLabel = unfinishedMock
+    ? "Resume " + (unfinishedMock.paper_number !== null
+        ? "Mock Test " + unfinishedMock.paper_number
+        : "Retake " + unfinishedMock.retake_number) + " →"
+    : numberedSeriesComplete
+      ? "Start Randomized Retake " + nextRetakeNumber + " →"
+      : "Start Next Mock Test " + nextMockNumber + " →";
 
   useEffect(() => {
     let cancelled = false;
@@ -1439,7 +1457,7 @@ export default function Home() {
       setMockHistoryLoading(true);
       const { data, error: historyError } = await supabase
         .from("mock_papers")
-        .select("id,subject_id,paper_number,retake_number,question_ids,status,started_at,quiz_attempt_id")
+        .select("id,subject_id,paper_number,retake_number,question_ids,status,started_at,completed_at,quiz_attempt_id")
         .eq("student_id", currentUser.id)
         .eq("subject_id", availableSubjects.find(s => s.subject_name === selectedSubject)!.id)
         .order("started_at", { ascending: true });
@@ -1778,12 +1796,25 @@ export default function Home() {
     if (!currentUser) return;
     const { data, error: historyError } = await supabase
       .from("mock_papers")
-      .select("id,subject_id,paper_number,retake_number,question_ids,status,started_at,quiz_attempt_id")
+      .select("id,subject_id,paper_number,retake_number,question_ids,status,started_at,completed_at,quiz_attempt_id")
       .eq("student_id", currentUser.id)
       .eq("subject_id", subjectId)
       .order("started_at", { ascending: true });
     if (historyError) throw historyError;
     setMockPapers((data || []) as MockPaper[]);
+  }
+
+  async function loadSavedMockScore(attemptId: number) {
+    // A completed attempt's stored score is authoritative, even when
+    // per-question feedback is temporarily unavailable.
+    const { data, error } = await supabase.from("quiz_attempts")
+      .select("correct_answers,total_questions,percentage")
+      .eq("id", attemptId).maybeSingle();
+    if (!error && data) setSavedMockScore({
+      correct_answers: Number(data.correct_answers ?? 0),
+      total_questions: Number(data.total_questions ?? 0),
+      percentage: Number(data.percentage ?? 0),
+    });
   }
 
   async function openSavedMock(kind: "full" | "chapters", paperId: string, assigned: MCQ[]) {
@@ -1803,6 +1834,12 @@ export default function Home() {
     setMockStartedAt(new Date(row.started_at).getTime());
     setMockTimeLeft(Math.max(0, Math.ceil((deadline - (Date.now() + serverOffset)) / 1000)));
     setMockQuestions(assigned);
+    setMockFeedbackReady(false);
+    setSavedMockScore(null);
+    setCompletedMockAttemptId(row.quiz_attempt_id ? Number(row.quiz_attempt_id) : null);
+    if (row.status === "COMPLETED" && row.quiz_attempt_id) {
+      void loadSavedMockScore(Number(row.quiz_attempt_id));
+    }
     const saved = (row.answers || {}) as Record<number, string>;
     setMockAnswers(saved);
     const firstUnanswered = assigned.findIndex(q => !saved[q.id]);
@@ -1813,8 +1850,28 @@ export default function Home() {
     setPracticeMode(false);
     setMockMode(true);
     if (row.status === "COMPLETED") {
-      if (row.quiz_attempt_id) setCompletedMockAttemptId(Number(row.quiz_attempt_id));
-      setMockSubmitError("This exam has expired or was already submitted. Your saved answers have been finalized.");
+      // A previously expired exam is already final on the server.
+      // Load authorized feedback before displaying a numeric score.
+      try {
+        const { data: feedback, error: feedbackError } = await supabase.rpc(
+          "cbse_question_feedback_v1", { p_ids: assigned.map(q => q.id) }
+        );
+        if (feedbackError) throw feedbackError;
+        const details = new Map(((feedback || []) as Array<{
+          id: number; correct_option: string; explanation: string | null;
+        }>).map(item => [Number(item.id), item]));
+        if (assigned.some(q => !details.has(q.id))) {
+          throw new Error("Saved answer feedback is incomplete.");
+        }
+        setMockQuestions(assigned.map(q => {
+          const detail = details.get(q.id);
+          return detail ? { ...q, correct_option: detail.correct_option, explanation: detail.explanation } : q;
+        }));
+        setMockFeedbackReady(true);
+        setMockSubmitError("");
+      } catch {
+        setMockSubmitError("Your mock was completed and saved. Detailed review is temporarily unavailable. Use Download Complete Report PDF or your dashboard to view the saved result.");
+      }
     }
   }
 
@@ -1825,8 +1882,8 @@ export default function Home() {
     if (subjectQuestionsLoading || mockHistoryLoading) {
       setMockSubmitError("Wait for mock availability to load."); return;
     }
-    if (mockPoolCounts.mock < 48 || mockPoolCounts.shared < 12) {
-      setMockSubmitError("A mock requires 48 MOCK and 12 SHARED questions."); return;
+    if (!unfinishedMock && !mockPoolAvailable) {
+      setMockSubmitError("A new mock requires 48 MOCK and 12 SHARED questions. Existing assigned mocks may still be resumed."); return;
     }
     setMockStarting(true);
     try {
@@ -1895,31 +1952,62 @@ export default function Home() {
     setMockSubmitting(true);
     setMockSubmitError("");
     try {
-      const { data: completedAttemptId, error } = await supabase.rpc("mock_finish_exam", { p_session_id: mockSessionId });
-      if (error) throw error;
-      if (completedAttemptId) setCompletedMockAttemptId(Number(completedAttemptId));
-      const { data: completedData, error: completedError } = await supabase.rpc("mock_open_exam", {
-        p_kind: "full",
-        p_paper_id: activeMockPaperId,
+      const { data: completedAttemptId, error } = await supabase.rpc("mock_finish_exam", {
+        p_session_id: mockSessionId,
       });
-      if (!completedError && completedData) {
-        const completed = Array.isArray(completedData) ? completedData[0] : completedData;
-        if (completed?.answers) setMockAnswers(completed.answers as Record<number, string>);
-      }
-      const { data: feedback, error: feedbackError } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: mockQuestions.map(q => q.id) });
-      if (feedbackError) throw feedbackError;
-      const byFeedback = new Map((feedback || []).map((item: {id:number,correct_option:string,explanation:string|null}) => [Number(item.id),item]));
-      setMockQuestions(prev => prev.map(q => {
-        const item = byFeedback.get(q.id) as { id: number; correct_option: string; explanation: string | null } | undefined;
-        return item ? { ...q, correct_option: item.correct_option, explanation: item.explanation } : q;
-      }));
+      if (error) throw error;
+      // The database is authoritative. A later optional feedback failure must
+      // not cause the completed exam to appear unfinished in the UI.
       setMockSubmitted(true);
-      if (automaticSubmit) setMockTimeLeft(0);
-      if (selectedSubjectObject) await refreshMockPapers(selectedSubjectObject.id);
+      setMockFeedbackReady(false);
+      setMockTimeLeft(0);
+      if (completedAttemptId) {
+        setCompletedMockAttemptId(Number(completedAttemptId));
+        void loadSavedMockScore(Number(completedAttemptId));
+      }
     } catch (err: unknown) {
-      setMockSubmitError((automaticSubmit ? "Time is over. " : "") + "Result synchronization failed. Reconnect and retry. " + (errorMessage(err) || ""));
+      setMockSubmitError(
+        (automaticSubmit ? "Time is over. " : "") +
+        "Unable to confirm submission. Reconnect and retry. " + (errorMessage(err) || "")
+      );
       if (automaticSubmit) mockAutoSubmitAttempted.current = false;
-    } finally { setMockSubmitting(false); }
+      setMockSubmitting(false);
+      return;
+    }
+
+    try {
+      if (activeMockPaperId) {
+        const { data: completedData, error: completedError } = await supabase.rpc(
+          "mock_open_exam", { p_kind: "full", p_paper_id: activeMockPaperId }
+        );
+        if (!completedError && completedData) {
+          const completed = Array.isArray(completedData) ? completedData[0] : completedData;
+          if (completed?.answers) setMockAnswers(completed.answers as Record<number, string>);
+        }
+      }
+      const { data: feedback, error: feedbackError } = await supabase.rpc(
+        "cbse_question_feedback_v1", { p_ids: mockQuestions.map(q => q.id) }
+      );
+      if (feedbackError) throw feedbackError;
+      const details = new Map(((feedback || []) as Array<{
+        id: number; correct_option: string; explanation: string | null;
+      }>).map(item => [Number(item.id), item]));
+      if (mockQuestions.some(q => !details.has(q.id))) throw new Error("Some answers are unavailable.");
+      setMockQuestions(previous => previous.map(q => {
+        const detail = details.get(q.id);
+        return detail ? { ...q, correct_option: detail.correct_option, explanation: detail.explanation } : q;
+      }));
+      setMockFeedbackReady(true);
+    } catch {
+      setMockSubmitError("Your mock was successfully submitted and saved. Answer review could not be loaded; your full report is available from the PDF link or dashboard.");
+    } finally {
+      setMockSubmitting(false);
+      if (selectedSubjectObject) {
+        void refreshMockPapers(selectedSubjectObject.id).catch(() => {
+          // A history-refresh issue does not change the committed result.
+        });
+      }
+    }
   }
 
   function exitMockTest() {
@@ -1928,6 +2016,8 @@ export default function Home() {
     setMockSubmitted(false);
     setMockSubmitting(false);
     setCompletedMockAttemptId(null);
+    setMockFeedbackReady(false);
+    setSavedMockScore(null);
     setMockSubmitError("");
     setMockQuestions([]);
     setMockAnswers({});
@@ -3145,14 +3235,14 @@ export default function Home() {
     }
 
     if (mockSubmitted) {
-      const percentage =
-        mockQuestions.length
-          ? Math.round(
-              (mockScore /
-                mockQuestions.length) *
-                100
-            )
-          : 0;
+      const correctAnswers = savedMockScore
+        ? savedMockScore.correct_answers
+        : mockFeedbackReady ? mockScore : null;
+      const percentage = savedMockScore
+        ? Number(savedMockScore.percentage).toFixed(1)
+        : mockFeedbackReady && mockQuestions.length
+          ? ((mockScore / mockQuestions.length) * 100).toFixed(1)
+          : null;
 
       return (
         <main className="min-h-screen overflow-x-hidden bg-slate-50">
@@ -3181,7 +3271,7 @@ export default function Home() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-9">
               <div className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-4 border-blue-100 bg-blue-50 text-xl font-bold text-blue-700">
-                  {percentage}%
+                  {percentage === null ? "Saved" : percentage + "%"}
                 </div>
 
                 <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-700">
@@ -3197,7 +3287,10 @@ export default function Home() {
                 </p>
               </div>
 
-              <Achievement correct={mockScore} total={mockQuestions.length} />
+              {correctAnswers !== null ? <Achievement correct={correctAnswers} total={mockQuestions.length} /> :
+                <p role="status" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                  Your exam has been saved. Open the complete report for your scores and answers.
+                </p>}
               {completedMockAttemptId && <Link href={"/report/mock/"+completedMockAttemptId} className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-800">Download Complete Report PDF</Link>}
               <div className="mt-7 grid gap-3 sm:mt-8 sm:grid-cols-3 sm:gap-4">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
@@ -3216,7 +3309,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-2 text-2xl font-bold text-emerald-700 sm:text-3xl">
-                    {mockScore}
+                    {correctAnswers === null ? "—" : correctAnswers}
                   </p>
                 </div>
 
@@ -3226,11 +3319,13 @@ export default function Home() {
                   </p>
 
                   <p className="mt-2 text-2xl font-bold text-blue-700 sm:text-3xl">
-                    {percentage}%
+                    {percentage === null ? "—" : percentage + "%"}
                   </p>
                 </div>
               </div>
 
+                {mockSubmitError && <p role="alert" className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{mockSubmitError}</p>}
+                {mockFeedbackReady && <>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <label className="text-sm font-bold" htmlFor="mock-review-filter">Review:</label>
                   <select id="mock-review-filter" value={mockReviewFilter} onChange={e => setMockReviewFilter(e.target.value as "all" | "wrong")} className="rounded-lg border border-slate-300 p-2 text-sm">
@@ -3255,7 +3350,7 @@ export default function Home() {
                       >
                         <div className="flex items-start gap-3">
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-100 text-xs font-bold text-blue-700">
-                            {index + 1}
+                            {mockQuestions.findIndex(item => item.id === q.id) + 1}
                           </span>
 
                           <p className="min-w-0 text-sm font-semibold leading-6 text-slate-900 sm:text-base">
@@ -3286,6 +3381,7 @@ export default function Home() {
                   }
                 )}
               </div>
+              </>}
 
               <div className="mt-7 flex justify-center sm:mt-9">
                 <button
@@ -4489,17 +4585,15 @@ export default function Home() {
                   ) : (
                     <p
                       className={`text-xs font-semibold ${
-                        selectedSubjectQuestionCount >=
-                        MOCK_QUESTION_COUNT
+                        (mockPoolAvailable || Boolean(unfinishedMock))
                           ? "text-emerald-700"
                           : "text-red-700"
                       }`}
                     >
-                      {selectedSubjectQuestionCount} active
-                      questions available in this subject.
-                      {selectedSubjectQuestionCount <
-                        MOCK_QUESTION_COUNT &&
-                        ` ${MOCK_QUESTION_COUNT} are required for Full Syllabus mode.`}
+                      {mockPoolCounts.mock} MOCK-only + {mockPoolCounts.shared} SHARED eligible questions.
+                      {unfinishedMock ? " Your existing unfinished paper can be resumed." :
+                       !mockPoolAvailable ? " At least 48 MOCK and 12 SHARED are needed to start a new paper." :
+                       " Each new paper uses 48 MOCK and 12 SHARED."}
                     </p>
                   )}
                 </div>
@@ -4511,13 +4605,15 @@ export default function Home() {
                     <p className="text-sm font-bold">Next numbered mock / resume saved mock</p>
                     <p className="mt-2 text-xs text-slate-700">
                       {completedNumberedMocks}/{numberedMockCount} numbered papers completed.
-                      New papers use exactly 48 MOCK + 12 SHARED questions, prioritizing unseen questions.
-                      Saved unfinished papers are resumed automatically. Retakes unlock after the numbered series.
+                      {unfinishedMock ? " Your unfinished paper will resume with its original questions." :
+                        " The next paper uses 48 MOCK + 12 SHARED questions and prefers questions you have not seen."}
+                      {" "}Retakes begin after all numbered mocks are completed.
                     </p>
                     <p className="mt-2 text-xs text-slate-600">
                       Eligible pool: {mockPoolCounts.mock} mock-only and {mockPoolCounts.shared} shared questions.
                     </p>
-                    {mockPapers.filter(p=>p.status==="COMPLETED" && p.quiz_attempt_id).map(p => (
+                    {mockPapers.filter(p=>p.status==="COMPLETED" && p.quiz_attempt_id &&
+                      p.completed_at && new Date(p.completed_at).getTime() >= Date.now() - 14 * 86400000).map(p => (
                       <p key={p.id} className="mt-2 text-xs text-indigo-700">
                         <Link href={"/report/mock/"+p.quiz_attempt_id} className="font-bold underline">
                           Download Complete Report PDF — {p.paper_number ? "Mock "+p.paper_number : "Retake "+p.retake_number}
@@ -4541,10 +4637,10 @@ export default function Home() {
                   >
                     {selectedSubject === ALL ? "Select Subject First"
                       : !isPaidMember ? "Unlock Real Mock Tests →"
+                      : mockStarting ? "Preparing your mock..."
+                      : mockHistoryLoading || subjectQuestionsLoading ? "Loading availability..."
                       : !mockCanStart ? "Need 48 MOCK and 12 SHARED questions"
-                      : mockStarting ? "Preparing paper..."
-                      : mockPapers.some(p=>p.status==="STARTED") ? "Resume Unfinished Mock →"
-                      : "Start Next Mock / Retake →"}
+                      : mockActionLabel}
                   </button>
 
 
