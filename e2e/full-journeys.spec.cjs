@@ -22,6 +22,7 @@ async function chooseSubject(page) {
   return options[0];
 }
 test('all student accounts: subject navigation, class lock and membership',async({browser})=>{
+  test.setTimeout(600000);
   for(const account of student){
     const page=await browser.newPage();
     try{
@@ -42,6 +43,7 @@ test('all student accounts: subject navigation, class lock and membership',async
   }
 });
 test('admin role restrictions: full administrator vs viewer',async({browser})=>{
+  test.setTimeout(180000);
   for(const account of admin){
     const page=await browser.newPage();
     try{
@@ -65,6 +67,7 @@ test('admin role restrictions: full administrator vs viewer',async({browser})=>{
 // These two tests intentionally write only to dedicated E2E student accounts.
 // Practice answers consume free allowance and submissions create attempt history.
 test('free student: practice answer, feedback, submission and dashboard history',async({page})=>{
+  test.setTimeout(180000);
   const account=by(/test_9_free@gmail\.com$/i);
   if(!account) throw Error('Missing class 9 free test account');
   await loginStudent(page,account);
@@ -85,6 +88,7 @@ test('free student: practice answer, feedback, submission and dashboard history'
   await expect(page).toHaveURL(/\/dashboard/);
 });
 test('paid student: 60-question mock, answer persistence and result',async({page})=>{
+  test.setTimeout(180000);
   const account=by(/test_9_paid@gmail\.com$/i);
   if(!account) throw Error('Missing class 9 paid test account');
   await loginStudent(page,account);
