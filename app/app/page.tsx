@@ -974,7 +974,7 @@ export default function Home() {
           const result: QuestionRow[] = [];
           const pageSize = 500;
           for (let offset = 0; !cancelled; offset += pageSize) {
-            const { data, error } = await supabase.rpc("cbse_subject_questions_v1", {
+            const { data, error } = await supabase.rpc("cbse_subject_practice_questions_v2", {
               p_subject_id: subject.id,
             }).order("id", { ascending: true }).range(offset, offset + pageSize - 1);
             if (error) throw error;
