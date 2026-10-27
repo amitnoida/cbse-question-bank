@@ -166,8 +166,8 @@ export default function Home() {
   // Registration options are class-scoped and numerically ordered, not sorted by database ID.
   // Competitive exam categories remain separate from the Class 8–12 signup list.
   const signupClasses = useMemo(() => classes
-    .filter(c => /^Class\\s+(8|9|10|11|12)$/i.test(c.class_name.trim()))
-    .sort((a,b) => Number(a.class_name.match(/\\d+/)?.[0] ?? 0) - Number(b.class_name.match(/\\d+/)?.[0] ?? 0)),
+    .filter(c => /^Class\s+(8|9|10|11|12)$/i.test(c.class_name.trim()))
+    .sort((a,b) => Number(a.class_name.match(/\d+/)?.[0] ?? 0) - Number(b.class_name.match(/\d+/)?.[0] ?? 0)),
   [classes]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [chapters, setChapters] = useState<ChapterRow[]>([]);
