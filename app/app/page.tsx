@@ -4425,6 +4425,15 @@ export default function Home() {
         </div>
 
         {/* PAPER OPTIONS */}
+        {selectedSubject !== ALL && !subjectQuestionsLoading &&
+          questionCountForSelection === 0 && mockPoolCounts.mock === 0 &&
+          mockPoolCounts.shared === 0 && (
+          <p role="status" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium leading-6 text-amber-950">
+            Questions for this subject are still being prepared. New practice and real mock
+            tests will become available when questions are published. Existing saved sessions
+            can still be resumed where supported.
+          </p>
+        )}
         <div className="mt-5 grid gap-5 lg:grid-cols-2 sm:mt-6">
           {/* PRACTICE PAPER */}
           <div className="rounded-2xl border border-blue-800 bg-blue-900 p-4 text-white shadow-sm sm:p-7">
