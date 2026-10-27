@@ -4532,6 +4532,10 @@ export default function Home() {
                     <p className="text-xs font-semibold text-orange-800">
                       Select a subject first.
                     </p>
+                  ) : !isPaidMember ? (
+                    <p className="text-xs font-semibold text-orange-800">
+                      Real Mock Tests require a paid membership. Your free practice allowance is separate.
+                    </p>
                   ) : (
                     <p
                       className={`text-xs font-semibold ${
@@ -4552,7 +4556,7 @@ export default function Home() {
               </div>
 
               <div>
-                {selectedSubject !== ALL && numberedMockCount > 0 && (
+                {isPaidMember && selectedSubject !== ALL && numberedMockCount > 0 && (
                   <div className="mb-4 rounded-lg border border-orange-300 bg-white/70 p-3">
                     <label htmlFor="mock-paper-selector" className="mb-2 block text-sm font-bold">
                       Choose a numbered paper or retake
@@ -4563,7 +4567,7 @@ export default function Home() {
                       {Array.from({ length: numberedMockCount }, (_, i) => i + 1).map(n => {
                         const record = mockPapers.find(p => p.paper_number === n);
                         return <option key={n} value={String(n)}>
-                          {`Mock Test ${n} — ${record?.status === "COMPLETED" ? "Completed" : record ? "In progress" : "Not started"}`}
+                          {`Mock Test ${n} — ${record?.status === "COMPLETED" ? "Completed" : record ? "Assigned — start/resume" : "Not started"}`}
                         </option>;
                       })}
                       {mockPapers.filter(p => p.retake_number !== null && p.status === "STARTED").map(p => (
@@ -4594,18 +4598,19 @@ export default function Home() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     onClick={startMockTest}
-                    disabled={mockStarting || mockHistoryLoading || selectedSubject === ALL || (!mockCanStart || (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED"))}
+                    disabled={mockStarting || mockHistoryLoading || selectedSubject === ALL || (isPaidMember && (!mockCanStart || (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED")))}
                     className="min-h-12 w-full rounded-lg bg-orange-500 px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {selectedSubject === ALL
                       ? "Select Subject First"
+                      : !isPaidMember ? "Unlock Real Mock Tests →"
                       : selectedSubjectQuestionCount <
                         MOCK_QUESTION_COUNT
                       ? `Need ${MOCK_QUESTION_COUNT} Questions`
                       : mockStarting ? "Preparing paper..."
                       : selectedMockPaper.startsWith("resume-retake:") ? "Resume Unfinished Retake →"
                       : selectedMockPaper === "retake" ? "Start Randomized Retake →"
-                      : `Start Mock Test ${selectedMockPaper} →`}
+                      : `Start / Resume Mock Test ${selectedMockPaper} →`}
                   </button>
 
 
