@@ -53,21 +53,34 @@ export async function GET(req: NextRequest) {
       return fail("The 14-day report download window has ended", 410);
     }
 
-    const [answersResult, profileResult, subjectResult] = await Promise.all([
+    const [answersResult, profileResult, subjectResult, paperResult] = await Promise.all([
       db.from("quiz_attempt_answers")
         .select("id,question_id,selected_answer,correct_answer,is_correct,marks_obtained")
         .eq("attempt_id", attemptId).order("id", { ascending: true }).limit(120),
       db.from("student_profiles").select("full_name").eq("id", user.id).maybeSingle(),
       db.from("subjects").select("subject_name").eq("id", attempt.subject_id).maybeSingle(),
+      db.from("mock_papers").select("paper_number,retake_number,question_ids")
+        .eq("student_id", user.id).eq("quiz_attempt_id", String(attemptId)).maybeSingle(),
     ]);
-    if (answersResult.error || profileResult.error || subjectResult.error) {
+    if (answersResult.error || profileResult.error || subjectResult.error || paperResult.error) {
       return fail("Unable to retrieve complete report", 500);
     }
     const answers = answersResult.data || [];
     if (!answers.length || answers.length !== Number(attempt.total_questions) || answers.length > 120) {
       return fail("Report questions are incomplete; please contact support", 409);
     }
-    const questionIds = answers.map(a => a.question_id);
+    // Reports follow the student's original random paper order, rather than
+    // relying on insertion order of saved answer rows.
+    let orderedAnswers = answers;
+    const assignedIds = paperResult.data?.question_ids as number[] | undefined;
+    if (assignedIds?.length === answers.length &&
+        new Set(assignedIds.map(Number)).size === assignedIds.length) {
+      const answersById = new Map(answers.map(answer => [Number(answer.question_id), answer]));
+      if (assignedIds.every(id => answersById.has(Number(id)))) {
+        orderedAnswers = assignedIds.map(id => answersById.get(Number(id))!);
+      }
+    }
+    const questionIds = orderedAnswers.map(a => a.question_id);
     const { data: questions, error: questionsError } = await db.from("questions")
       .select("id,question_text,option_a,option_b,option_c,option_d,explanation,question_media")
       .in("id", questionIds).limit(120);
@@ -75,7 +88,7 @@ export async function GET(req: NextRequest) {
       return fail("Report question content is unavailable", 409);
     }
     const byId = new Map((questions as QuestionRow[]).map(q => [q.id, q]));
-    const items = answers.map((a, index) => {
+    const items = orderedAnswers.map((a, index) => {
       const q = byId.get(a.question_id);
       if (!q) return null;
       return {
@@ -96,6 +109,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       student: profileResult.data?.full_name || user.email || "Student",
       subject: subjectResult.data?.subject_name || "Subject",
+      paper: paperResult.data ? {
+        number: paperResult.data.paper_number,
+        retake: paperResult.data.retake_number,
+      } : null,
       attempt: {
         id: attempt.id, submittedAt: attempt.submitted_at,
         total: attempt.total_questions, answered: attempt.answered_questions,
