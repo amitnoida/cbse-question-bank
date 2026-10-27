@@ -3,7 +3,7 @@ import {useCallback,useEffect,useState} from "react";
 import Link from "next/link";
 import {supabase} from "../../../lib/supabase";
 type Usage={provider:string;metric_key:string;used:number;quota:number;unit:string;scope:string;period_label:string;created_at:string};
-type Stats={database:Record<string,unknown>;usage:Usage[];as_of:string};
+type Stats={database:Record<string,unknown>&{largest_tables?:Array<{name:string;mb:number|string}>};usage:Usage[];as_of:string};
 const defaults:[string,string,string,number,string][]=[
  ["supabase","database_size","Database storage",500,"MB"],
  ["supabase","monthly_active_users","Monthly active users",50000,"count"],
@@ -25,8 +25,8 @@ const defaults:[string,string,string,number,string][]=[
 export default function SystemStats(){
  const [data,setData]=useState<Stats|null>(null),[error,setError]=useState(""),[loading,setLoading]=useState(true),[tab,setTab]=useState("supabase");
  const [metric,setMetric]=useState("supabase:database_size"),[used,setUsed]=useState(""),[quota,setQuota]=useState("500"),[unit,setUnit]=useState("MB"),[period,setPeriod]=useState("07 Oct 2026 - 07 Nov 2026"),[saving,setSaving]=useState(false);
- const fetchData=useCallback(async()=>{setLoading(true);setError("");try{const {data:{session}}=await supabase.auth.getSession();if(!session)throw Error("Sign in as an administrator first");const r=await fetch("/api/admin/system-stats",{headers:{Authorization:`Bearer ${session.access_token}`},cache:"no-store"});const j=await r.json();if(!r.ok)throw Error(j.error||"Unable to load");setData(j);}catch(e){setError(e instanceof Error?e.message:"Unexpected error")}finally{setLoading(false)}},[]);
- useEffect(()=>{void fetchData()},[fetchData]);
+ const fetchData=useCallback(async()=>{try{const {data:{session}}=await supabase.auth.getSession();setLoading(true);setError("");if(!session)throw Error("Sign in as an administrator first");const r=await fetch("/api/admin/system-stats",{headers:{Authorization:`Bearer ${session.access_token}`},cache:"no-store"});const j=await r.json();if(!r.ok)throw Error(j.error||"Unable to load");setData(j);}catch(e){setError(e instanceof Error?e.message:"Unexpected error")}finally{setLoading(false)}},[]);
+ useEffect(()=>{const timer=window.setTimeout(()=>void fetchData(),0);return ()=>window.clearTimeout(timer);},[fetchData]);
  const chosen=defaults.find(x=>`${x[0]}:${x[1]}`===metric);
  const selectMetric=(v:string)=>{setMetric(v);const row=defaults.find(x=>`${x[0]}:${x[1]}`===v);if(row){setQuota(row[3]?String(row[3]):"");setUnit(row[4]);setUsed("")}};
  const save=async(e:React.FormEvent)=>{e.preventDefault();setSaving(true);setError("");try{const {data:{session}}=await supabase.auth.getSession();if(!session)throw Error("Not signed in");const [provider,metric_key]=metric.split(":");const r=await fetch("/api/admin/system-stats",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({provider,metric_key,used:Number(used),quota:Number(quota),unit,period_label:period,scope:provider==="supabase"?"organization / all projects":"vercel account / selected range"})});const j=await r.json();if(!r.ok)throw Error(j.error||"Save failed");setUsed("");await fetchData();}catch(e){setError(e instanceof Error?e.message:"Save failed")}finally{setSaving(false)}};
@@ -55,7 +55,7 @@ export default function SystemStats(){
    </div>}
   </div>
   <h3 style={{marginTop:20}}>Largest database tables</h3>
-  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>{(Array.isArray(data.database?.largest_tables)?data.database.largest_tables:[]).map((x:any)=>{const max=Math.max(0,...(Array.isArray(data.database?.largest_tables)?data.database.largest_tables:[]).map((t:any)=>Number(t.mb)||0));const size=Number(x.mb)||0;return <div key={x.name} style={card}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}><b style={{overflowWrap:"anywhere"}}>{x.name}</b><strong>{formatNumber(size)} MB</strong></div><div role="img" aria-label={`${x.name}: ${formatNumber(size)} MB; ${max?formatNumber(100*size/max):0}% of largest table`} style={{background:"#1f2937",borderRadius:20,height:13,overflow:"hidden",marginTop:12}}><div style={{height:"100%",width:`${max?Math.min(100,100*size/max):0}%`,background:"#16a34a"}}/></div><small style={{color:"#64748b"}}>Compared with largest table (not a storage quota)</small></div>})}</div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>{(Array.isArray(data.database?.largest_tables)?data.database.largest_tables:[]).map((x)=>{const max=Math.max(0,...(Array.isArray(data.database?.largest_tables)?data.database.largest_tables:[]).map((t)=>Number(t.mb)||0));const size=Number(x.mb)||0;return <div key={x.name} style={card}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}><b style={{overflowWrap:"anywhere"}}>{x.name}</b><strong>{formatNumber(size)} MB</strong></div><div role="img" aria-label={`${x.name}: ${formatNumber(size)} MB; ${max?formatNumber(100*size/max):0}% of largest table`} style={{background:"#1f2937",borderRadius:20,height:13,overflow:"hidden",marginTop:12}}><div style={{height:"100%",width:`${max?Math.min(100,100*size/max):0}%`,background:"#16a34a"}}/></div><small style={{color:"#64748b"}}>Compared with largest table (not a storage quota)</small></div>})}</div>
  </>}
  <div style={{display:"flex",gap:10,marginTop:28,flexWrap:"wrap"}}>{["supabase","vercel","alerts"].map(t=><button key={t} onClick={()=>setTab(t)} style={{...button,background:tab===t?"#4338ca":"white",color:tab===t?"white":"#172554"}}>{t==="alerts"?"Alerts & history":t==="supabase"?"Supabase":"Vercel"}</button>)}</div>
  {tab!=="alerts"&&<>
@@ -63,7 +63,7 @@ export default function SystemStats(){
   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:12}}>
    {cards.map(([provider,key,label,reference,referenceUnit])=>{
     const row=data?.usage.find(x=>x.provider===provider&&x.metric_key===key);
-    const stale=row?Date.now()-new Date(row.created_at).getTime()>48*3600*1000:false;
+    const stale=row?Date.parse(data?.as_of || row.created_at)-new Date(row.created_at).getTime()>48*3600*1000:false;
     return <div key={key} style={card}>
      <b>{label}</b>
      {row?<>
