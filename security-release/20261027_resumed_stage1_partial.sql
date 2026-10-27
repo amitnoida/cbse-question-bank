@@ -49,8 +49,10 @@ FROM public.questions q WHERE r.source_key='DB-'||q.id::text
 AND r.question_id IS DISTINCT FROM q.id;
 
 INSERT INTO public.mock_question_coverage(student_id,subject_id,question_id)
-SELECT DISTINCT mp.student_id,mp.subject_id,unnest(mp.question_ids)
-FROM public.mock_papers mp ON CONFLICT (student_id,subject_id,question_id) DO NOTHING;
+SELECT DISTINCT mp.student_id,mp.subject_id,x.question_id
+FROM public.mock_papers mp CROSS JOIN LATERAL unnest(mp.question_ids) AS x(question_id)
+WHERE x.question_id IS NOT NULL
+ON CONFLICT (student_id,subject_id,question_id) DO NOTHING;
 
 DO $guard$
 BEGIN
