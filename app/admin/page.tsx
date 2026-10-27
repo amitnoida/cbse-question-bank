@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { errorMessage } from "../../lib/error-message";
 
 import "../design-refresh.css";
 import "./admin-polish.css";
@@ -82,7 +84,7 @@ type CouponFilter = "all" | "available" | "redeemed" | "expired" | "inactive";
 
 
 
-function couponStatus(c: Coupon): Exclude<CouponFilter, "all"> {
+function couponStatus(c: Coupon, checkedAt: number): Exclude<CouponFilter, "all"> {
 
 
 
@@ -98,7 +100,7 @@ function couponStatus(c: Coupon): Exclude<CouponFilter, "all"> {
 
 
 
-  if (c.valid_until && new Date(c.valid_until).getTime() <= Date.now()) return "expired";
+  if (c.valid_until && new Date(c.valid_until).getTime() <= checkedAt) return "expired";
 
 
 
@@ -106,7 +108,7 @@ function couponStatus(c: Coupon): Exclude<CouponFilter, "all"> {
 
 
 
-  if (!c.is_active || (c.valid_from && new Date(c.valid_from).getTime() > Date.now())) return "inactive";
+  if (!c.is_active || (c.valid_from && new Date(c.valid_from).getTime() > checkedAt)) return "inactive";
 
 
 
@@ -396,6 +398,15 @@ export default function AdminPage() {
     accuracy: number;
     attempts: Array<{ id: number; quiz_type: string | null; status: string | null; correct_answers: number | null; answered_questions: number | null; percentage: number | null; submitted_at: string | null }>;
   } | null>(null);
+  const [checkedAt, setCheckedAt] = useState(0);
+  // Refresh time-dependent coupon labels without reading the clock during render.
+  useEffect(() => {
+    const updateClock = () => setCheckedAt(Date.now());
+    const timer = window.setInterval(updateClock, 60000);
+    const onVisible = () => { if (document.visibilityState === "visible") updateClock(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, []);
   const [studentDashboardLoading, setStudentDashboardLoading] = useState(false);
   const [studentDashboardError, setStudentDashboardError] = useState("");
 
@@ -410,8 +421,8 @@ export default function AdminPage() {
       });
       if (dashboardError) throw dashboardError;
       setStudentDashboard(data as typeof studentDashboard);
-    } catch (err: any) {
-      setStudentDashboardError(err?.message || "Unable to load student dashboard");
+    } catch (err: unknown) {
+      setStudentDashboardError(errorMessage(err) || "Unable to load student dashboard");
     } finally {
       setStudentDashboardLoading(false);
     }
@@ -472,7 +483,6 @@ export default function AdminPage() {
 
 
 
-    setError("");
 
 
 
@@ -481,6 +491,8 @@ export default function AdminPage() {
 
 
     const { data: auth, error: authError } = await supabase.auth.getUser();
+    setError("");
+    setCheckedAt(Date.now());
 
 
 
@@ -786,7 +798,7 @@ export default function AdminPage() {
 
 
 
-    void refresh();
+    const initialRefresh = window.setTimeout(() => void refresh(), 0);
 
 
 
@@ -826,7 +838,7 @@ export default function AdminPage() {
 
 
 
-    return () => subscription.unsubscribe();
+    return () => { window.clearTimeout(initialRefresh); subscription.unsubscribe(); };
 
 
 
@@ -1218,7 +1230,7 @@ export default function AdminPage() {
 
 
 
-    } catch (e: any) { setCouponError(e?.message || "Unable to create coupon."); }
+    } catch (e: unknown) { setCouponError(errorMessage(e) || "Unable to create coupon."); }
 
 
 
@@ -1298,7 +1310,7 @@ export default function AdminPage() {
 
 
 
-    } catch (e: any) { setCouponError(e?.message || "Unable to update coupon."); }
+    } catch (e: unknown) { setCouponError(errorMessage(e) || "Unable to update coupon."); }
 
 
 
@@ -1394,7 +1406,7 @@ export default function AdminPage() {
 
 
 
-          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3"><a href="/" className="text-sm font-semibold text-indigo-700 hover:underline">← Website</a>{userEmail && <button onClick={signOut} className="inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-semibold">Sign out</button>}</div>
+          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3"><Link href="/" className="text-sm font-semibold text-indigo-700 hover:underline">← Website</Link>{userEmail && <button onClick={signOut} className="inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-semibold">Sign out</button>}</div>
 
 
 
@@ -1522,7 +1534,7 @@ export default function AdminPage() {
 
 
 
-            <div className="mb-7 flex flex-wrap items-center justify-between gap-3"><div><p className="cbse-admin-eyebrow">ADMINISTRATOR WORKSPACE</p><h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Management overview</h2><a href="/admin/upgrade" className="mt-3 inline-flex rounded-lg bg-indigo-700 px-4 py-2 text-sm font-bold text-white">Admin roles, students &amp; announcements →</a><a href="/admin/system-stats" className="ml-2 mt-3 inline-flex min-h-10 items-center rounded-lg border border-indigo-700 bg-white px-4 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50">📊 System Stats →</a><p className="cbse-admin-overview-subtitle">Manage students, subscriptions and coupons from one place.</p><p className="text-sm text-slate-600">Signed in as {userEmail}</p></div>{stats && <button onClick={() => {setLoading(true);void refresh();}} className="rounded-lg border bg-white px-4 py-2 font-semibold">Refresh</button>}</div>
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-3"><div><p className="cbse-admin-eyebrow">ADMINISTRATOR WORKSPACE</p><h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Management overview</h2><Link href="/admin/upgrade" className="mt-3 inline-flex rounded-lg bg-indigo-700 px-4 py-2 text-sm font-bold text-white">Admin roles, students &amp; announcements →</Link><Link href="/admin/system-stats" className="ml-2 mt-3 inline-flex min-h-10 items-center rounded-lg border border-indigo-700 bg-white px-4 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50">📊 System Stats →</Link><p className="cbse-admin-overview-subtitle">Manage students, subscriptions and coupons from one place.</p><p className="text-sm text-slate-600">Signed in as {userEmail}</p></div>{stats && <button onClick={() => {setLoading(true);void refresh();}} className="rounded-lg border bg-white px-4 py-2 font-semibold">Refresh</button>}</div>
 
 
 
@@ -1690,7 +1702,7 @@ export default function AdminPage() {
 
 
 
-{viewStudent && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-3 sm:p-8" role="dialog" aria-modal="true" aria-label="Student dashboard"><div className="mx-auto max-w-4xl rounded-2xl bg-white p-4 shadow-xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Read-only student dashboard</p><h2 className="text-xl font-extrabold">{viewStudent.student_name || "Student"}</h2><p className="break-all text-sm text-slate-600">{viewStudent.email || "Email unavailable"}</p></div><button type="button" className="shrink-0 rounded-lg border px-3 py-2 font-semibold" onClick={() => setViewStudent(null)}>Close ✕</button></div>{studentDashboardLoading ? <p className="mt-6">Loading dashboard…</p> : studentDashboardError ? <p role="alert" className="mt-6 rounded-lg bg-red-50 p-4 text-red-800">{studentDashboardError}. Apply the accompanying admin dashboard SQL migration before using this feature.</p> : studentDashboard && <div className="mt-5 space-y-5"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[{label:"Completed tests",value:studentDashboard.completed_tests},{label:"Answered",value:studentDashboard.answered_questions},{label:"Correct",value:studentDashboard.correct_answers},{label:"Accuracy",value:`${studentDashboard.accuracy}%`}].map(m=><div key={m.label} className="rounded-xl bg-indigo-50 p-4"><p className="text-xs text-slate-600">{m.label}</p><p className="mt-2 text-2xl font-extrabold">{m.value}</p></div>)}</div><h3 className="font-extrabold">Test history — last 14 days</h3><div className="max-h-80 space-y-2 overflow-y-auto">{(studentDashboard.attempts || []).map((a:any)=><div key={a.id} className="rounded-xl border p-3 text-sm"><div className="flex justify-between gap-3"><strong>{a.quiz_type || "Test"}</strong><span>{a.status}</span></div><p className="mt-1">{a.correct_answers ?? 0} correct · {a.answered_questions ?? 0} answered · {a.percentage ?? 0}%</p><p className="text-xs text-slate-500">{a.submitted_at ? new Date(a.submitted_at).toLocaleString("en-IN") : "Not submitted"}</p></div>)}{!(studentDashboard.attempts || []).length && <p className="text-sm text-slate-500">No test attempts yet.</p>}</div><p className="text-xs text-slate-500">Administrator access is read-only. Student account and answers cannot be changed here.</p></div>}</div></div>}
+{viewStudent && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-3 sm:p-8" role="dialog" aria-modal="true" aria-label="Student dashboard"><div className="mx-auto max-w-4xl rounded-2xl bg-white p-4 shadow-xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Read-only student dashboard</p><h2 className="text-xl font-extrabold">{viewStudent.student_name || "Student"}</h2><p className="break-all text-sm text-slate-600">{viewStudent.email || "Email unavailable"}</p></div><button type="button" className="shrink-0 rounded-lg border px-3 py-2 font-semibold" onClick={() => setViewStudent(null)}>Close ✕</button></div>{studentDashboardLoading ? <p className="mt-6">Loading dashboard…</p> : studentDashboardError ? <p role="alert" className="mt-6 rounded-lg bg-red-50 p-4 text-red-800">{studentDashboardError}. Apply the accompanying admin dashboard SQL migration before using this feature.</p> : studentDashboard && <div className="mt-5 space-y-5"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[{label:"Completed tests",value:studentDashboard.completed_tests},{label:"Answered",value:studentDashboard.answered_questions},{label:"Correct",value:studentDashboard.correct_answers},{label:"Accuracy",value:`${studentDashboard.accuracy}%`}].map(m=><div key={m.label} className="rounded-xl bg-indigo-50 p-4"><p className="text-xs text-slate-600">{m.label}</p><p className="mt-2 text-2xl font-extrabold">{m.value}</p></div>)}</div><h3 className="font-extrabold">Test history — last 14 days</h3><div className="max-h-80 space-y-2 overflow-y-auto">{(studentDashboard.attempts || []).map((a)=><div key={a.id} className="rounded-xl border p-3 text-sm"><div className="flex justify-between gap-3"><strong>{a.quiz_type || "Test"}</strong><span>{a.status}</span></div><p className="mt-1">{a.correct_answers ?? 0} correct · {a.answered_questions ?? 0} answered · {a.percentage ?? 0}%</p><p className="text-xs text-slate-500">{a.submitted_at ? new Date(a.submitted_at).toLocaleString("en-IN") : "Not submitted"}</p></div>)}{!(studentDashboard.attempts || []).length && <p className="text-sm text-slate-500">No test attempts yet.</p>}</div><p className="text-xs text-slate-500">Administrator access is read-only. Student account and answers cannot be changed here.</p></div>}</div></div>}
 
 <section id="admin-coupon-management" className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50 sm:mt-7 sm:p-6">
 
@@ -1876,7 +1888,7 @@ export default function AdminPage() {
 
 
 
-    <span className="text-sm text-slate-600">{coupons.filter(c => couponFilter === "all" || couponStatus(c) === couponFilter).length} shown</span>
+    <span className="text-sm text-slate-600">{coupons.filter(c => couponFilter === "all" || couponStatus(c, checkedAt) === couponFilter).length} shown</span>
 
 
 
@@ -1892,7 +1904,7 @@ export default function AdminPage() {
 
 
 
-  <div className="mt-5 space-y-3 md:hidden">{coupons.filter(c => couponFilter === "all" || couponStatus(c) === couponFilter).map(c => {const status=couponStatus(c); const used=(c.usage_count||0)>0; const expired=!!c.valid_until&&new Date(c.valid_until).getTime()<Date.now();return <article key={c.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><code className="break-all text-sm font-bold text-indigo-800">{c.coupon_code}</code><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${status === "available" ? "bg-emerald-100 text-emerald-800" : status === "redeemed" ? "bg-indigo-100 text-indigo-800" : "bg-slate-200 text-slate-700"}`}>{status.charAt(0).toUpperCase()+status.slice(1)}</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><p className="text-slate-500">Discount</p><p className="mt-1 font-bold">{c.discount_percentage}%</p></div><div><p className="text-slate-500">Used</p><p className="mt-1 font-bold">{c.usage_count||0}/{c.usage_limit??"∞"}</p></div><div><p className="text-slate-500">Expires</p><p className="mt-1 font-bold">{c.valid_until?formatValidThrough(c.valid_until):"No expiry"}</p></div></div>{c.redeemed_student_id&&<div className="mt-3 break-words text-xs text-slate-500"><p>Redeemed by: {students.find(st => st.student_id === c.redeemed_student_id)?.student_name || "Name unavailable"} ({students.find(st => st.student_id === c.redeemed_student_id)?.email || "Email unavailable"})</p><p className="mt-1">Redeemed date: {c.redeemed_at ? new Date(c.redeemed_at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Not recorded"}</p></div>}<button type="button" disabled={couponBusy||used||expired} onClick={()=>void toggleCoupon(c)} className="mt-3 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-40">{c.is_active?"Deactivate coupon":"Activate coupon"}</button></article>})}{!coupons.some(c => couponFilter === "all" || couponStatus(c) === couponFilter) && <p className="p-4 text-center text-sm text-slate-500">No coupons match this filter.</p>}</div><div className="mt-6 hidden overflow-x-auto md:block"><table className="w-full min-w-[780px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-slate-600"><th className="p-3">Code</th><th className="p-3">Discount</th><th className="p-3">Expiry</th><th className="p-3">Usage</th><th className="p-3">Status</th><th className="p-3">Redeemed by</th><th className="p-3">Action</th></tr></thead><tbody>{coupons.filter(c => couponFilter === "all" || couponStatus(c) === couponFilter).map(c=>{const used=(c.usage_count||0)>0;const expired=!!c.valid_until&&new Date(c.valid_until).getTime()<Date.now();return <tr key={c.id} className="border-b"><td className="p-3 font-mono font-semibold">{c.coupon_code}</td><td className="p-3">{c.discount_percentage}%</td><td className="p-3">{c.valid_until?formatValidThrough(c.valid_until):"No expiry"}</td><td className="p-3">{c.usage_count||0}/{c.usage_limit??"∞"}</td><td className="p-3">{used?"Redeemed":expired?"Expired":c.is_active?"Available":"Inactive"}</td><td className="p-3 text-xs">{c.redeemed_student_id?<><span className="break-all">{students.find(st => st.student_id === c.redeemed_student_id)?.student_name || "Name unavailable"} ({students.find(st => st.student_id === c.redeemed_student_id)?.email || "Email unavailable"})</span><div className="mt-1 text-slate-500">Redeemed date: {c.redeemed_at ? new Date(c.redeemed_at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Not recorded"}</div></>:"—"}</td><td className="p-3"><button disabled={couponBusy||used||expired} onClick={()=>void toggleCoupon(c)} className="rounded border px-3 py-1.5 font-semibold disabled:opacity-40">{c.is_active?"Deactivate":"Activate"}</button></td></tr>})}{coupons.filter(c => couponFilter === "all" || couponStatus(c) === couponFilter).length===0&&<tr><td colSpan={7} className="p-5 text-center text-slate-500">No coupons match this filter.</td></tr>}</tbody></table></div>
+  <div className="mt-5 space-y-3 md:hidden">{coupons.filter(c => couponFilter === "all" || couponStatus(c, checkedAt) === couponFilter).map(c => {const status=couponStatus(c, checkedAt); const used=(c.usage_count||0)>0; const expired=!!c.valid_until&&new Date(c.valid_until).getTime()<checkedAt;return <article key={c.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><code className="break-all text-sm font-bold text-indigo-800">{c.coupon_code}</code><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${status === "available" ? "bg-emerald-100 text-emerald-800" : status === "redeemed" ? "bg-indigo-100 text-indigo-800" : "bg-slate-200 text-slate-700"}`}>{status.charAt(0).toUpperCase()+status.slice(1)}</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><p className="text-slate-500">Discount</p><p className="mt-1 font-bold">{c.discount_percentage}%</p></div><div><p className="text-slate-500">Used</p><p className="mt-1 font-bold">{c.usage_count||0}/{c.usage_limit??"∞"}</p></div><div><p className="text-slate-500">Expires</p><p className="mt-1 font-bold">{c.valid_until?formatValidThrough(c.valid_until):"No expiry"}</p></div></div>{c.redeemed_student_id&&<div className="mt-3 break-words text-xs text-slate-500"><p>Redeemed by: {students.find(st => st.student_id === c.redeemed_student_id)?.student_name || "Name unavailable"} ({students.find(st => st.student_id === c.redeemed_student_id)?.email || "Email unavailable"})</p><p className="mt-1">Redeemed date: {c.redeemed_at ? new Date(c.redeemed_at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Not recorded"}</p></div>}<button type="button" disabled={couponBusy||used||expired} onClick={()=>void toggleCoupon(c)} className="mt-3 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-40">{c.is_active?"Deactivate coupon":"Activate coupon"}</button></article>})}{!coupons.some(c => couponFilter === "all" || couponStatus(c, checkedAt) === couponFilter) && <p className="p-4 text-center text-sm text-slate-500">No coupons match this filter.</p>}</div><div className="mt-6 hidden overflow-x-auto md:block"><table className="w-full min-w-[780px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-slate-600"><th className="p-3">Code</th><th className="p-3">Discount</th><th className="p-3">Expiry</th><th className="p-3">Usage</th><th className="p-3">Status</th><th className="p-3">Redeemed by</th><th className="p-3">Action</th></tr></thead><tbody>{coupons.filter(c => couponFilter === "all" || couponStatus(c, checkedAt) === couponFilter).map(c=>{const used=(c.usage_count||0)>0;const expired=!!c.valid_until&&new Date(c.valid_until).getTime()<checkedAt;return <tr key={c.id} className="border-b"><td className="p-3 font-mono font-semibold">{c.coupon_code}</td><td className="p-3">{c.discount_percentage}%</td><td className="p-3">{c.valid_until?formatValidThrough(c.valid_until):"No expiry"}</td><td className="p-3">{c.usage_count||0}/{c.usage_limit??"∞"}</td><td className="p-3">{used?"Redeemed":expired?"Expired":c.is_active?"Available":"Inactive"}</td><td className="p-3 text-xs">{c.redeemed_student_id?<><span className="break-all">{students.find(st => st.student_id === c.redeemed_student_id)?.student_name || "Name unavailable"} ({students.find(st => st.student_id === c.redeemed_student_id)?.email || "Email unavailable"})</span><div className="mt-1 text-slate-500">Redeemed date: {c.redeemed_at ? new Date(c.redeemed_at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Not recorded"}</div></>:"—"}</td><td className="p-3"><button disabled={couponBusy||used||expired} onClick={()=>void toggleCoupon(c)} className="rounded border px-3 py-1.5 font-semibold disabled:opacity-40">{c.is_active?"Deactivate":"Activate"}</button></td></tr>})}{coupons.filter(c => couponFilter === "all" || couponStatus(c, checkedAt) === couponFilter).length===0&&<tr><td colSpan={7} className="p-5 text-center text-slate-500">No coupons match this filter.</td></tr>}</tbody></table></div>
 
 
 
