@@ -15,6 +15,7 @@ type ReportQuestion = {
 };
 type MockReport = {
   student: string; subject: string;
+  paper: { number: number | null; retake: number | null } | null;
   attempt: {
     id: number; submittedAt: string; total: number; answered: number;
     correct: number; wrong: number; unanswered: number;
@@ -124,7 +125,11 @@ function CompleteMockReportContent() {
         <h1 className="mt-2 text-3xl font-black">Complete Mock Exam Report</h1>
         <p className="mt-3 text-sm"><strong>Student:</strong> {report.student}</p>
         <p className="mt-1 text-sm"><strong>Subject:</strong> {report.subject}</p>
+        {report.paper && <p className="mt-1 text-sm"><strong>Paper:</strong> {report.paper.number === null
+          ? "Randomized retake " + report.paper.retake
+          : "Numbered Mock Test " + report.paper.number}</p>}
         <p className="mt-1 text-sm"><strong>Submitted:</strong> {new Date(report.attempt.submittedAt).toLocaleString("en-IN")}</p>
+        <p className="mt-1 text-sm"><strong>Result:</strong> {report.attempt.obtainedMarks}/{report.attempt.totalMarks} marks ({Number(report.attempt.percentage).toFixed(1)}%) · {Math.round(report.attempt.durationSeconds / 60)} minutes</p>
       </header>
       <section aria-label="Score summary" className="my-6 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4">
         <div><p className="text-xs text-slate-500">Score</p><strong className="text-xl">{report.attempt.obtainedMarks} / {report.attempt.totalMarks}</strong></div>
