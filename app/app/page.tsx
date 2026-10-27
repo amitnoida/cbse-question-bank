@@ -5,6 +5,7 @@ import { DialogFocus } from "../dialog-focus";
 import { QuestionNavigator } from "../question-navigator";
 import { QuestionContent } from "../question-content";
 import { supabase } from "../../lib/supabase";
+import { fetchFeedbackInBatches } from "../../lib/question-feedback";
 
 type ClassRow = {
   id: number;
@@ -24,6 +25,7 @@ type ChapterRow = {
   subject_id: number;
   chapter_number: number | null;
   chapter_name: string;
+  description: string | null;
   is_active: boolean;
 };
 
@@ -930,7 +932,7 @@ export default function Home() {
           ),
           fetchAllRows<ChapterRow>(
             "chapters",
-            "id,subject_id,chapter_number,chapter_name,is_active"
+            "id,subject_id,chapter_number,chapter_name,description,is_active"
           ),
 
         ]);
@@ -1385,6 +1387,7 @@ export default function Home() {
         q.chapterName === selectedChapter;
 
       return (
+        q.is_active &&
         matchesSubject &&
         matchesChapter
       );
@@ -1414,6 +1417,7 @@ export default function Home() {
 
     return questions.filter(
       (q) =>
+        q.is_active &&
         q.classId === enrolledClassId &&
         q.subjectName === selectedSubject
     );
@@ -1679,8 +1683,11 @@ export default function Home() {
       if (answers[assigned[index]?.id] && index < assigned.length-1) index++;
       const answeredIds = assigned.filter(q => answers[q.id] != null).map(q => q.id);
       if (answeredIds.length) {
-        const { data: feedback, error: feedbackError } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: answeredIds });
-        if (feedbackError) throw feedbackError;
+        const feedback = await fetchFeedbackInBatches(answeredIds, async (ids) => {
+          const { data, error } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: ids });
+          if (error) throw error;
+          return (data || []) as Array<{id:number,correct_option:string,explanation:string|null}>;
+        });
         const byFeedback = new Map(((feedback || []) as Array<{id:number,correct_option:string,explanation:string|null}>).map(q => [Number(q.id),q]));
         assigned = assigned.map(q => {
           const item = byFeedback.get(q.id);
@@ -1808,8 +1815,11 @@ export default function Home() {
       if (submitError) throw submitError;
       if (!attemptId) throw new Error("No quiz attempt was returned.");
       await loadFreeUsage(currentUser.id);
-      const { data: resultFeedback, error: resultFeedbackError } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: practiceQuestions.map(q => q.id) });
-      if (resultFeedbackError) throw resultFeedbackError;
+      const resultFeedback = await fetchFeedbackInBatches(practiceQuestions.map(q => q.id), async (ids) => {
+        const { data, error } = await supabase.rpc("cbse_question_feedback_v1", { p_ids: ids });
+        if (error) throw error;
+        return (data || []) as Array<{id:number,correct_option:string,explanation:string|null}>;
+      });
       const resultById = new Map((resultFeedback || []).map((item: {id:number,correct_option:string,explanation:string|null}) => [Number(item.id),item]));
       setPracticeQuestions(prev => prev.map(q => {
         const item = resultById.get(q.id) as { id: number; correct_option: string; explanation: string | null } | undefined;
@@ -1913,7 +1923,10 @@ export default function Home() {
           if (error || !data) throw error || new Error("Unable to load mock paper.");
           paper = data as MockPaper;
         }
-        const byId = new Map(selectedSubjectQuestions.map(q => [q.id, q]));
+        // Historical assignments retain their original questions, including archived ones.
+        // The RPC delivers those only for this student's unfinished assigned papers.
+        const byId = new Map(questions.filter(q => q.subjectId === selectedSubjectObject.id)
+          .map(q => [q.id, q]));
         const assigned = paper.question_ids.map(id => byId.get(Number(id)));
         if (assigned.some(q => !q) || assigned.length !== MOCK_QUESTION_COUNT) throw new Error("Assigned questions unavailable. Contact support.");
         setActiveMockPaperId(paper.id);
@@ -4278,6 +4291,11 @@ export default function Home() {
           </div>
 
           {selectedSubject !== ALL && availableChapters.length > 8 && <div className="mt-4 max-w-md"><label htmlFor="chapter-search" className="mb-2 block text-xs font-bold text-slate-600">Find a chapter by name</label><input id="chapter-search" type="search" value={chapterSearch} onChange={e=>setChapterSearch(e.target.value)} placeholder="Search chapter names…" className="min-h-11 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"/><p role="status" className="mt-1 text-xs text-slate-500">{availableChapters.filter(c=>c.chapter_name.toLocaleLowerCase().includes(chapterSearch.trim().toLocaleLowerCase())).length} matching chapters. Choose one in the Chapter menu above.</p></div>}
+          {chapterSelected && availableChapters.find(c => c.id === selectedChapterId)?.description && (
+            <p className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              {availableChapters.find(c => c.id === selectedChapterId)?.description}
+            </p>
+          )}
 
           {/* FREE TRIAL STATUS — shown only to non-paid members */}
           {!isPaidMember && selectedSubjectObject && (
@@ -4503,6 +4521,9 @@ export default function Home() {
 
                 <p className="mt-1 max-w-xl text-sm leading-6 text-slate-700">
                   Take 60-question numbered papers covering the full subject syllabus, followed by randomized retakes.
+                  {availableChapters.some(c => c.description?.startsWith("Assessment scope:")) && (
+                    <span className="mt-2 block text-xs">Subject practice mocks can include internal-assessment or supplementary topics. Check chapter notes; these are not official board-paper blueprints.</span>
+                  )}
                 </p>
 
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:max-w-sm">
