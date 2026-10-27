@@ -292,6 +292,9 @@ export default function Home() {
   const [mockPoolCounts, setMockPoolCounts] = useState<{ mock: number; shared: number; capacity: number }>({ mock: 0, shared: 0, capacity: 0 });
   const [completedMockAttemptId, setCompletedMockAttemptId] = useState<number | null>(null);
   const [mockFeedbackReady, setMockFeedbackReady] = useState(false);
+  const [savedMockScore, setSavedMockScore] = useState<{
+    correct_answers: number; total_questions: number; percentage: number;
+  } | null>(null);
   const [activeMockPaperId, setActiveMockPaperId] = useState<string | null>(null);
   const [mockStarting, setMockStarting] = useState(false);
   const [mockHistoryLoading, setMockHistoryLoading] = useState(false);
@@ -1801,6 +1804,19 @@ export default function Home() {
     setMockPapers((data || []) as MockPaper[]);
   }
 
+  async function loadSavedMockScore(attemptId: number) {
+    // A completed attempt's stored score is authoritative, even when
+    // per-question feedback is temporarily unavailable.
+    const { data, error } = await supabase.from("quiz_attempts")
+      .select("correct_answers,total_questions,percentage")
+      .eq("id", attemptId).maybeSingle();
+    if (!error && data) setSavedMockScore({
+      correct_answers: Number(data.correct_answers ?? 0),
+      total_questions: Number(data.total_questions ?? 0),
+      percentage: Number(data.percentage ?? 0),
+    });
+  }
+
   async function openSavedMock(kind: "full" | "chapters", paperId: string, assigned: MCQ[]) {
     const { data, error } = await supabase.rpc("mock_open_exam", { p_kind: kind, p_paper_id: paperId });
     if (error) throw error;
@@ -1819,7 +1835,11 @@ export default function Home() {
     setMockTimeLeft(Math.max(0, Math.ceil((deadline - (Date.now() + serverOffset)) / 1000)));
     setMockQuestions(assigned);
     setMockFeedbackReady(false);
+    setSavedMockScore(null);
     setCompletedMockAttemptId(row.quiz_attempt_id ? Number(row.quiz_attempt_id) : null);
+    if (row.status === "COMPLETED" && row.quiz_attempt_id) {
+      void loadSavedMockScore(Number(row.quiz_attempt_id));
+    }
     const saved = (row.answers || {}) as Record<number, string>;
     setMockAnswers(saved);
     const firstUnanswered = assigned.findIndex(q => !saved[q.id]);
@@ -1941,7 +1961,10 @@ export default function Home() {
       setMockSubmitted(true);
       setMockFeedbackReady(false);
       setMockTimeLeft(0);
-      if (completedAttemptId) setCompletedMockAttemptId(Number(completedAttemptId));
+      if (completedAttemptId) {
+        setCompletedMockAttemptId(Number(completedAttemptId));
+        void loadSavedMockScore(Number(completedAttemptId));
+      }
     } catch (err: unknown) {
       setMockSubmitError(
         (automaticSubmit ? "Time is over. " : "") +
@@ -1994,6 +2017,7 @@ export default function Home() {
     setMockSubmitting(false);
     setCompletedMockAttemptId(null);
     setMockFeedbackReady(false);
+    setSavedMockScore(null);
     setMockSubmitError("");
     setMockQuestions([]);
     setMockAnswers({});
@@ -3211,9 +3235,14 @@ export default function Home() {
     }
 
     if (mockSubmitted) {
-      const percentage = mockFeedbackReady && mockQuestions.length
-        ? Math.round((mockScore / mockQuestions.length) * 100)
-        : null;
+      const correctAnswers = savedMockScore
+        ? savedMockScore.correct_answers
+        : mockFeedbackReady ? mockScore : null;
+      const percentage = savedMockScore
+        ? Number(savedMockScore.percentage).toFixed(1)
+        : mockFeedbackReady && mockQuestions.length
+          ? ((mockScore / mockQuestions.length) * 100).toFixed(1)
+          : null;
 
       return (
         <main className="min-h-screen overflow-x-hidden bg-slate-50">
@@ -3258,7 +3287,7 @@ export default function Home() {
                 </p>
               </div>
 
-              {mockFeedbackReady ? <Achievement correct={mockScore} total={mockQuestions.length} /> :
+              {correctAnswers !== null ? <Achievement correct={correctAnswers} total={mockQuestions.length} /> :
                 <p role="status" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
                   Your exam has been saved. Open the complete report for your scores and answers.
                 </p>}
@@ -3280,7 +3309,7 @@ export default function Home() {
                   </p>
 
                   <p className="mt-2 text-2xl font-bold text-emerald-700 sm:text-3xl">
-                    {mockFeedbackReady ? mockScore : "—"}
+                    {correctAnswers === null ? "—" : correctAnswers}
                   </p>
                 </div>
 
