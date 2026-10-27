@@ -2400,7 +2400,7 @@ export default function Home() {
               </button>
 
               <div className="mb-5 hidden overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100 sm:block">
-                <Image width={640} height={480} src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
+                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
               </div>
               <div className="pr-10">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -2582,7 +2582,7 @@ export default function Home() {
               </button>
 
               <div className="mb-5 overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100">
-                <Image width={640} height={480} src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
+                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Indian Class 9 and 10 students in school uniform" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
               </div>
               <div className="pr-10">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -2965,7 +2965,7 @@ export default function Home() {
 
             <div className="relative mx-auto w-full min-w-0 max-w-[250px] sm:max-w-xl">
               <div className="mb-5 overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-indigo-50 to-violet-100 shadow-2xl shadow-indigo-950/20">
-                <Image width={640} height={480} src="/images/cbse-students.webp" alt="Illustration of two Indian secondary-school students wearing uniforms and holding books" className="h-auto max-h-[460px] w-full object-contain object-center" loading="eager" />
+                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Illustration of two Indian secondary-school students wearing uniforms and holding books" className="h-auto max-h-[460px] w-full object-contain object-center" loading="eager" />
               </div>
               <div className="pointer-events-none absolute inset-8 hidden rounded-[2rem] bg-white/10 blur-2xl sm:block" />
               <div className="relative hidden rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-md sm:block sm:p-6">
@@ -4053,7 +4053,7 @@ export default function Home() {
             </p>
           </div>
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/20 bg-indigo-50 shadow-2xl shadow-indigo-950/30 lg:max-w-md">
-            <Image width={640} height={480} src="/images/cbse-students.webp" alt="Two students ready to learn" className="h-auto max-h-[220px] sm:max-h-[300px] w-full object-contain" />
+            <Image width={455} height={419} src="/images/cbse-students.webp" alt="Two students ready to learn" className="h-auto max-h-[220px] sm:max-h-[300px] w-full object-contain" />
           </div>
         </div>
       </section>
