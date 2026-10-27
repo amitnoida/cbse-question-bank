@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { QuestionContent } from "../../../question-content";
 import "../report.css";
@@ -25,6 +25,11 @@ type MockReport = {
 };
 
 export default function CompleteMockReport() {
+  return <Suspense fallback={<main className="p-6">Preparing your report…</main>}>
+    <CompleteMockReportContent />
+  </Suspense>;
+}
+function CompleteMockReportContent() {
   const params = useParams<{ id: string }>();
   const [report, setReport] = useState<MockReport | null>(null);
   const [error, setError] = useState("");
