@@ -534,6 +534,20 @@ export default function Home() {
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState("");
 
+  // The public SEO homepage is /. Deep links open the original
+  // authentication dialogs here without duplicating the marketing page.
+  useEffect(() => {
+    const mode = new URLSearchParams(window.location.search).get("auth");
+    if (mode === "signup") {
+      setShowSignup(true);
+      setShowSignin(false);
+    } else if (mode === "signin") {
+      setShowSignin(true);
+      setShowSignup(false);
+    }
+  }, []);
+
+
   /* =========================
      SIGN IN
   ========================= */
@@ -2947,255 +2961,42 @@ export default function Home() {
           </div>
         )}
 
-        {/*
-         * MODERN PUBLIC HOMEPAGE
-         *
-         * The authenticated question-bank flow below this public page is
-         * intentionally preserved: subject/chapter filters, Practice Paper,
-         * Real Mock Test, subscription checks, usage tracking, and all
-         * existing handlers continue to use the original state and functions.
-         */}
-        
-        <header className="sticky top-0 z-40 border-b border-indigo-100 bg-white/95 shadow-sm backdrop-blur-xl">
-          <div className="mx-auto flex w-full min-w-0 max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
-            <a
-              href="#home"
-              onClick={() => setShowMobileMenu(false)}
-              className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5 lg:flex-none"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg shadow-lg shadow-indigo-200">📚</div>
-              <div className="min-w-0 flex-1">
-                <p className="hidden text-[8px] font-extrabold uppercase tracking-[0.14em] text-indigo-600 sm:block sm:text-[9px] sm:tracking-[0.18em]">CBSE Exam Preparation</p>
-                <p className="block truncate text-[11px] font-extrabold tracking-tight text-slate-950 min-[380px]:text-sm sm:text-lg">CBSE Question Bank</p>
-              </div>
-            </a>
-
-            <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-600 lg:flex">
-              <a href="#home" className="transition hover:text-indigo-600">Home</a>
-              <a href="#features" className="transition hover:text-indigo-600">Features</a>
-              <a href="#subjects" className="transition hover:text-indigo-600">Subjects</a>
-              <a href="#pricing" className="transition hover:text-indigo-600">Pricing</a>
-              <a href="#how-it-works" className="transition hover:text-indigo-600">How It Works</a>
-            </nav>
-
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              <button
-                onClick={openSignin}
-                className="min-h-10 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 sm:px-4 sm:text-sm"
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={openSignup}
-                className="hidden min-h-10 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-extrabold text-slate-950 shadow-lg shadow-amber-200/60 transition hover:bg-amber-300 lg:inline-flex lg:items-center lg:px-4 lg:text-sm"
-              >
-                Start Free 🎯
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowMobileMenu((previous) => !previous)}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-800 shadow-sm lg:hidden"
-                aria-label={showMobileMenu ? "Close menu" : "Open menu"}
-                aria-expanded={showMobileMenu}
-              >
-                <span className="text-xl leading-none">{showMobileMenu ? "×" : "☰"}</span>
-              </button>
-            </div>
-          </div>
-
-          {showMobileMenu && (
-            <div className="border-t border-indigo-100 bg-white px-4 py-3 shadow-lg lg:hidden">
-              <nav className="grid gap-1">
-                {[
-                  ["Home", "#home"],
-                  ["How It Works", "#how-it-works"],
-                  ["Subjects", "#subjects"],
-                  ["Features", "#features"],
-                  ["Pricing", "#pricing"],
-                  ["FAQs", "#faq"],
-                ].map(([label, href]) => (
-                  <a
-                    key={href}
-                    href={href}
-                    onClick={() => setShowMobileMenu(false)}
-                    className="flex min-h-11 items-center rounded-xl px-3 text-sm font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-                  >
-                    {label}
-                  </a>
-                ))}
-                <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMobileMenu(false);
-                      openSignin();
-                    }}
-                    className="min-h-11 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-700"
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMobileMenu(false);
-                      openSignup();
-                    }}
-                    className="min-h-11 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-extrabold text-white"
-                  >
-                    Start Free
-                  </button>
-                </div>
-              </nav>
-            </div>
-          )}
+        {/* Authentication dialogs above remain unchanged. Public SEO marketing lives only on /. */}
+        <header className="border-b border-indigo-100 bg-white/95 shadow-sm">
+          <nav aria-label="Student portal navigation" className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4">
+            <Link href="/" className="flex items-center gap-3 font-black tracking-tight text-slate-950">
+              <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg text-white">📚</span>
+              CBSE Question Bank
+            </Link>
+            <Link href="/" className="inline-flex min-h-11 items-center rounded-xl px-4 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50">← Public Homepage</Link>
+          </nav>
         </header>
-        <section id="home" className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 text-white">
-          <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-3xl" />
-          <div className="relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 items-center gap-8 px-4 py-12 sm:gap-12 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:px-8 lg:py-24">
-            <div>
-              <span className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-amber-200 sm:text-[11px]">🇮🇳 Classes 8–12 • CBSE</span>
-              <h1 className="mt-5 max-w-3xl text-[clamp(1.85rem,8vw,2.25rem)] font-black leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">Practice Smarter.<br /><span className="text-amber-300">Score Better.</span></h1>
-              <p className="mt-5 max-w-2xl text-sm leading-6 text-indigo-100 sm:text-lg sm:leading-8">Practice chapter-wise MCQs, build subject confidence, get instant explanations, and prepare with focused practice tests designed for CBSE students.</p>
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <button onClick={openSignup} className="min-h-12 rounded-xl bg-amber-400 px-6 py-3 text-sm font-extrabold text-slate-950 shadow-xl shadow-indigo-950/20 transition hover:bg-amber-300">Start Free 🎯</button>
-                <a href="#pricing" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-white/15">View Plans</a>
+        <section className="relative overflow-hidden bg-gradient-to-br from-indigo-800 via-indigo-600 to-violet-700 px-5 py-14 text-white sm:py-20">
+          <div aria-hidden="true" className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+          <div className="relative mx-auto max-w-5xl">
+            <p className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 text-xs font-extrabold uppercase tracking-widest text-amber-200">CBSE CLASSES 8–12 · STUDENT PORTAL</p>
+            <h1 className="mt-6 text-4xl font-black tracking-tight sm:text-5xl">Welcome to your learning space.</h1>
+            <p className="mt-4 max-w-2xl text-base leading-8 text-indigo-100 sm:text-lg">Sign in to continue practice or mock tests, or create a free account to get started. Your saved results and membership remain in your student account.</p>
+            <div className="mt-9 grid gap-5 sm:grid-cols-2">
+              <div className="rounded-3xl border border-white/20 bg-white p-6 text-slate-950 shadow-xl sm:p-8">
+                <div className="text-3xl" aria-hidden="true">🔐</div>
+                <h2 className="mt-4 text-2xl font-black">Existing Student</h2>
+                <p className="mt-3 min-h-14 text-sm leading-6 text-slate-600">Resume saved practice, view test history and continue available mock tests.</p>
+                <button type="button" onClick={openSignin} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-indigo-800">Sign In</button>
               </div>
-              <div className="mt-7 flex flex-wrap items-center gap-3 text-xs font-semibold text-indigo-100">
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">✓ 10 free MCQs per subject</span>
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">✓ Instant explanations</span>
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">✓ Chapter-wise practice</span>
-              </div>
-            </div>
-
-            <div className="relative mx-auto w-full min-w-0 max-w-[250px] sm:max-w-xl">
-              <div className="mb-5 overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-indigo-50 to-violet-100 shadow-2xl shadow-indigo-950/20">
-                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Illustration of two Indian secondary-school students wearing uniforms and holding books" className="h-auto max-h-[460px] w-full object-contain object-center" loading="eager" />
-              </div>
-              <div className="pointer-events-none absolute inset-8 hidden rounded-[2rem] bg-white/10 blur-2xl sm:block" />
-              <div className="relative hidden rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-md sm:block sm:p-6">
-                <div className="rounded-[1.5rem] bg-white p-5 text-slate-950 shadow-xl sm:p-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <div><p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-600">Smart Practice</p><h2 className="mt-1 text-xl font-black sm:text-2xl">Choose. Practice. Improve.</h2></div>
-                    <div className="rounded-xl bg-indigo-50 px-3 py-2 text-center"><p className="text-[9px] font-bold uppercase text-indigo-500">Free</p><p className="text-lg font-black text-indigo-700">10 / subject</p></div>
-                  </div>
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-violet-50 p-4"><div className="text-2xl">📐</div><p className="mt-2 text-sm font-extrabold">Mathematics</p><p className="mt-1 text-[11px] text-slate-500">Practice by chapter</p></div>
-                    <div className="rounded-2xl bg-sky-50 p-4"><div className="text-2xl">🔬</div><p className="mt-2 text-sm font-extrabold">Science</p><p className="mt-1 text-[11px] text-slate-500">Target weak topics</p></div>
-                    <div className="rounded-2xl bg-emerald-50 p-4"><div className="text-2xl">📖</div><p className="mt-2 text-sm font-extrabold">English</p><p className="mt-1 text-[11px] text-slate-500">Subject-wise MCQs</p></div>
-                    <div className="rounded-2xl bg-orange-50 p-4"><div className="text-2xl">🌍</div><p className="mt-2 text-sm font-extrabold">Social Science</p><p className="mt-1 text-[11px] text-slate-500">Focused preparation</p></div>
-                  </div>
-                  <div className="mt-4 rounded-2xl bg-slate-950 p-4 text-white"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold text-indigo-300">REAL MOCK TEST</p><p className="mt-1 text-sm font-extrabold">60 minutes per test • Multiple papers &amp; retakes</p></div><span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-[9px] font-extrabold text-emerald-300">PAID MEMBERS</span></div></div>
-                </div>
+              <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-100 to-white p-6 text-slate-950 shadow-xl sm:p-8">
+                <div className="text-3xl" aria-hidden="true">🎓</div>
+                <h2 className="mt-4 text-2xl font-black">New Student</h2>
+                <p className="mt-3 min-h-14 text-sm leading-6 text-slate-600">Choose Class 8, 9, 10, 11 or 12. Try 10 free practice questions per subject.</p>
+                <button type="button" onClick={openSignup} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-400 px-5 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-amber-300">Start Free · Create Account</button>
               </div>
             </div>
+            <p className="mt-7 text-sm text-indigo-100">Administrator? <Link href="/admin" className="font-bold text-white underline underline-offset-4">Go to Admin Login</Link></p>
           </div>
         </section>
-
-        <section id="how-it-works" className="bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mx-auto max-w-7xl">
-            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">Simple process</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">How It Works</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Get started in three simple steps and build a smarter CBSE preparation routine.</p></div>
-            <div className="mt-10 grid gap-5 md:grid-cols-3">
-              {[
-                { n: "01", icon: "🎓", title: "Pick Your Class", text: "Choose Class 8, 9, 10, 11 or 12. Your registered class determines the subject and chapter selection." },
-                { n: "02", icon: "📚", title: "Choose a Subject", text: "Classes 8–10 offer five core subjects; Classes 11–12 offer Physics, Chemistry, Mathematics and Biology. Then choose a chapter." },
-                { n: "03", icon: "🎯", title: "Attempt the Quiz", text: "Answer MCQs, see explanations and use practice tests to improve your exam readiness." },
-              ].map((step) => (
-                <div key={step.n} className="relative rounded-3xl border border-indigo-100 bg-[#f8f7ff] p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="flex items-center justify-between"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl shadow-lg shadow-indigo-200">{step.icon}</div><span className="text-4xl font-black text-indigo-100">{step.n}</span></div><h3 className="mt-6 text-lg font-extrabold text-slate-950">{step.title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{step.text}</p></div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="subjects" className="bg-[#f8f7ff] px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mx-auto max-w-7xl">
-            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">CBSE question bank</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">All CBSE Subjects Covered 📚</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Explore subject-wise MCQs for Classes 8–12, including senior secondary science and mathematics.</p></div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { name: "Mathematics", icon: "📐", tone: "from-violet-500 to-purple-600", tag: "Classes 8–12" },
-                { name: "Science", icon: "🔬", tone: "from-sky-500 to-cyan-500", tag: "Classes 8–10" },
-                { name: "English", icon: "📖", tone: "from-emerald-500 to-teal-500", tag: "Classes 8–10" },
-                { name: "Social Science", icon: "🌍", tone: "from-orange-500 to-amber-500", tag: "Classes 8–10" },
-                { name: "Hindi", icon: "IN", tone: "from-pink-500 to-rose-500", tag: "Classes 8–10" },
-                { name: "Physics", icon: "⚛️", tone: "from-blue-500 to-indigo-600", tag: "Classes 11–12" },
-                { name: "Chemistry", icon: "⚗️", tone: "from-emerald-600 to-cyan-600", tag: "Classes 11–12" },
-                { name: "Biology", icon: "🧬", tone: "from-green-500 to-lime-600", tag: "Classes 11–12" },
-              ].map((subject) => (
-                <button key={subject.name} type="button" onClick={openSignup} className={`group min-h-44 rounded-3xl bg-gradient-to-br ${subject.tone} p-5 text-left text-white shadow-lg transition hover:-translate-y-1 hover:shadow-xl`}><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 text-2xl font-black backdrop-blur">{subject.icon}</div><h3 className="mt-7 text-lg font-black">{subject.name}</h3><span className="mt-2 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold">{subject.tag}</span></button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className="bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mx-auto max-w-7xl">
-            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">Built for better preparation</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Everything You Need to Ace Your Exams 💡</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Focused tools to help you practice consistently, understand mistakes and prepare with confidence.</p></div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                { icon: "🎯", title: "10 Free MCQs", text: "Try the question bank before you buy with 10 free questions per subject." },
-                { icon: "💡", title: "Instant Answer + Explanation", text: "Understand why an answer is correct immediately after every question." },
-                { icon: "📚", title: "Chapter-wise Practice", text: "Focus on specific chapters and build targeted practice sessions." },
-                { icon: "🔄", title: "Reset & Reshuffle", text: "Practice again with questions appearing in a new random order." },
-                { icon: "📊", title: "Progress Tracking", text: "Track your practice and identify areas where you need more work." },
-                { icon: "🏆", title: "Premium Practice", text: "Unlock full question access and the 60-question Real Mock Test with membership." },
-              ].map((feature) => (
-                <div key={feature.title} className="rounded-3xl border border-indigo-100 bg-[#f8f7ff] p-6 transition hover:-translate-y-1 hover:shadow-lg"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-xl">{feature.icon}</div><h3 className="mt-5 text-base font-extrabold text-slate-950">{feature.title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{feature.text}</p></div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="pricing" className="bg-[#f0efff] px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mx-auto max-w-5xl">
-            <div className="mx-auto max-w-2xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">Simple, affordable plans</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Start Free. Upgrade When Ready. 💰</h2><p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">Try the question bank first, then unlock the full practice experience when you are ready.</p></div>
-            <div className="mt-10 grid gap-5 md:grid-cols-2">
-              <div className="rounded-[2rem] border border-indigo-200 bg-white p-6 shadow-sm sm:p-8"><div className="flex items-center justify-between gap-4"><div><span className="inline-flex rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase text-slate-600">FREE</span><h3 className="mt-4 text-2xl font-black text-slate-950">Free Demo</h3></div><p className="text-3xl font-black text-slate-950">₹0<span className="text-xs font-semibold text-slate-400"> / forever</span></p></div><ul className="mt-7 space-y-3 text-sm font-semibold text-slate-600"><li>✓ 10 free MCQs per subject</li><li>✓ All subjects preview</li><li>✓ Instant answers &amp; explanations</li><li>✓ No credit card needed</li></ul><button onClick={openSignup} className="mt-8 min-h-12 w-full rounded-xl bg-indigo-50 px-5 py-3 text-sm font-extrabold text-indigo-700 transition hover:bg-indigo-100">Start Free Demo</button></div>
-              <div className="relative rounded-[2rem] bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-800 p-6 text-white shadow-2xl shadow-indigo-200 sm:p-8">
-                <span className="absolute right-6 top-0 -translate-y-1/2 rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase text-slate-950">Recommended</span>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <span className="inline-flex rounded-lg bg-white/10 px-2.5 py-1 text-[10px] font-extrabold uppercase text-indigo-200">PREMIUM</span>
-                    <h3 className="mt-4 text-2xl font-black">Financial-Year Membership</h3>
-                    {promotionText && <p className="mt-2 text-sm font-bold text-amber-300">{promotionText}</p>}
-                  </div>
-                  <div className="shrink-0 sm:text-right">
-                    <p className="whitespace-nowrap text-3xl font-black [overflow-wrap:normal]">₹99</p>
-                    <p className="mt-1 whitespace-nowrap text-xs font-semibold text-indigo-200 [overflow-wrap:normal]">Until 31 March</p>
-                  </div>
-                </div><ul className="mt-7 space-y-3 text-sm font-semibold text-indigo-100"><li>✓ Unlimited MCQ practice</li><li>✓ All chapters unlocked</li><li>✓ Instant answers + explanations</li><li>✓ Practice reset &amp; reshuffle</li><li>✓ 60-minute mock tests and eligible retakes</li></ul><button onClick={openSignup} className="mt-8 min-h-12 w-full rounded-xl bg-amber-400 px-5 py-3 text-sm font-extrabold text-slate-950 shadow-lg transition hover:bg-amber-300">Explore Premium</button></div>
-            </div>
-          </div>
-        </section>
-
-        <section id="faq" className="bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mx-auto max-w-4xl">
-            <p className="text-center text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-600">Help centre</p>
-            <h2 className="mt-2 text-center text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Frequently Asked Questions</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-600">Answers to common questions about practice, mock tests and membership.</p>
-            <div className="mt-8 space-y-3">
-              {[
-                { q: "Who can use this website?", a: "Students in CBSE Classes 8, 9, 10, 11 and 12 can register and practise available chapter-wise MCQs." },
-                { q: "What is included in the free plan?", a: "The free plan includes up to 10 MCQs per subject. The allowance is tracked separately for each subject." },
-                { q: "Will I see explanations?", a: "Practice questions provide answer feedback and explanations when available in the question bank." },
-                { q: "How do Real Mock Tests work?", a: "Each mock test has a 60-minute timer and 60 questions. Paid students can take available numbered papers and unlock randomized retakes after completing the series. A subject needs at least 60 active questions." },
-                { q: "When does my membership expire?", a: "Purchased annual memberships are intended to run until 31 March. A free membership activated with a 100% coupon ends on that coupon's stated expiry date." },
-                { q: "What happens after my membership expires?", a: "Your account remains accessible, but premium access ends unless you have another valid membership. Your remaining free allowance still applies." },
-                { q: "Is this an official CBSE website?", a: "No. CBSE Exam Prep Guide is an independent educational practice platform, not affiliated with or endorsed by CBSE." },
-                { q: "How can I request help or deletion of my data?", a: "For technical support, subscription questions, or account deletion requests, email support.cbseexam@gmail.com. For account deletion, contact us from your registered email address so we can verify your request." }
-              ].map((faq) => (
-                <details key={faq.q} className="group rounded-2xl border border-slate-200 bg-slate-50 p-4 open:border-indigo-200 open:bg-indigo-50/50">
-                  <summary className="cursor-pointer list-none pr-6 text-sm font-bold text-slate-900 sm:text-base">{faq.q}<span aria-hidden="true" className="float-right text-indigo-600 group-open:rotate-45">+</span></summary>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{faq.a}</p>
-                </details>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-slate-950 px-4 py-14 text-white sm:px-6 sm:py-20 lg:px-8"><div className="mx-auto max-w-4xl text-center"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-300">Ready to start?</p><h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Your next practice session starts here. 🚀</h2><p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">Create your student account and start practicing CBSE MCQs today.</p><button onClick={openSignup} className="mt-7 min-h-12 rounded-xl bg-indigo-500 px-7 py-3 text-sm font-extrabold text-white shadow-xl shadow-indigo-950 transition hover:bg-indigo-400">Create Student Account</button></div></section>
-
-        <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><div><p className="font-black text-slate-950">CBSE Question Bank</p><p className="mt-1 text-xs text-slate-500">Practice • Learn • Improve</p></div><div><p className="text-sm font-bold text-slate-950">Contact &amp; Support</p><a className="mt-1 inline-block break-all text-sm text-indigo-700 underline hover:text-indigo-900" href="mailto:support.cbseexam@gmail.com">support.cbseexam@gmail.com</a></div><p className="text-xs text-slate-400">Independent CBSE practice platform • Not affiliated with CBSE</p></div></footer>
+        <footer className="border-t border-slate-200 bg-white px-5 py-7 text-center text-sm text-slate-600">
+          Independent CBSE practice platform · <a href="mailto:support.cbseexam@gmail.com" className="font-bold text-indigo-700 underline">Contact Support</a>
+        </footer>
       </main>
     );
   }
