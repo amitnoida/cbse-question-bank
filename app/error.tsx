@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useEffect } from "react";
 
@@ -9,10 +10,10 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
       <section role="alert" className="w-full max-w-xl rounded-3xl border border-indigo-100 bg-white p-8 text-center shadow-xl sm:p-12">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-100 text-3xl" aria-hidden="true">📚</div>
         <p className="mt-6 text-xs font-extrabold uppercase tracking-[0.2em] text-indigo-600">CBSE Exam Prep Guide</p>
-        <h1 className="mt-3 text-3xl font-black text-slate-950">We're Having a Temporary Issue</h1>
-        <p className="mt-4 text-base leading-7 text-slate-600">We couldn't load this page right now. Please try again shortly.</p>
+        <h1 className="mt-3 text-3xl font-black text-slate-950">We&apos;re Having a Temporary Issue</h1>
+        <p className="mt-4 text-base leading-7 text-slate-600">We couldn&apos;t load this page right now. Please try again shortly.</p>
         <button type="button" onClick={reset} className="mt-8 rounded-xl bg-indigo-600 px-7 py-3 font-bold text-white hover:bg-indigo-700">Try Again</button>
-        <p className="mt-5 text-sm"><a className="font-bold text-indigo-700 underline" href="/">Return to home</a> · <a className="font-bold text-indigo-700 underline" href="mailto:support.cbseexam@gmail.com">Contact support</a></p><p className="mt-7 text-xs text-slate-500">CBSE Question Bank · Practice • Learn • Improve</p>
+        <p className="mt-5 text-sm"><Link className="font-bold text-indigo-700 underline" href="/">Return to home</Link> · <a className="font-bold text-indigo-700 underline" href="mailto:support.cbseexam@gmail.com">Contact support</a></p><p className="mt-7 text-xs text-slate-500">CBSE Question Bank · Practice • Learn • Improve</p>
       </section>
     </main>
   );
