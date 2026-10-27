@@ -32,11 +32,11 @@ for (const account of student) {
       message:'No subject options loaded for '+account.email+'; investigate active subjects/class configuration'
     }).toBeGreaterThan(1);
     await chooseSubject(page);
-    const paid=/_paid@gmail\\.com$/i.test(account.email);
+    const paid=account.email.endsWith('_paid@gmail.com');
     await expect(page.getByRole('button',{name:paid?/Premium Active/i:/Subscribe ₹99/i}).first()).toBeVisible({timeout:30000});
     if(!paid) await expect(page.getByText(/Real Mock Tests require a paid membership/i)).toBeVisible();
     await page.getByRole('link',{name:/Dashboard/i}).first().click();
-    await expect(page).toHaveURL(/\\/dashboard/);
+    await expect(page).toHaveURL(/dashboard/);
   });
 }
 test('admin role restrictions: full administrator vs viewer',async({browser})=>{
