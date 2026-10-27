@@ -1,0 +1,9 @@
+@page { size: A4; margin: 14mm; }
+@media print {
+  body { background: #fff !important; }
+  .report-toolbar { display: none !important; }
+  main.report-document { max-width: none !important; width: 100% !important; padding: 0 !important; }
+  .report-question { break-inside: avoid-page; page-break-inside: avoid; }
+  .report-question img { max-width: 100% !important; max-height: 100mm !important; object-fit: contain; }
+  a { text-decoration: none !important; }
+}

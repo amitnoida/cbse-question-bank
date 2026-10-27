@@ -288,7 +288,8 @@ export default function Home() {
     quiz_attempt_id: string | null;
   };
   const [mockPapers, setMockPapers] = useState<MockPaper[]>([]);
-  const [selectedMockPaper, setSelectedMockPaper] = useState("1");
+  const [mockPoolCounts, setMockPoolCounts] = useState<{ mock: number; shared: number; capacity: number }>({ mock: 0, shared: 0, capacity: 0 });
+  const [completedMockAttemptId, setCompletedMockAttemptId] = useState<number | null>(null);
   const [activeMockPaperId, setActiveMockPaperId] = useState<string | null>(null);
   const [mockStarting, setMockStarting] = useState(false);
   const [mockHistoryLoading, setMockHistoryLoading] = useState(false);
@@ -973,7 +974,7 @@ export default function Home() {
           const result: QuestionRow[] = [];
           const pageSize = 500;
           for (let offset = 0; !cancelled; offset += pageSize) {
-            const { data, error } = await supabase.rpc("cbse_subject_questions_v1", {
+            const { data, error } = await supabase.rpc("cbse_subject_practice_questions_v2", {
               p_subject_id: subject.id,
             }).order("id", { ascending: true }).range(offset, offset + pageSize - 1);
             if (error) throw error;
@@ -984,10 +985,18 @@ export default function Home() {
           }
           return result;
         };
-        const [questionData, countsResponse] = await Promise.all([
+        const [questionData, countsResponse, mockCountsResponse] = await Promise.all([
           loadQuestionPages(),
           supabase.rpc("cbse_chapter_counts_v1", { p_subject_id: subject.id }),
+          supabase.rpc("cbse_mock_pool_counts_v2", { p_subject_id: subject.id }),
         ]);
+        if (mockCountsResponse.error) throw mockCountsResponse.error;
+        const pool = (mockCountsResponse.data || [])[0] as { mock_count: number; shared_count: number; numbered_paper_capacity: number } | undefined;
+        if (!cancelled) setMockPoolCounts({
+          mock: Number(pool?.mock_count||0),
+          shared: Number(pool?.shared_count||0),
+          capacity: Number(pool?.numbered_paper_capacity||0),
+        });
         const { data: countsData, error: countsError } = countsResponse;
         if (countsError) throw countsError;
         if (!cancelled) setChapterQuestionCounts(Object.fromEntries(((countsData || []) as Array<{chapter_id:number,question_count:number}>).map(c => [Number(c.chapter_id),Number(c.question_count)])));
@@ -1408,19 +1417,14 @@ export default function Home() {
   const selectedSubjectQuestionCount =
     selectedSubjectQuestions.length;
 
-  const numberedMockCount = Math.floor(selectedSubjectQuestionCount / MOCK_QUESTION_COUNT);
+  const numberedMockCount = Math.max(mockPoolCounts.capacity, ...mockPapers.map(p=>p.paper_number||0), 0);
   const completedNumberedMocks = mockPapers.filter(
     (p) => p.paper_number !== null && p.status === "COMPLETED"
   ).length;
   const mockCanStart =
     selectedSubject !== ALL &&
-    selectedSubjectQuestionCount >= MOCK_QUESTION_COUNT &&
+    mockPoolCounts.mock >= 48 && mockPoolCounts.shared >= 12 &&
     !mockStarting && !mockHistoryLoading;
-  const selectedMockRecord = mockPapers.find(
-    (p) => p.paper_number === Number(selectedMockPaper)
-  );
-  const allNumberedCompleted =
-    numberedMockCount > 0 && completedNumberedMocks >= numberedMockCount;
 
   useEffect(() => {
     let cancelled = false;
@@ -1429,7 +1433,7 @@ export default function Home() {
       await Promise.resolve();
       if (cancelled) return;
       setMockPapers([]);
-      setSelectedMockPaper("1");
+      setMockPoolCounts({mock:0,shared:0,capacity:0});
       if (!currentUser?.id || !availableSubjects.find(s => s.subject_name === selectedSubject)?.id) { setMockHistoryLoading(false); return; }
 
       setMockHistoryLoading(true);
@@ -1808,50 +1812,54 @@ export default function Home() {
     setMockSubmitting(false);
     setPracticeMode(false);
     setMockMode(true);
-    if (row.status === "COMPLETED") setMockSubmitError("This exam has expired or was already submitted. Your saved answers have been finalized.");
+    if (row.status === "COMPLETED") {
+      if (row.quiz_attempt_id) setCompletedMockAttemptId(Number(row.quiz_attempt_id));
+      setMockSubmitError("This exam has expired or was already submitted. Your saved answers have been finalized.");
+    }
   }
 
   async function startMockTest() {
     setMockSubmitError("");
     if (!currentUser || !selectedSubjectObject || mockStarting) return;
     if (!isPaidMember) { openSubscribe(); return; }
-    if (subjectQuestionsLoading) { setMockSubmitError("Wait for questions to load."); return; }
-    if (selectedSubjectQuestionCount < MOCK_QUESTION_COUNT) return;
-    if (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED") {
-      setMockSubmitError("This paper is completed. Choose another paper or a retake."); return;
+    if (subjectQuestionsLoading || mockHistoryLoading) {
+      setMockSubmitError("Wait for mock availability to load."); return;
+    }
+    if (mockPoolCounts.mock < 48 || mockPoolCounts.shared < 12) {
+      setMockSubmitError("A mock requires 48 MOCK and 12 SHARED questions."); return;
     }
     setMockStarting(true);
     try {
-        // Resume a specific unfinished retake instead of accidentally allocating another.
-        const resumeRetake = selectedMockPaper.startsWith("resume-retake:")
-          ? mockPapers.find(p => p.id === selectedMockPaper.slice("resume-retake:".length)
-              && p.retake_number !== null && p.status === "STARTED")
-          : null;
-        if (selectedMockPaper.startsWith("resume-retake:") && !resumeRetake) {
-          throw new Error("Unfinished retake not found. Refresh the paper list.");
-        }
-        let paper: MockPaper;
-        if (resumeRetake) {
-          paper = resumeRetake;
-        } else {
-          const { data, error } = await supabase.rpc("start_mock_paper", {
-            p_subject_id: selectedSubjectObject.id,
-            p_paper_number: selectedMockPaper === "retake" ? null : Number(selectedMockPaper),
-          });
-          if (error || !data) throw error || new Error("Unable to load mock paper.");
-          paper = data as MockPaper;
-        }
-        // Historical assignments retain their original questions, including archived ones.
-        // The RPC delivers those only for this student's unfinished assigned papers.
-        const byId = new Map(questions.filter(q => q.subjectId === selectedSubjectObject.id)
-          .map(q => [q.id, q]));
-        const assigned = paper.question_ids.map(id => byId.get(Number(id)));
-        if (assigned.some(q => !q) || assigned.length !== MOCK_QUESTION_COUNT) throw new Error("Assigned questions unavailable. Contact support.");
-        setActiveMockPaperId(paper.id);
-        await openSavedMock("full", paper.id, assigned as MCQ[]);
-        await refreshMockPapers(selectedSubjectObject.id);
-    } catch (err: unknown) { setMockSubmitError(errorMessage(err) || "Unable to resume mock test."); }
-    finally { setMockStarting(false); }
+      // The server resumes an unfinished assignment or allocates the next 48/12 paper.
+      const { data, error } = await supabase.rpc("start_next_mock_paper_v2", {
+        p_subject_id: selectedSubjectObject.id,
+      });
+      if (error || !data) throw error || new Error("Unable to start the next mock.");
+      const paper = data as MockPaper;
+      const { data: assignedRows, error: deliveryError } = await supabase.rpc(
+        "cbse_assigned_mock_questions_v2", { p_paper_id: paper.id }
+      );
+      if (deliveryError) throw deliveryError;
+      const className = enrolledClass?.class_name || "";
+      const chapterMap = new Map(availableChapters.map(ch => [ch.id,ch.chapter_name]));
+      const assigned = ((assignedRows||[]) as QuestionRow[]).map(q => ({
+        ...q, classId: enrolledClassId || 0, subjectId: selectedSubjectObject.id,
+        className, subjectName: selectedSubjectObject.subject_name,
+        chapterName: chapterMap.get(q.chapter_id) || "",
+        options: [q.option_a,q.option_b,q.option_c,q.option_d].filter(Boolean),
+      })) as MCQ[];
+      if (assigned.length !== MOCK_QUESTION_COUNT) {
+        throw new Error("Assigned mock questions are incomplete. Contact support.");
+      }
+      setCompletedMockAttemptId(null);
+      setActiveMockPaperId(paper.id);
+      await openSavedMock("full", paper.id, assigned);
+      await refreshMockPapers(selectedSubjectObject.id);
+    } catch (err: unknown) {
+      setMockSubmitError(errorMessage(err) || "Unable to resume mock test.");
+    } finally {
+      setMockStarting(false);
+    }
   }
 
   async function chooseMockAnswer(questionId: number, letter: string) {
@@ -1887,8 +1895,9 @@ export default function Home() {
     setMockSubmitting(true);
     setMockSubmitError("");
     try {
-      const { error } = await supabase.rpc("mock_finish_exam", { p_session_id: mockSessionId });
+      const { data: completedAttemptId, error } = await supabase.rpc("mock_finish_exam", { p_session_id: mockSessionId });
       if (error) throw error;
+      if (completedAttemptId) setCompletedMockAttemptId(Number(completedAttemptId));
       const { data: completedData, error: completedError } = await supabase.rpc("mock_open_exam", {
         p_kind: "full",
         p_paper_id: activeMockPaperId,
@@ -1918,6 +1927,7 @@ export default function Home() {
     setMockMode(false);
     setMockSubmitted(false);
     setMockSubmitting(false);
+    setCompletedMockAttemptId(null);
     setMockSubmitError("");
     setMockQuestions([]);
     setMockAnswers({});
@@ -3188,6 +3198,7 @@ export default function Home() {
               </div>
 
               <Achievement correct={mockScore} total={mockQuestions.length} />
+              {completedMockAttemptId && <Link href={"/report/mock/"+completedMockAttemptId} className="mt-4 inline-flex min-h-12 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-800">Download Complete Report PDF</Link>}
               <div className="mt-7 grid gap-3 sm:mt-8 sm:grid-cols-3 sm:gap-4">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
                   <p className="text-sm font-medium text-slate-500">
@@ -4495,34 +4506,22 @@ export default function Home() {
               </div>
 
               <div>
-                {isPaidMember && selectedSubject !== ALL && numberedMockCount > 0 && (
+                {isPaidMember && selectedSubject !== ALL && (
                   <div className="mb-4 rounded-lg border border-orange-300 bg-white/70 p-3">
-                    <label htmlFor="mock-paper-selector" className="mb-2 block text-sm font-bold">
-                      Choose a numbered paper or retake
-                    </label>
-                    <select id="mock-paper-selector" value={selectedMockPaper}
-                      onChange={(e) => setSelectedMockPaper(e.target.value)}
-                      className="w-full rounded-lg border border-orange-300 bg-white p-3 text-sm">
-                      {Array.from({ length: numberedMockCount }, (_, i) => i + 1).map(n => {
-                        const record = mockPapers.find(p => p.paper_number === n);
-                        return <option key={n} value={String(n)}>
-                          {`Mock Test ${n} — ${record?.status === "COMPLETED" ? "Completed" : record ? "Assigned — start/resume" : "Not started"}`}
-                        </option>;
-                      })}
-                      {mockPapers.filter(p => p.retake_number !== null && p.status === "STARTED").map(p => (
-                        <option key={p.id} value={`resume-retake:${p.id}`}>
-                          {`Resume retake ${p.retake_number} (same questions, remaining time)`}
-                        </option>
-                      ))}
-                      {allNumberedCompleted && <option value="retake">New randomized retake</option>}
-                    </select>
+                    <p className="text-sm font-bold">Next numbered mock / resume saved mock</p>
                     <p className="mt-2 text-xs text-slate-700">
                       {completedNumberedMocks}/{numberedMockCount} numbered papers completed.
-                      Each numbered paper has unique questions. {allNumberedCompleted ? "Randomized retakes are now unlocked." : "Randomized retakes unlock after completing all numbered papers."}
+                      New papers use exactly 48 MOCK + 12 SHARED questions, prioritizing unseen questions.
+                      Saved unfinished papers are resumed automatically. Retakes unlock after the numbered series.
                     </p>
-                    {mockPapers.filter(p => p.status === "COMPLETED").map(p => (
-                      <p key={p.id} className="mt-1 text-xs text-slate-700">
-                        {p.paper_number ? `Mock Test ${p.paper_number}` : `Randomized retake ${p.retake_number ?? ""}`} completed
+                    <p className="mt-2 text-xs text-slate-600">
+                      Eligible pool: {mockPoolCounts.mock} mock-only and {mockPoolCounts.shared} shared questions.
+                    </p>
+                    {mockPapers.filter(p=>p.status==="COMPLETED" && p.quiz_attempt_id).map(p => (
+                      <p key={p.id} className="mt-2 text-xs text-indigo-700">
+                        <Link href={"/report/mock/"+p.quiz_attempt_id} className="font-bold underline">
+                          Download Complete Report PDF — {p.paper_number ? "Mock "+p.paper_number : "Retake "+p.retake_number}
+                        </Link>
                       </p>
                     ))}
                   </div>
@@ -4537,19 +4536,15 @@ export default function Home() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     onClick={startMockTest}
-                    disabled={mockStarting || mockHistoryLoading || selectedSubject === ALL || (isPaidMember && (!mockCanStart || (selectedMockPaper !== "retake" && selectedMockRecord?.status === "COMPLETED")))}
+                    disabled={mockStarting || mockHistoryLoading || selectedSubject === ALL || (isPaidMember && !mockCanStart)}
                     className="min-h-12 w-full rounded-lg bg-orange-500 px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {selectedSubject === ALL
-                      ? "Select Subject First"
+                    {selectedSubject === ALL ? "Select Subject First"
                       : !isPaidMember ? "Unlock Real Mock Tests →"
-                      : selectedSubjectQuestionCount <
-                        MOCK_QUESTION_COUNT
-                      ? `Need ${MOCK_QUESTION_COUNT} Questions`
+                      : !mockCanStart ? "Need 48 MOCK and 12 SHARED questions"
                       : mockStarting ? "Preparing paper..."
-                      : selectedMockPaper.startsWith("resume-retake:") ? "Resume Unfinished Retake →"
-                      : selectedMockPaper === "retake" ? "Start Randomized Retake →"
-                      : `Start / Resume Mock Test ${selectedMockPaper} →`}
+                      : mockPapers.some(p=>p.status==="STARTED") ? "Resume Unfinished Mock →"
+                      : "Start Next Mock / Retake →"}
                   </button>
 
 
