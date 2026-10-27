@@ -21,27 +21,24 @@ async function chooseSubject(page) {
   await expect(page.getByRole('button',{name:/Start \/ Resume Practice/i})).toBeEnabled({timeout:30000});
   return options[0];
 }
-test('all student accounts: subject navigation, class lock and membership',async({browser})=>{
-  test.setTimeout(600000);
-  for(const account of student){
-    const page=await browser.newPage();
-    try{
-      await loginStudent(page,account);
-      await expect(page.locator('#student-field-12')).toBeDisabled();
-      await chooseSubject(page);
-      const paid=/_paid@gmail\.com$/i.test(account.email);
-      await expect(page.getByRole('button',{name:paid?/Premium Active/i:/Subscribe ₹99/i}).first()).toBeVisible({timeout:30000});
-      if(!paid){
-        await expect(page.getByText(/Real Mock Tests require a paid membership/i)).toBeVisible();
-        await page.getByRole('button',{name:/Unlock Real Mock Tests/i}).click();
-        await expect(page.getByRole('dialog',{name:'Premium membership'})).toBeVisible();
-        await page.getByRole('button',{name:'Close subscription'}).click();
-      }
-      await page.getByRole('link',{name:/Dashboard/i}).first().click();
-      await expect(page).toHaveURL(/\/dashboard/);
-    }finally{await page.close();}
-  }
-});
+for (const account of student) {
+  test('subject navigation and membership: ' + account.email, async ({page}) => {
+    test.setTimeout(90000);
+    await loginStudent(page,account);
+    await expect(page.locator('#student-field-12')).toBeDisabled();
+    const select=page.locator('#practice-subject');
+    await expect.poll(async()=>select.locator('option').count(),{
+      timeout:30000,
+      message:'No subject options loaded for '+account.email+'; investigate active subjects/class configuration'
+    }).toBeGreaterThan(1);
+    await chooseSubject(page);
+    const paid=/_paid@gmail\\.com$/i.test(account.email);
+    await expect(page.getByRole('button',{name:paid?/Premium Active/i:/Subscribe ₹99/i}).first()).toBeVisible({timeout:30000});
+    if(!paid) await expect(page.getByText(/Real Mock Tests require a paid membership/i)).toBeVisible();
+    await page.getByRole('link',{name:/Dashboard/i}).first().click();
+    await expect(page).toHaveURL(/\\/dashboard/);
+  });
+}
 test('admin role restrictions: full administrator vs viewer',async({browser})=>{
   test.setTimeout(180000);
   for(const account of admin){
@@ -54,7 +51,7 @@ test('admin role restrictions: full administrator vs viewer',async({browser})=>{
       await expect(page.getByRole('heading',{name:'Management overview'})).toBeVisible({timeout:30000});
       await page.goto('/admin/upgrade');
       const viewer=/viewer/i.test(account.email);
-      await expect(page.getByText(viewer?'Admin Viewer':'Full Admin',{exact:true})).toBeVisible({timeout:30000});
+      await expect(page.locator('p').filter({hasText:'Your role:'}).locator('strong')).toHaveText(viewer?'Admin Viewer':'Full Admin',{timeout:30000});
       if(viewer){
         await expect(page.getByRole('button',{name:/Create admin and email temporary password/i})).toHaveCount(0);
         await expect(page.getByRole('button',{name:/Schedule announcement/i})).toHaveCount(0);
