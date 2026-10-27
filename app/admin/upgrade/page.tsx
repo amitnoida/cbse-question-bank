@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useCallback,useEffect,useState } from "react";
 import { supabase } from "../../../lib/supabase";
 type Student={student_id:string;student_name:string|null;email:string|null;email_verified:boolean;created_at:string;is_active:boolean;delete_eligible:boolean};
@@ -10,10 +11,10 @@ export default function AdminUpgrade(){
  const [name,setName]=useState(""),[email,setEmail]=useState(""),[role,setRole]=useState("ADMIN_VIEW"),[password,setPassword]=useState("");
  const [announcement,setAnnouncement]=useState(""),[starts,setStarts]=useState(""),[ends,setEnds]=useState("");
  const request=useCallback(async(action?:string,payload:Record<string,unknown>={})=>{const {data:{session}}=await supabase.auth.getSession();if(!session)throw Error("Please sign in through /admin first.");const res=await fetch("/api/admin/upgrade",{method:action?"POST":"GET",headers:{Authorization:`Bearer ${session.access_token}`,...(action?{"Content-Type":"application/json"}:{})},...(action?{body:JSON.stringify({action,...payload})}:{})});const result=await res.json();if(!res.ok)throw Error(result.error||"Request failed");return result;},[]);
- const refresh=useCallback(async()=>{try{setError("");setInfo(await request());}catch(e){setError(String(e instanceof Error?e.message:e));}},[request]);
- useEffect(()=>{void refresh();},[refresh]);
+ const refresh=useCallback(async()=>{try{const result=await request();setError("");setInfo(result);}catch(e){setError(String(e instanceof Error?e.message:e));}},[request]);
+ useEffect(()=>{const timer=window.setTimeout(()=>void refresh(),0);return ()=>window.clearTimeout(timer);},[refresh]);
  async function act(action:string,payload:Record<string,unknown>,confirmation?:string){if(confirmation&&!window.confirm(confirmation))return;setBusy(true);setError("");setMessage("");try{await request(action,payload);setMessage("Saved successfully.");await refresh();}catch(e){setError(String(e instanceof Error?e.message:e));}finally{setBusy(false);}}
- return <main className="mx-auto w-full max-w-6xl min-w-0 space-y-6 overflow-x-hidden p-3 text-slate-900 sm:p-8"><header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold">Admin upgrade workspace</h1><p className="text-sm text-slate-600">Administrator roles · students · scheduled announcements</p></div><a className="rounded-lg border px-4 py-2" href="/admin">← Admin dashboard</a></header>
+ return <main className="mx-auto w-full max-w-6xl min-w-0 space-y-6 overflow-x-hidden p-3 text-slate-900 sm:p-8"><header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold">Admin upgrade workspace</h1><p className="text-sm text-slate-600">Administrator roles · students · scheduled announcements</p></div><Link className="rounded-lg border px-4 py-2" href="/admin">← Admin dashboard</Link></header>
  {error&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}{message&&<p role="status" className="rounded-lg bg-green-50 p-3 text-green-800">{message}</p>}
  {!info?<p>Loading account permissions…</p>:<><p className="rounded-lg bg-slate-100 p-3">Your role: <strong>{info.role==="FULL_ADMIN"?"Full Admin":"Admin Viewer"}</strong></p>
  {info.mustChange?<section className="min-w-0 rounded-xl border p-3 sm:p-5"><h2 className="text-xl font-bold">Change temporary password to continue</h2><p className="text-sm">Use a new password of at least 12 characters.</p><input type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="New password" className="mt-3 w-full rounded-lg border p-3"/><button disabled={busy||password.length<12} className="mt-3 rounded-lg bg-indigo-700 px-4 py-2 text-white disabled:opacity-50" onClick={()=>void act("change-password",{password})}>Set my password</button></section>:<>
