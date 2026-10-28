@@ -41,7 +41,9 @@ jobs:
       - name: Validate 12 stored accounts
         run: node e2e/validate-accounts.cjs
       - name: Recheck only Full Admin Image and Media Audit
-        run: npx playwright test --config=e2e/playwright.config.cjs admin-reports.spec.cjs --grep 'Full Admin: Image & Media Audit'
+        run: >-
+          npx playwright test --config=e2e/playwright.config.cjs admin-reports.spec.cjs
+          --grep 'Full Admin: Image & Media Audit'
       - name: Upload failure screenshots and JSON result
         if: always()
         uses: actions/upload-artifact@v4
