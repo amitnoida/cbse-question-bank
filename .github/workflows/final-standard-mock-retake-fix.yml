@@ -30,7 +30,9 @@ jobs:
       - name: Validate configured test accounts
         run: node e2e/validate-accounts.cjs
       - name: Retest one fixed Standard Mock journey
-        run: npx playwright test --config=e2e/playwright.config.cjs full-journeys.spec.cjs --grep 'paid student: 60-question mock'
+        run: >-
+          npx playwright test --config=e2e/playwright.config.cjs full-journeys.spec.cjs
+          --grep 'paid student: 60-question mock'
       - name: Summarize outcome
         if: always()
         run: node e2e/final-four-agent-summary.cjs
