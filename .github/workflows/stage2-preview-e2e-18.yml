@@ -6,6 +6,11 @@ on:
     paths:
       - 'e2e/advanced-mock-18.*'
       - '.github/workflows/stage2-preview-e2e-18.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'e2e/advanced-mock-18.*'
+      - '.github/workflows/stage2-preview-e2e-18.yml'
   workflow_dispatch:
 
 permissions:
