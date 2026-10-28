@@ -1,3 +1,7 @@
+> **LATEST UPDATE — Round 5 (28 Oct 2026):** Agent 4 has now individually assessed **247** Class XII Biology questions. **84 are live**, **163 skipped/held**, **1,215 unreviewed**. Round 5 added **52 reviews and 11 live questions** beyond the historical Round 4 report below. For the complete latest status and verified IDs, read [Round 5 report](agent4-bio12-round5-production-status.md). All other subjects are owned by Agents 1–3, and final consolidated end-to-end testing remains deferred until all parallel academic releases finish.
+
+---
+
 # Agent 4 — Class 12 Biology: production release and handoff
 
 **Date:** 2026-10-28 (Asia/Kolkata)  
