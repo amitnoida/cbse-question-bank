@@ -73,13 +73,13 @@ REVOKE ALL ON FUNCTION cbse_import.advanced_mock_finalize_v1(uuid) FROM PUBLIC,a
 -- Authorized overview; no answer leakage. A locked pool stays locked until signed release.
 CREATE OR REPLACE FUNCTION public.advanced_mock_overview_v1(p_subject_id bigint)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='' AS $fn$
-DECLARE v_user uuid:=auth.uid(); v_subject public.subjects%ROWTYPE;
+DECLARE v_user uuid:=auth.uid(); v_subject_name text;
  v_class_name text; v_pool integer; v_numbered integer; v_retakes integer; v_started jsonb; v_recent jsonb;
 BEGIN
  IF v_user IS NULL OR NOT public.is_active_student() THEN
   RAISE EXCEPTION 'Active student required' USING ERRCODE='42501';
  END IF;
- SELECT s.*,c.class_name INTO v_subject,v_class_name
+ SELECT s.subject_name,c.class_name INTO v_subject_name,v_class_name
  FROM public.subjects s JOIN public.classes c ON c.id=s.class_id
  JOIN public.student_profiles sp ON sp.class_id=s.class_id AND sp.id=v_user
  WHERE s.id=p_subject_id AND s.is_active AND c.class_name IN ('Class 11','Class 12');
@@ -104,7 +104,7 @@ BEGIN
              deadline_at,correct_count,answered_count,score_percent
        FROM public.advanced_mock_papers WHERE student_id=v_user AND subject_id=p_subject_id
        ORDER BY started_at DESC LIMIT 15) t;
- RETURN jsonb_build_object('subject_id',p_subject_id,'subject_name',v_subject.subject_name,
+ RETURN jsonb_build_object('subject_id',p_subject_id,'subject_name',v_subject_name,
   'class_name',v_class_name,'released_questions',v_pool,'ready_for_60',v_pool>=60,
   'paid',public.cbse_is_paid_for_subject_v1(v_user),
   'numbered_started',v_numbered,'retakes_started',v_retakes,
