@@ -50,4 +50,12 @@ test('Viewer: MCQ and aggregate reports only; security and student identities re
  await expect(selector.locator('option')).toHaveCount(2);
  await expect(selector.locator('option',{hasText:'Student Directory'})).toHaveCount(0);
  await expect(selector.locator('option',{hasText:'Subscription & Expiry'})).toHaveCount(0);
+ const protectedStatus=await page.evaluate(async()=>{
+  const key=Object.keys(localStorage).find(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));
+  if(!key)return 'no local token';
+  const saved=JSON.parse(localStorage.getItem(key));
+  const r=await fetch('/api/admin/reports?mode=data&report=student-directory',{headers:{Authorization:'Bearer '+saved.access_token}});
+  return r.status;
+ });
+ expect(protectedStatus).toBe(403);
 });
