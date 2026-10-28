@@ -22,7 +22,7 @@ type History = {
  status: string; started_at: string; correct_count: number | null; score_percent: number | null;
 };
 type Overview = {
- subject_name: string; class_name: string; released_questions: number; ready_for_60: boolean;
+ subject_name: string; class_name: string; released_questions: number; ready_for_test: boolean; test_length: number;
  paid: boolean; active_paper: { id: string } | null; history: History[];
 };
 
@@ -61,7 +61,7 @@ export default function AdvancedMockPage() {
   const {data,error: rpcError} = await supabase.rpc("advanced_mock_get_v1",{p_paper_id:paperId});
   if(rpcError) throw rpcError;
   const loaded = data as Paper;
-  if(!Array.isArray(loaded.questions) || loaded.questions.length!==60)
+  if(!Array.isArray(loaded.questions) || loaded.questions.length<1 || loaded.questions.length>60 || new Set(loaded.questions.map(q=>q.id)).size!==loaded.questions.length)
    throw new Error("Assigned Advanced Mock is incomplete. Contact support.");
   setPaper(loaded);
   setIndex(0);
@@ -187,7 +187,7 @@ export default function AdvancedMockPage() {
    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
     <div><p className="text-xs font-extrabold uppercase tracking-wider text-indigo-700">CBSE • Class 11 and 12</p>
      <h1 className="mt-1 text-2xl font-extrabold">Advanced Mock Test</h1>
-     <p className="mt-1 text-sm text-slate-600">Separate 60-question, 60-minute tests. Standard Mock Tests remain unchanged.</p></div>
+     <p className="mt-1 text-sm text-slate-600">Up to 60 approved questions per test, with a 60-minute duration. Standard Mock Tests remain unchanged.</p></div>
     <Link href="/app" className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-bold">Back to Dashboard</Link>
    </div>
    {error && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
@@ -203,17 +203,17 @@ export default function AdvancedMockPage() {
       {overview ? <>
        <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-3">
         <div><p className="text-xs text-slate-500">Released questions</p><p className="text-xl font-bold">{overview.released_questions}</p></div>
-        <div><p className="text-xs text-slate-500">Test length</p><p className="text-xl font-bold">60 questions</p></div>
+        <div><p className="text-xs text-slate-500">Test length</p><p className="text-xl font-bold">{overview.test_length} questions</p></div>
         <div><p className="text-xs text-slate-500">Duration</p><p className="text-xl font-bold">60 min</p></div>
        </div>
-       {!overview.ready_for_60 && <p role="status" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
-        Advanced Mock questions are being academically reviewed. Tests unlock when at least 60 questions in this subject have been approved. No unverified questions will be served.
+       {!overview.ready_for_test && <p role="status" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
+        Advanced Mock questions are being academically reviewed. Tests unlock once at least one question in this subject has been approved. Papers contain up to 60 unique questions. No unverified questions will be served.
        </p>}
-       {overview.ready_for_60 && !overview.paid && <p className="mt-4 rounded-xl bg-blue-50 p-4 text-sm">An active paid membership is required.</p>}
+       {overview.ready_for_test && !overview.paid && <p className="mt-4 rounded-xl bg-blue-50 p-4 text-sm">An active paid membership is required.</p>}
        {overview.active_paper
         ? <button type="button" onClick={()=>{setBusy(true);openPaper(overview.active_paper!.id).catch(e=>setError(message(e))).finally(()=>setBusy(false));}}
            disabled={busy} className={btn+" mt-5 bg-indigo-700 text-white"}>Resume Advanced Mock</button>
-        : <button type="button" onClick={start} disabled={busy || !overview.ready_for_60 || !overview.paid}
+        : <button type="button" onClick={start} disabled={busy || !overview.ready_for_test || !overview.paid}
            className={btn+" mt-5 bg-indigo-700 text-white"}>Start Next Advanced Mock</button>}
       </>:<p className="mt-4 text-sm text-slate-600">Loading subject eligibility…</p>}
      </section>
@@ -231,7 +231,7 @@ export default function AdvancedMockPage() {
       <div><p className="text-sm font-bold text-indigo-700">{paperName(paper)}</p>
        <p className="text-sm text-slate-600">Question {index+1} of {paper.questions.length} · {answered} answered</p></div>
       {paper.status==="STARTED" ? <div className="rounded-lg bg-slate-900 px-4 py-2 font-mono font-bold text-white" role="timer">{fmt(left)}</div>
-       : <div className="text-lg font-bold text-green-700">{paper.score_percent}% · {paper.correct_count}/60 correct</div>}
+       : <div className="text-lg font-bold text-green-700">{paper.score_percent}% · {paper.correct_count}/{paper.questions.length} correct</div>}
      </div>
      <div className="my-5 flex flex-wrap gap-2" aria-label="Question navigation">
       {paper.questions.map((item,i)=><button type="button" key={item.id} onClick={()=>setIndex(i)}
@@ -250,7 +250,7 @@ export default function AdvancedMockPage() {
      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
       <button type="button" className={btn+" bg-slate-100"} onClick={()=>setIndex(Math.max(0,index-1))} disabled={index===0}>Previous</button>
       <div className="flex gap-2"><button type="button" className={btn+" bg-slate-100"} onClick={()=>{setPaper(null);if(selected)refreshOverview(selected).catch(e=>setError(message(e)));}}>Back to history</button>
-       {index<59 && <button type="button" className={btn+" bg-slate-900 text-white"} onClick={()=>setIndex(index+1)}>Next</button>}
+       {index<paper.questions.length-1 && <button type="button" className={btn+" bg-slate-900 text-white"} onClick={()=>setIndex(index+1)}>Next</button>}
        {paper.status==="STARTED" && <button type="button" className={btn+" bg-indigo-700 text-white"} disabled={busy||saving} onClick={finish}>Submit test</button>}
       </div>
      </div>
