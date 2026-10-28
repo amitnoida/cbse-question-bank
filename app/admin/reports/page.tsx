@@ -195,6 +195,7 @@ export default function AdminReportsPage(){
        {categoryReports.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
       </select></label>
      <p className="self-end rounded-xl bg-indigo-50 p-3 text-sm leading-6 text-indigo-900">{chosen?.description||"Choose a report."}</p>
+     {chosen?.source==="metadata"&&<p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">This live security audit requires a separately reviewed read-only database metadata function. It has not been enabled; other reports remain available.</p>}
     </div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
      {showAcademic&&<label className="text-xs font-bold text-slate-700">Class
@@ -238,9 +239,9 @@ export default function AdminReportsPage(){
       </select></label>
     </div>
     <div className="flex flex-wrap gap-2">
-     <button type="button" onClick={()=>void load(reportId,1)} disabled={loading} className="inline-flex min-h-11 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-extrabold text-white disabled:opacity-50">{loading?"Loading…":result?"Refresh / View Report":"View Report"}</button>
+     <button type="button" onClick={()=>void load(reportId,1)} disabled={loading||chosen?.source==="metadata"} className="inline-flex min-h-11 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-extrabold text-white disabled:opacity-50">{loading?"Loading…":result?"Refresh / View Report":"View Report"}</button>
      <button type="button" onClick={()=>{setClassNumber("");setSubjectId("");setChapterId("");setStatus("");setUsage("");setReview("");setSearch("");setFrom("");setTo("");setDirection("desc");setSortField("");setResult(null);}} className="inline-flex min-h-11 items-center rounded-xl border px-4 py-3 text-sm font-bold">Clear filters</button>
-     <button type="button" onClick={()=>void exportCsv()} disabled={exportBusy||loading||!chosen} className="inline-flex min-h-11 items-center rounded-xl border border-indigo-600 px-4 py-3 text-sm font-bold text-indigo-700 disabled:opacity-50">{exportBusy?"Exporting "+(exportedBytes/1024).toFixed(0)+" KB…":"Export ALL matching rows (CSV)"}</button>
+     <button type="button" onClick={()=>void exportCsv()} disabled={exportBusy||loading||!chosen||chosen.source==="metadata"} className="inline-flex min-h-11 items-center rounded-xl border border-indigo-600 px-4 py-3 text-sm font-bold text-indigo-700 disabled:opacity-50">{exportBusy?"Exporting "+(exportedBytes/1024).toFixed(0)+" KB…":"Export ALL matching rows (CSV)"}</button>
     </div>
     {result&&<div className="grid gap-3 sm:grid-cols-3" role="status">
      <div className="rounded-xl bg-indigo-50 p-4"><p className="text-xs font-bold text-indigo-700">Matching records</p><p className="mt-1 text-2xl font-black">{result.summary.matching_records.toLocaleString("en-IN")}</p></div>
