@@ -143,9 +143,10 @@ test('Full Admin: Image & Media Audit excludes empty JSON placeholders and inclu
   });
   expect(data.error).toBeUndefined();
   expect(data.status).toBe(200);
-  expect(data.body.total).toBeGreaterThan(600);
-  expect(data.body.total).toBeLessThan(2000);
-  expect(data.body.rows).toHaveLength(50);
+  // The media pool changes after archive/cleanup operations; do not hardcode historical totals.
+  // Ensure the current report is populated, paginated and free of empty-media placeholders.
+  expect(data.body.total).toBeGreaterThan(0);
+  expect(data.body.rows).toHaveLength(Math.min(50,data.body.total));
   for(const row of data.body.rows){
     expect(row.media_ready===false || (row.question_media&&Object.keys(row.question_media).length>0)).toBeTruthy();
   }
