@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const file=path.join(__dirname,'results','results.json');
-const lines=['## CBSE Full E2E — 18 Test Accounts','','Run scope: **live production website**, using dedicated GitHub-stored test accounts only.'];
+const lines=['## CBSE School E2E — 12 Accounts','','Run scope: **live production website**, using dedicated GitHub-stored test accounts only.'];
 if(!fs.existsSync(file)){
   lines.push('','**No Playwright results were found.** Check the preceding install, account-validation or browser-test step.');
 }else{
@@ -46,11 +46,11 @@ if(!fs.existsSync(file)){
     lines.push('','**No test failures were recorded.** Skipped tests, if any, were not executed and do not count as passes.');
   }
   lines.push('','### What this suite checks',
-    '- Login and authorized access for all 18 users, including full/viewer administrators',
+    '- Login and authorized access for 12 users, including full/viewer administrators',
     '- Student membership, class/subject navigation, dashboard visibility',
     '- Homepage, SEO routes, sitemap, registration dropdown and authentication entry points',
-    '- Selected free practice and paid mock submission journeys on dedicated test accounts',
-    '- Competitive JEE/NEET login and subject-readiness checks (fail when content is missing)',
+    '- Free practice and paid mock submissions on dedicated school test accounts\n    '- Full Admin and Viewer access to Reports & Database Audit',
+    '- Only Classes 8–12; all JEE/NEET account and subject tests are excluded',
     '','Practice and mock tests can create attempts or consume free allowance in **test accounts only**.');
 }
 const output=lines.join('\n')+'\n';
