@@ -1,0 +1,3 @@
+-- Agent 3 Batch 02: no approved corrections or activations.
+-- Intentionally no UPDATE or other write statements.
+-- All 20 IDs on HOLD pending corpus-wide duplication review.
