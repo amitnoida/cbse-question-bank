@@ -169,9 +169,9 @@ export async function GET(req:NextRequest){
       // making two separate DB count requests for every chapter.
       for(let offset=0;offset<100000;offset+=1000){
         const q=await admin.db.from("questions")
-          .select("chapter_id,is_active")
+          .select("id,chapter_id,is_active")
           .in("chapter_id",chapterSet)
-          .order("chapter_id")
+          .order("id")
           .range(offset,offset+999);
         if(q.error)throw Error("Chapter counts unavailable");
         for(const question of q.data||[]){
