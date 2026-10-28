@@ -6,7 +6,7 @@ Scope: Supabase production `darfsuqfmmunxqiyqlvn`, **read-only inspection only**
 
 - Academic APPROVED: **0 / 9,106**. School-level eligibility cannot be established from competitive-source metadata or chapter-title matching alone.
 - Current `content_review_status`: **8,682 PENDING_REVIEW**, **424 HOLD**, **0 approved**.
-- Existing audit dispositions: **6,056 MAPPED_READY_FOR_REVIEW** (means structural candidate only, NOT approved); **2,703 NEEDS_ACADEMIC_REVIEW**; **321 MEDIA_BLOCKED**; **26 DUPLICATE_CANDIDATE**. Separately the audit flag `duplicate_candidate` is true for **40** rows, including **14** counted in another disposition.
+- Existing audit dispositions: **6,055 MAPPED_READY_FOR_REVIEW** (means structural candidate only, NOT approved); **2,703 NEEDS_ACADEMIC_REVIEW**; **321 MEDIA_BLOCKED**; **27 DUPLICATE_CANDIDATE**. Separately the audit flag `duplicate_candidate` is true for **44** rows, including **17** counted in another disposition.
 - Questions with null/blank stem, null/blank option, or key not A/B/C/D: **0** on SQL shape checks. This does not validate correctness, explanations, or difficulty.
 - `public.questions.is_active`: **0** of 9,106. Do not override.
 
@@ -20,10 +20,11 @@ Scope: Supabase production `darfsuqfmmunxqiyqlvn`, **read-only inspection only**
 
 ## Duplicate audit
 
-- Existing preliminary/semantic candidate flag: **40** (not confirmed duplicates).
+- Existing preliminary/semantic candidate flag: **44** (includes four confirmed cross-bank exact-stem overlaps; the other flags are candidates).
 - Strict case/whitespace-normalized question-text matches *within the 9,106 source questions*: **0 exact duplicate groups**.
-- Source rows matching an identical normalized stem among questions outside the 9,106: **4**; matched counterpart IDs/statuses are **not validated**, because a more detailed pairwise join timed out.
-- More sophisticated semantic/near-duplicate verification is **not complete**. Do not treat the 40 candidates as automatically rejectable or the zero within-set exact matches as proof of uniqueness.
+- Confirmed source rows with exact normalized stems matching **active school questions: 4** — source IDs **26401, 26402, 26403, 32830** match active question IDs **3967, 3970, 3968, 2213**, respectively. Four staging-only audit flags were changed to true; one disposition changed from mapped-ready to duplicate-candidate. No source or school question row was modified.
+- Number-normalized stem template screening found **651 repeated template families spanning 5,576 source questions** (4,925 repetitions after the first; largest family 31). These can be legitimate numerical variants, not necessarily duplicates, but they warrant diversity controls in Advanced Mock allocation.
+- More sophisticated semantic/near-duplicate verification is **not complete**. Do not treat the remaining candidates as automatically rejectable or the zero within-set exact matches as proof of uniqueness.
 
 ## Media audit
 
@@ -38,4 +39,4 @@ CBSE 2026–27 senior-secondary curriculum index: https://cbseacademic.nic.in/cu
 
 ## Limitations and no-go
 
-Read-only simple counts, scoped aggregates and most inventory/dependency queries succeeded. A pairwise normalized text-match query timed out (`57014: canceling statement due to statement timeout`); do not retry with an unrestricted self-join. Prior conversation's safety-check block did **not** recur on the first COUNT query. This is an audit checkpoint, **not a claim of complete academic signoff** or authorization for Stage 2.
+Read-only simple counts, scoped aggregates and most inventory/dependency queries succeeded. An initial unoptimized pairwise normalized text-match query timed out (`57014: canceling statement due to statement timeout`); a later **scoped materialized fingerprint grouping succeeded** and resolved all four cross-bank exact matches. Do not retry the unrestricted self-join. Prior conversation's safety-check block did **not** recur on the first COUNT query. This is an audit checkpoint, **not a claim of complete academic signoff** or authorization for Stage 2.
