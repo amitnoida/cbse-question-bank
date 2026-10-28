@@ -145,7 +145,7 @@ export async function GET(req:NextRequest){
       q=q.in("chapter_id",chapterIds.length?chapterIds:[-1]);
       if(report!.id==="mcq-quality")q=q.or("explanation.is.null,question_text.is.null,option_a.is.null,option_b.is.null,option_c.is.null,option_d.is.null");
       if(report!.id==="mcq-inactive")q=q.or("is_active.eq.false,content_review_status.eq.PENDING_REVIEW,content_review_status.eq.HOLD");
-      if(report!.id==="media-audit")q=q.not("question_media","is",null);
+      if(report!.id==="media-audit")q=q.or("media_ready.eq.false,question_media.neq.{}");
       if(report!.id==="integrity")q=q.or("question_text.is.null,correct_option.is.null,option_a.is.null,option_b.is.null,option_c.is.null,option_d.is.null");
       if(usage)q=q.eq("question_usage",usage);
       if(review)q=q.eq("content_review_status",review);

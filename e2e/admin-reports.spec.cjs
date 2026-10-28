@@ -127,3 +127,26 @@ test('Viewer cannot access either security metadata report via API',async({page}
  });
  expect(statuses).toEqual([403,403,403,403]);
 });
+
+test('Full Admin: Image & Media Audit excludes empty JSON placeholders and includes unresolved assets',async({page})=>{
+  test.setTimeout(120000);
+  const account=accounts.find(a=>/full/i.test(a.email));
+  if(!account)throw new Error('Missing Full Admin');
+  await openReports(page,account);
+  const data=await page.evaluate(async()=>{
+    const key=Object.keys(localStorage).find(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));
+    if(!key)return {error:'No session'};
+    const auth=JSON.parse(localStorage.getItem(key));
+    const response=await fetch('/api/admin/reports?report=media-audit&mode=data&page=1',{headers:{Authorization:'Bearer '+auth.access_token}});
+    const body=await response.json();
+    return {status:response.status,body};
+  });
+  expect(data.error).toBeUndefined();
+  expect(data.status).toBe(200);
+  expect(data.body.total).toBeGreaterThan(600);
+  expect(data.body.total).toBeLessThan(2000);
+  expect(data.body.rows).toHaveLength(50);
+  for(const row of data.body.rows){
+    expect(row.media_ready===false || (row.question_media&&Object.keys(row.question_media).length>0)).toBeTruthy();
+  }
+});

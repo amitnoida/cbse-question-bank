@@ -3903,11 +3903,11 @@ export default function Home() {
                 ? "Activating..."
                 : finalSubscriptionPrice === 0
                 ? "Activate Premium Membership"
-                : "Payment / Activate"}
+                : "Paid Checkout Coming Soon"}
             </button>
 
             <p className="mt-3 text-center text-[11px] leading-5 text-slate-500">
-              Payment gateway will be connected after this coupon and pricing test is verified.
+              Online payment checkout is not active yet. Premium membership can currently be activated only with an eligible 100% discount coupon.
             </p>
           </div>
         </div>
