@@ -1,6 +1,15 @@
 # Stage 2 — Class 11/12 Advanced Mock Test (28 October 2026)
 
-**Status:** Phase A and Stage 2 Phase B **database runtime implemented on production Supabase**; Class 11/12 UI is committed on the Stage 2 GitHub branch. **Not yet built/deployed to production or academically released.**
+## Latest Vercel preview and 12-account E2E status (28 October 2026)
+- **Vercel preview READY**: `https://cbse-question-bank-f74nc65x6-cbse-question-bank.vercel.app`; deployment `dpl_9s9K6bmig3hU3mSY8xYoqVM4mFhE`, commit `2749533bf95fd78faf99a2a66e9823fd494a2811`. `/advanced-mock` returns HTTP 200 through authenticated Vercel fetch. Production domain unchanged.
+- User confirmed **12 accounts only**: 10 active school accounts (Classes 8–12, free and paid) and 2 admin accounts. Supabase check found all 10 active student profiles and the two full/viewer admin roles; no legacy competitive accounts are in E2E scope.
+- GitHub Actions `Stage 2 Preview 12-Account E2E` run **40669882497** was blocked in the *prerequisites* step: GitHub Actions secret `VERCEL_AUTOMATION_BYPASS_SECRET` **not configured**. `E2E_ACCOUNTS_JSON` was present. **0 of 12 browser test cases executed**, not passed or failed. Run: `https://github.com/amitnoida/cbse-question-bank/actions/runs/40669882497`.
+- To unblock without weakening Vercel protection: create or copy a **Protection Bypass for Automation** secret in Vercel project `cbse-question-bank` → Settings → Deployment Protection. Add it to GitHub repository → Settings → Secrets and variables → Actions → New repository secret, name exactly `VERCEL_AUTOMATION_BYPASS_SECRET`. Never put its value in the repository, issue comments, or this chat. Then rerun the **Stage 2 Preview 12-Account E2E** GitHub workflow. The Playwright code sends the bypass header only to the exact preview hostname.
+- GitHub Actions `Advanced Mock TypeScript and Build` passed independently (including latest Stage 2 code). No actual 12-account UI results or screenshot artifacts yet.
+- This is not a content release: all 7,442 staged advanced source questions remain inactive and unapproved, standard school questions unmodified, and the 1,664 unresolved-source deletion still awaits the user's separate SQL Editor action.
+
+
+**Status:** Phase A and Stage 2 Phase B **database runtime implemented on production Supabase**; Class 11/12 UI is committed on the Stage 2 GitHub branch. **Preview built successfully; not merged/deployed to production or academically released.**
 Production project: `darfsuqfmmunxqiyqlvn`. Branch: `stage2-advanced-mock-20261028` (based on `main`, separate from `stage1-advanced-mock-audit-20261028`).
 
 ## Phase A: complete
