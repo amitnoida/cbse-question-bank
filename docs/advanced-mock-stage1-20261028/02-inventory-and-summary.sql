@@ -1,0 +1,3 @@
+-- Read-only question-level export and chapter summary
+select m.*,a.disposition,a.duplicate_candidate,a.media_blocked,a.answer_issue,a.audit_note from cbse_import.advanced_mock_mapping_20261028 m join cbse_import.advanced_mock_stage1_audit_20261028 a using(source_question_id) order by m.source_question_id;
+select c.class_number,s.subject_name,ch.id chapter_id,ch.chapter_name,a.disposition,count(*) questions from cbse_import.advanced_mock_stage1_audit_20261028 a join public.chapters ch on ch.id=a.proposed_chapter_id join public.subjects s on s.id=ch.subject_id join public.classes c on c.id=s.class_id group by 1,2,3,4,5 order by 1,2,3,5;
