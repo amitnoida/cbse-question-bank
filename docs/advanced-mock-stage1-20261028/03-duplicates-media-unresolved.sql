@@ -1,0 +1,1 @@
+select m.source_question_id,m.source_exam,m.source_subject,m.source_chapter,a.* from cbse_import.advanced_mock_mapping_20261028 m join cbse_import.advanced_mock_stage1_audit_20261028 a using(source_question_id) where a.duplicate_candidate or a.media_blocked or a.answer_issue or a.disposition='NEEDS_ACADEMIC_REVIEW' order by m.source_subject,m.source_chapter,m.source_question_id;
