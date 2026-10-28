@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStatsAdmin, noStore } from "../../../../lib/system-stats-server";
-import { REPORTS, findReport } from "../../../../lib/admin-reports";
+import { REPORTS, findReport, type ReportDefinition } from "../../../../lib/admin-reports";
 
 export const maxDuration=60;
 type Row=Record<string,unknown>;
@@ -29,6 +29,58 @@ function csvValue(v:unknown){
 }
 function csvLine(values:unknown[]){return values.map(csvValue).join(",")+"\r\n";}
 
+// The privileged SQL function is restricted to service_role at the database layer.
+// Every request also passes requireStatsAdmin() and the FULL_ADMIN gate below.
+async function securityCatalogReport(
+ db:ReturnType<typeof import("../../../../lib/system-stats-server").adminDb>,
+ report:ReportDefinition,
+ p:URLSearchParams,
+ mode:"data"|"csv",
+):Promise<Response>{
+ const result=await db.rpc("cbse_admin_security_audit_v1",{p_kind:report.id});
+ if(result.error)throw new Error("Security metadata audit is unavailable: "+result.error.message);
+ const records=((result.data||[]) as Array<{entry:Row}>).map(r=>r.entry);
+ const search=clean(p.get("search")).trim().toLowerCase().slice(0,100);
+ const status=p.get("status")||"";
+ const allowedStatus=["","review","rls-disabled","public-execute","definer","permissive","restrictive"];
+ if(!allowedStatus.includes(status))return fail("Invalid audit status filter",400);
+ const matches=records.filter(row=>{
+  if(search&&!Object.values(row).some(v=>String(v??"").toLowerCase().includes(search)))return false;
+  if(status==="review"&&!String(row.detail||"").startsWith("REVIEW:"))return false;
+  if(status==="rls-disabled"&&!(row.object_type==="Table RLS"&&row.rls_enabled===false)&&!(report.id==="rls-policies"&&row.rls_enabled===false))return false;
+  if(status==="public-execute"&&row.public_execute!==true)return false;
+  if(status==="definer"&&row.security_definer!==true)return false;
+  if(status==="permissive"&&String(row.permissive)!=="PERMISSIVE")return false;
+  if(status==="restrictive"&&String(row.permissive)!=="RESTRICTIVE")return false;
+  return true;
+ });
+ const allowedSort=report.id==="function-audit"
+  ?["object_type","schema","name","detail","security_definer","rls_enabled"]
+  :["schema","table","policy","command","permissive"];
+ const sort=allowedSort.includes(p.get("sort")||"")?String(p.get("sort")):(report.id==="function-audit"?"object_type":"table");
+ const ascending=p.get("dir")!=="desc";
+ matches.sort((a,b)=>{
+  const cmp=String(a[sort]??"").localeCompare(String(b[sort]??""),"en",{numeric:true});
+  if(cmp)return ascending?cmp:-cmp;
+  return (String(a.name||a.policy||"")+"|"+String(a.signature||"")).localeCompare(String(b.name||b.policy||"")+"|"+String(b.signature||""));
+ });
+ if(mode==="csv"){
+  const body=csvLine([...report.columns])+matches.map(row=>csvLine(report.columns.map(c=>row[c]))).join("");
+  return new Response(body,{status:200,headers:{
+   "Content-Type":"text/csv; charset=utf-8",
+   "Content-Disposition":'attachment; filename="'+report.id+"-"+new Date().toISOString().replace(/[:.]/g,"-")+'.csv"',
+   "Cache-Control":"no-store","X-Content-Type-Options":"nosniff",
+  }});
+ }
+ const requested=Math.floor(Number(p.get("page")||1));
+ const page=Number.isFinite(requested)?Math.max(1,Math.min(100000,requested)):1;
+ return NextResponse.json({
+  report:report.id,columns:report.columns,rows:matches.slice((page-1)*pageSize,page*pageSize),
+  total:matches.length,page,pageSize,summary:{matching_records:matches.length,page_records:matches.slice((page-1)*pageSize,page*pageSize).length},
+  asOf:new Date().toISOString(),
+ },{headers:noStore});
+}
+
 export async function GET(req:NextRequest){
  try{
   const a=await requireStatsAdmin(req);
@@ -44,8 +96,8 @@ export async function GET(req:NextRequest){
   const report=findReport(p.get("report")||"");
   if(!report)return fail("Unknown report",400);
   if(admin.role!=="FULL_ADMIN"&&!report.viewer)return fail("This report requires Full Admin access.",403);
-  if(report.source==="metadata")return fail("Live security metadata requires a reviewed, read-only database metadata function. No database privileges have been changed.",501);
   if(!["data","csv"].includes(mode))return fail("Invalid report request",400);
+  if(report.source==="metadata")return await securityCatalogReport(admin.db,report,p,mode as "data"|"csv");
   const filters=await metadata(admin.db);
   const classNumber=Number(p.get("class")||0);
   const classRow=filters.classes.find(x=>Number(x.class_number)===classNumber);
