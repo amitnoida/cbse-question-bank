@@ -173,10 +173,46 @@ export async function GET(req:NextRequest){
       }
       return data;
     }
+    if(report!.id==="student-directory"){
+      const ids=rows.map(x=>String(x.id)).filter(Boolean);
+      if(!ids.length)return [];
+      // Full Admin only, already verified above; emails are never returned to ADMIN_VIEW.
+      const [auth,subs]=await Promise.all([
+        admin.db.auth.admin.listUsers({page:1,perPage:1000}),
+        admin.db.from("subscriptions").select("student_id,status,end_date").in("student_id",ids),
+      ]);
+      if(auth.error||subs.error)throw Error("Student account details unavailable");
+      const users=new Map((auth.data?.users||[]).map(u=>[u.id,u]));
+      const now=Date.now();
+      const paid=new Set((subs.data||[]).filter(x=>x.status==="ACTIVE"&&x.end_date&&Date.parse(x.end_date)>now).map(x=>x.student_id));
+      return rows.map(row=>{
+        const user=users.get(String(row.id));
+        return {...decorated(row),email:user?.email||"",email_verified:!!user?.email_confirmed_at,membership:paid.has(String(row.id))?"Paid":"Free"};
+      });
+    }
+    if(report!.id==="admin-access"){
+      const auth=await admin.db.auth.admin.listUsers({page:1,perPage:1000});
+      if(auth.error)throw Error("Admin account details unavailable");
+      const users=new Map((auth.data?.users||[]).map(u=>[u.id,u]));
+      return rows.map(row=>({...decorated(row),email:users.get(String(row.id))?.email||""}));
+    }
     return rows.map(decorated);
   }
   async function pageRows(offset:number,size:number){
-    const orderField=report!.source==="questions"?"id":report!.source==="quiz_attempts"?"id":report!.source==="admin_profiles"?"created_at":"id";
+    const sortable:Record<string,string[]>={
+      questions:["id","created_at","updated_at","difficulty","is_active","content_review_status","question_usage","question_text"],
+      subjects:["id","subject_name","created_at","is_active"],
+      chapters:["id","chapter_number","chapter_name","created_at","is_active"],
+      student_profiles:["id","full_name","created_at","is_active","account_type"],
+      quiz_attempts:["id","created_at","started_at","percentage","answered_questions","status","quiz_type"],
+      subscriptions:["id","created_at","end_date","amount_paid","status"],
+      coupons:["id","created_at","valid_until","usage_count","discount_percentage","is_active"],
+      free_usage:["id","created_at","questions_used","last_used_at"],
+      admin_profiles:["id","created_at","full_name","role","is_active"],
+    };
+    const defaultOrder=report!.source==="admin_profiles"?"created_at":"id";
+    const proposed=p.get("sort")||"";
+    const orderField=(sortable[report!.source]||[]).includes(proposed)?proposed:defaultOrder;
     const q=baseQuery("*",true).order(orderField,{ascending:p.get("dir")==="asc"}).range(offset,offset+size-1);
     const res=await q;
     if(res.error)throw res.error;
@@ -239,7 +275,7 @@ export async function GET(req:NextRequest){
           controller.enqueue(encoder.encode(head));
           let offset=0, total=Infinity;
           while(offset<total){
-            const batch=await getPage(offset,500);
+            const batch=await getPage(offset,report.id==="chapter-counts"?50:report.id==="mcq-summary"||report.id==="mock-readiness"?100:500);
             total=batch.total;
             if(!batch.rows.length)break;
             const out=batch.rows.map(row=>csvLine(report.columns.map(c=>(row as Row)[c]))).join("");
