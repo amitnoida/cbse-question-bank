@@ -1,40 +1,61 @@
-name: CBSE Cloud E2E (test accounts)
+name: CBSE Full E2E - 18 Accounts
+
+# One-click full regression from GitHub Actions > Run workflow.
+# Runs are manual because practice/mock submissions consume dedicated test account quota.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '30 17 * * *' # 23:00 IST
+
 permissions:
   contents: read
+
 concurrency:
-  group: cbse-cloud-e2e
+  group: cbse-full-e2e-production
   cancel-in-progress: false
+
 jobs:
   test:
+    name: Full UI, SEO, auth, student and admin regression
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       E2E_ACCOUNTS_JSON: ${{ secrets.E2E_ACCOUNTS_JSON }}
       E2E_BASE_URL: https://cbse-question-bank.vercel.app
       CI: 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Get latest test code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
-      - name: Install test runner (without modifying project lockfile)
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install Playwright without changing application lockfile
         run: npm install --no-save --package-lock=false @playwright/test
-      - run: npx playwright install --with-deps chromium
-      - name: Validate configured accounts
-        run: node -e 'const a=JSON.parse(process.env.E2E_ACCOUNTS_JSON||"[]"); if(!Array.isArray(a)||!a.length) throw Error("Configure E2E_ACCOUNTS_JSON secret first"); console.log("Configured test accounts:",a.length)'
-      - name: Run sequential login and access smoke tests
+
+      - name: Install Chromium and browser dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate all 18 GitHub test accounts securely
+        run: node e2e/validate-accounts.cjs
+
+      - name: Execute all Playwright E2E tests
+        id: playwright
         run: npx playwright test --config=e2e/playwright.config.cjs
-      - name: Upload test evidence
+
+      - name: Show test summary and exact failed cases
+        if: always()
+        run: node e2e/summarize-results.cjs
+
+      - name: Upload HTML report, screenshots and JSON test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cbse-e2e-results
+          name: cbse-full-e2e-18-accounts
           path: |
             e2e/results/
             e2e/report/

@@ -80,11 +80,10 @@ test('free student: practice answer, feedback, submission and dashboard history'
   },{timeout:30000}).not.toBe('loading');
   if(await limitAlert.isVisible()) {
     await expect(page.getByText(/10 \/ 10 used/i)).toBeVisible();
-    test.info().annotations.push({type:'coverage',description:'Class 9 free Mathematics allowance exhausted: limit guard verified; answer/submission/history journey not exercised'});
-    return;
+    test.skip(true,'Class 9 free allowance exhausted: confirmed limit guard, but practice submission was not executed');
   }
   await practiceStart.click();
-  const questionHeading=page.getByRole('heading',{level:2,name:/^Question\\s+\\d+\\s+of\\s+\\d+$/i});
+  const questionHeading=page.getByRole('heading',{level:2,name:/^Question\s+\d+\s+of\s+\d+$/i});
   await expect.poll(async()=>{
     if(await limitAlert.isVisible()) return 'exhausted';
     if(await questionHeading.isVisible()) return 'question';
@@ -92,8 +91,7 @@ test('free student: practice answer, feedback, submission and dashboard history'
   },{timeout:30000}).not.toBe('loading');
   if(await limitAlert.isVisible()) {
     await expect(page.getByText(/10 \/ 10 used/i)).toBeVisible();
-    test.info().annotations.push({type:'coverage',description:'Class 9 free allowance exhausted after practice start: limit guard verified; full practice journey not exercised'});
-    return;
+    test.skip(true,'Class 9 free allowance exhausted after starting: complete practice submission not executed');
   }
   await expect(questionHeading).toBeVisible();
   const answer=page.locator('button[aria-pressed]').first();
