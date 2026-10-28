@@ -1,0 +1,8 @@
+-- PROPOSAL ONLY; DO NOT EXECUTE IN STAGE 1.
+-- 1. Obtain academic approval per source_question_id and confirm question media URLs.
+-- 2. Take backup of source question IDs, chapters, dependencies and student history.
+-- 3. In a transaction, verify every approved source exists and destination belongs to Class 11/12 with matching subject.
+-- 4. Reject duplicate/media-blocked/out-of-scope records; keep source-to-destination ledger.
+-- 5. Assign approved question chapter_id, set advanced mock allocation category, and activate only approved rows.
+-- 6. Validate counts and history, then separately retire empty competitive categories after dependency checks.
+-- No unguarded UPDATE or DELETE is supplied because academic approvals and dependency analysis are outstanding.
