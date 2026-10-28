@@ -1390,7 +1390,7 @@ export default function AdminPage() {
 
 
 
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-4">
 
 
 
@@ -1406,7 +1406,7 @@ export default function AdminPage() {
 
 
 
-          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3"><Link href="/" className="text-sm font-semibold text-indigo-700 hover:underline">← Website</Link>{userEmail && <button onClick={signOut} className="inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-semibold">Sign out</button>}</div>
+          <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3"><Link href="/admin/reports" className="inline-flex min-h-10 items-center rounded-lg bg-indigo-700 px-3 py-2 text-xs font-extrabold text-white shadow-sm hover:bg-indigo-800 sm:text-sm">📊 Reports &amp; Database Audit</Link> <Link href="/" className="text-sm font-semibold text-indigo-700 hover:underline">← Website</Link>{userEmail && <button onClick={signOut} className="inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-semibold">Sign out</button>}</div>
 
 
 

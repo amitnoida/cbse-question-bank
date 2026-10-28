@@ -5,7 +5,8 @@ try {
 } catch {
   throw new Error('E2E_ACCOUNTS_JSON must be a valid JSON array');
 }
-if (!Array.isArray(accounts)) throw new Error('E2E_ACCOUNTS_JSON must be an array');
+accounts = accounts.filter(a => a.kind === 'admin' || /^test_(8|9|10|11|12)_(free|paid)@gmail\.com$/i.test(a.email || ''));
+if (!Array.isArray(accounts) || accounts.length !== 12) throw new Error('Expected 12 configured school and admin test accounts');
 for (const [index, account] of accounts.entries()) {
   if (!account || typeof account.email !== 'string' || typeof account.password !== 'string' || !['student', 'admin'].includes(account.kind)) {
     throw new Error('Each test account requires email, password and kind: student or admin');

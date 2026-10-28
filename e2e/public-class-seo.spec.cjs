@@ -33,8 +33,8 @@ test('Public sitemap includes all Class 8–12 and correct subject routes', asyn
 });
 
 test('Student signup offers Classes 8, 9, 10, 11 and 12 in numeric order', async ({ page }) => {
-  await page.goto('/app');
-  await page.getByRole('button', { name: /^Start Free/i }).first().click();
+  await page.goto('/');
+  await page.getByRole('link', { name: /^Start Free/i }).first().click();
   const select = page.getByRole('dialog', { name: 'Create student account' }).locator('#student-field-5');
   await expect(select).toBeVisible();
   await expect.poll(async () => {

@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const accounts = JSON.parse(process.env.E2E_ACCOUNTS_JSON || '[]');
+const accounts = JSON.parse(process.env.E2E_ACCOUNTS_JSON || '[]').filter(a => a.kind === 'admin' || /^test_(8|9|10|11|12)_(free|paid)@gmail\.com$/i.test(a.email || ''));
 const student = accounts.filter(a => a.kind === 'student');
 const admin = accounts.filter(a => a.kind === 'admin');
 const by = (pattern) => student.find(a => pattern.test(a.email));
