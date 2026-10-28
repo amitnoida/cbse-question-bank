@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireStatsAdmin, noStore } from "../../../../lib/system-stats-server";
 import { REPORTS, findReport } from "../../../../lib/admin-reports";
 
-export const runtime="nodejs";
 export const maxDuration=60;
 type Row=Record<string,unknown>;
 const clean=(v:unknown)=>typeof v==="string"?v:"";
