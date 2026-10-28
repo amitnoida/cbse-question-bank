@@ -17,7 +17,8 @@
 - Once a subject has **at least 60** distinct defensibly reviewed questions, release the exact IDs to the *isolated* `cbse_import.advanced_mock_stage2_candidates_20261028` Advanced Mock ledger.
 - Protect original `public.questions.is_active` status, student data, standard mocks and subscriptions.
 - Use atomic SQL checks for exact count, subject/chapter, answer/media eligibility, no exam branding, non-overlap with active-school items, and zero unintended cross-subject release.
-- After any release, run read-only production checks and a live paid/free end-to-end test with existing designated test accounts. Document outcome and blockers.
+- After each release, perform **read-only production database safety checks only** (exact approved IDs, subject/chapter counts, no unintended activation, zero blocked items). **Do not execute paid/free browser or end-to-end tests after individual batches.**
+- **Run one consolidated production end-to-end suite only after all qualifying batches have been released** and the current academic release pass is finished. Use designated test accounts to cover all released subjects, free/paid access, autosave, resume, scoring, test history, and PDF/print control; document all outcomes together.
 - Keep audit SQL, source ID roster and review notes in GitHub draft PR #24.
 
 ## Never automatically approve
@@ -29,3 +30,6 @@
 ## Limitations
 - The review is AI-assisted, not professional teacher certification.
 - Standing authorization is a release decision policy for a running review workflow. It **does not itself schedule future background execution**; a future agent run or automation is required to continue later.
+
+## Testing cadence amended on 28 October 2026
+The owner explicitly instructed: **"Testing do once all ques will be in prd not for each batch"**. This overrides any older per-batch test plan or test recommendation. Do not start new targeted GitHub browser-test workflows while academic releases are ongoing. The Biology workflow triggered before this amendment has already completed successfully; it should not be repeated. This does not waive the basic SQL post-release safety checks.
