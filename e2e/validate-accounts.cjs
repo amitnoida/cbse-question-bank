@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // Validate twelve school/admin users selected from the existing secret.
-// The secret may still contain eighteen legacy accounts, but JEE/NEET are ignored.
+// A legacy secret can have additional accounts; only school/admin accounts are selected.
 let all;
 try { all=JSON.parse(process.env.E2E_ACCOUNTS_JSON||'null'); }
 catch { throw new Error('E2E_ACCOUNTS_JSON is not valid JSON'); }
@@ -28,5 +28,5 @@ for(const n of [8,9,10,11,12])for(const type of ['free','paid']){
 const admins=selected.filter(a=>a.kind==='admin');
 if(!admins.some(a=>/full/i.test(a.email))||!admins.some(a=>/viewer/i.test(a.email)))throw Error('Full and Viewer admin accounts are required');
 console.log('Validated 12 school/admin test accounts: 10 students and two administrators.');
-console.log('JEE Main, JEE Advanced and NEET are excluded from this test run.');
+console.log('Only Classes 8–12 students and Full/Viewer Admin are in scope.');
 console.log('Passwords are never written to test output.');

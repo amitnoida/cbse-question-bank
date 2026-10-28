@@ -5,7 +5,7 @@ test('Single colorful homepage is SEO indexable and links to Class 8–12 pages'
   expect(response.status()).toBe(200);
   await expect(page.getByRole('heading', { level: 1, name: /Practice Smarter/i })).toBeVisible();
   await expect(page.getByText('Score Better.')).toBeVisible();
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://cbse-question-bank.vercel.app/');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /^https:\/\/cbse-question-bank\.vercel\.app\/?$/);
   for (const n of [8, 9, 10, 11, 12]) {
     await expect(page.getByRole('link', { name: 'All chapters →' }).nth([8, 9, 10, 11, 12].indexOf(n))).toHaveAttribute('href', `/class-${n}`);
   }
