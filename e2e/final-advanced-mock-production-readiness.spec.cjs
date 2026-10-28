@@ -30,7 +30,7 @@ async function assertSubject(page,subject,count,ready){
  await select.selectOption({label:subject});
  await expect(select.locator('option:checked')).toHaveText(subject,{timeout:30000});
  const countNode=page.getByText('Released questions',{exact:true}).locator('..').locator('p').nth(1);
- await expect(countNode).toHaveText(/^\\d+$/,{timeout:30000});
+ await expect(countNode).toHaveText(/^\d+$/,{timeout:30000});
  const reported=Number(await countNode.textContent());
  // Other academic agents may add valid releases while CI is running; the UI must
  // show at least the previously reconciled pool, and preserve the 60-item gate.
