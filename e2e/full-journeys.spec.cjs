@@ -18,7 +18,11 @@ async function chooseSubject(page) {
   const options=await select.locator('option').evaluateAll(els=>els.map(e=>({value:e.value,label:e.textContent.trim()})).filter(e=>e.value!=='all' && e.value));
   if(!options.length) throw new Error('No active subjects available for enrolled class');
   await select.selectOption(options[0].value);
-  await expect(page.getByRole('button',{name:/Start \/ Resume Practice/i})).toBeEnabled({timeout:30000});
+  // Subject navigation succeeds for a free student whose 10-question allowance
+  // is already exhausted; starting a NEW practice session is checked separately.
+  const start=page.getByRole('button',{name:/Start \/ Resume Practice/i});
+  const exhausted=page.getByRole('alert').filter({hasText:'Free question limit reached'});
+  await expect.poll(async()=>await start.isEnabled() || await exhausted.isVisible(),{timeout:30000}).toBe(true);
   return options[0];
 }
 for (const account of student) {
