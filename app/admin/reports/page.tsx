@@ -80,14 +80,18 @@ export default function AdminReportsPage(){
   free_usage:[{value:"id",label:"Usage ID"},{value:"questions_used",label:"Questions used"},{value:"last_used_at",label:"Last used"}],
   admin_profiles:[{value:"created_at",label:"Created"},{value:"full_name",label:"Name"},{value:"role",label:"Role"}],
  };
- const sorts=chosen?sortChoices[chosen.source]||[]:[];
+ const sorts=chosen?.source==="metadata"
+  ?(chosen.id==="function-audit"?
+    [{value:"object_type",label:"Object type"},{value:"name",label:"Function or table name"},{value:"detail",label:"Review findings"},{value:"security_definer",label:"SECURITY DEFINER"}]:
+    [{value:"table",label:"Table name"},{value:"policy",label:"Policy name"},{value:"command",label:"SQL command"},{value:"permissive",label:"Policy mode"}])
+  :(chosen?sortChoices[chosen.source]||[]:[]);
  const showAcademic=["questions","subjects","chapters","quiz_attempts","free_usage","student_profiles"].includes(chosen?.source||"");
  const showSubject=["questions","subjects","chapters","quiz_attempts","free_usage"].includes(chosen?.source||"");
  const showChapter=["questions","chapters"].includes(chosen?.source||"");
  const showQuestionFields=chosen?.source==="questions";
- const showStatus=["questions","chapters","subjects","quiz_attempts","student_profiles","subscriptions","coupons","admin_profiles"].includes(chosen?.source||"");
+ const showStatus=["questions","chapters","subjects","quiz_attempts","student_profiles","subscriptions","coupons","admin_profiles","metadata"].includes(chosen?.source||"");
  const showDates=!["stats","metadata"].includes(chosen?.source||"");
- const showSearch=["questions","subjects","chapters","student_profiles","coupons","admin_profiles"].includes(chosen?.source||"");
+ const showSearch=["questions","subjects","chapters","student_profiles","coupons","admin_profiles","metadata"].includes(chosen?.source||"");
  const categoryReports=reports.filter(r=>r.category===activeCategory);
  const availableSubjects=useMemo(()=>catalog?.filters.subjects.filter(s=>!classNumber||String(s.class_id)===String(catalog.filters.classes.find(c=>String(c.class_number)===classNumber)?.id))||[],[catalog,classNumber]);
  const availableChapters=useMemo(()=>catalog?.filters.chapters.filter(c=>(!subjectId||String(c.subject_id)===subjectId)&&(!classNumber||availableSubjects.some(s=>s.id===c.subject_id)))||[],[catalog,availableSubjects,subjectId,classNumber]);
@@ -195,7 +199,7 @@ export default function AdminReportsPage(){
        {categoryReports.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
       </select></label>
      <p className="self-end rounded-xl bg-indigo-50 p-3 text-sm leading-6 text-indigo-900">{chosen?.description||"Choose a report."}</p>
-     {chosen?.source==="metadata"&&<p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">This live security audit requires a separately reviewed read-only database metadata function. It has not been enabled; other reports remain available.</p>}
+     {chosen?.source==="metadata"&&<p className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900 sm:col-span-2">Live public-schema security metadata. Full Admin only. The function audit includes all public tables and functions; RLS Policy Details includes exact policy roles and expressions. These are observations, not automatic security fixes.</p>}
     </div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
      {showAcademic&&<label className="text-xs font-bold text-slate-700">Class
@@ -213,7 +217,7 @@ export default function AdminReportsPage(){
      {showStatus&&<label className="text-xs font-bold text-slate-700">Status
       <select aria-label="Filter by status" className="mt-1 block w-full rounded-lg border p-3 font-normal" value={status} onChange={e=>setStatus(e.target.value)}>
        <option value="">All statuses</option>
-       {chosen?.source==="quiz_attempts"?<><option value="COMPLETED">Completed</option><option value="STARTED">Started</option></>:chosen?.source==="subscriptions"?<><option value="ACTIVE">Active</option><option value="EXPIRED">Expired</option></>:<><option value="active">Active</option><option value="inactive">Inactive</option></>}
+       {chosen?.source==="metadata"?(chosen.id==="function-audit"?<><option value="review">Requires review</option><option value="rls-disabled">RLS disabled</option><option value="public-execute">PUBLIC execute</option><option value="definer">SECURITY DEFINER</option></>:<><option value="permissive">Permissive</option><option value="restrictive">Restrictive</option><option value="rls-disabled">RLS disabled</option></>):chosen?.source==="quiz_attempts"?<><option value="COMPLETED">Completed</option><option value="STARTED">Started</option></>:chosen?.source==="subscriptions"?<><option value="ACTIVE">Active</option><option value="EXPIRED">Expired</option></>:<><option value="active">Active</option><option value="inactive">Inactive</option></>}
       </select></label>}
      {showQuestionFields&&<label className="text-xs font-bold text-slate-700">Question usage
       <select aria-label="Filter question usage" className="mt-1 block w-full rounded-lg border p-3 font-normal" value={usage} onChange={e=>setUsage(e.target.value)}>
@@ -239,9 +243,9 @@ export default function AdminReportsPage(){
       </select></label>
     </div>
     <div className="flex flex-wrap gap-2">
-     <button type="button" onClick={()=>void load(reportId,1)} disabled={loading||chosen?.source==="metadata"} className="inline-flex min-h-11 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-extrabold text-white disabled:opacity-50">{loading?"Loading…":result?"Refresh / View Report":"View Report"}</button>
+     <button type="button" onClick={()=>void load(reportId,1)} disabled={loading} className="inline-flex min-h-11 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-extrabold text-white disabled:opacity-50">{loading?"Loading…":result?"Refresh / View Report":"View Report"}</button>
      <button type="button" onClick={()=>{setClassNumber("");setSubjectId("");setChapterId("");setStatus("");setUsage("");setReview("");setSearch("");setFrom("");setTo("");setDirection("desc");setSortField("");setResult(null);}} className="inline-flex min-h-11 items-center rounded-xl border px-4 py-3 text-sm font-bold">Clear filters</button>
-     <button type="button" onClick={()=>void exportCsv()} disabled={exportBusy||loading||!chosen||chosen.source==="metadata"} className="inline-flex min-h-11 items-center rounded-xl border border-indigo-600 px-4 py-3 text-sm font-bold text-indigo-700 disabled:opacity-50">{exportBusy?"Exporting "+(exportedBytes/1024).toFixed(0)+" KB…":"Export ALL matching rows (CSV)"}</button>
+     <button type="button" onClick={()=>void exportCsv()} disabled={exportBusy||loading||!chosen} className="inline-flex min-h-11 items-center rounded-xl border border-indigo-600 px-4 py-3 text-sm font-bold text-indigo-700 disabled:opacity-50">{exportBusy?"Exporting "+(exportedBytes/1024).toFixed(0)+" KB…":"Export ALL matching rows (CSV)"}</button>
     </div>
     {result&&<div className="grid gap-3 sm:grid-cols-3" role="status">
      <div className="rounded-xl bg-indigo-50 p-4"><p className="text-xs font-bold text-indigo-700">Matching records</p><p className="mt-1 text-2xl font-black">{result.summary.matching_records.toLocaleString("en-IN")}</p></div>
