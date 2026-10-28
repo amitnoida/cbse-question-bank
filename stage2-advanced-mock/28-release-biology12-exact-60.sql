@@ -26,7 +26,7 @@ BEGIN
  JOIN public.chapters ch ON ch.id=c.destination_chapter_id
  JOIN public.subjects s ON s.id=ch.subject_id
  JOIN public.classes cl ON cl.id=s.class_id
- JOIN cbse_import.advanced_mock_bulk_academic_audit_20261028 a USING(source_question_id)
+ JOIN cbse_import.advanced_mock_bulk_academic_audit_20261028 a ON a.source_question_id=r.source_question_id
  WHERE c.destination_subject_id=20 AND a.destination_subject_id=20
  AND c.destination_chapter_id=a.destination_chapter_id AND s.id=20 AND s.subject_name='Biology'
  AND cl.class_name='Class 12' AND s.is_active AND ch.is_active
