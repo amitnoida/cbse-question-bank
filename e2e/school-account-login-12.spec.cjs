@@ -61,20 +61,13 @@ async function signIn(page,account){
 }
 for(let i=0;i<accounts.length;i++){
  const a=accounts[i],school=schoolPattern.exec(a.email);
- test('12-account preview login '+(i+1)+' '+(a.kind==='admin'?'admin':school?'Class '+school[1]:'unknown'), async({page})=>{
+ test('12-account school/admin login '+(i+1)+' '+(a.kind==='admin'?'admin':school?'Class '+school[1]:'unknown'), async({page})=>{
   test.setTimeout(120000);
   await signIn(page,a);
-  if(a.kind==='student'&&school&&['11','12'].includes(school[1])){
+  if(a.kind==='student'){
    await page.goto('/app');
-   await expect(page.getByRole('heading',{name:'Advanced Mock Test'})).toBeVisible({timeout:30000});
-   await page.getByRole('link',{name:'Advanced Mock Tests'}).click();
-   await expect(page).toHaveURL(/\/advanced-mock/,{timeout:30000});
-   await expect(page.getByRole('heading',{name:'Advanced Mock Test',exact:true})).toBeVisible();
-   await expect(page.getByText('Advanced Mock questions are being academically reviewed.')).toBeVisible({timeout:30000});
-   await expect(page.getByRole('button',{name:'Start Next Advanced Mock'})).toBeDisabled();
-  }else if(a.kind==='student'){
-   await page.goto('/advanced-mock');
-   await expect(page.getByText('Advanced Mock Tests are available for Class 11 and Class 12 students only.')).toBeVisible({timeout:30000});
+   await expect(page.getByRole('heading',{name:'Advanced Mock Test'})).toHaveCount(0);
+   await expect(page.getByRole('link',{name:'Advanced Mock Tests'})).toHaveCount(0);
   }
  });
 }
