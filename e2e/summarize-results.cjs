@@ -49,7 +49,8 @@ if(!fs.existsSync(file)){
     '- Login and authorized access for 12 users, including full/viewer administrators',
     '- Student membership, class/subject navigation, dashboard visibility',
     '- Homepage, SEO routes, sitemap, registration dropdown and authentication entry points',
-    '- Free practice and paid mock submissions on dedicated school test accounts\n    '- Full Admin and Viewer access to Reports & Database Audit',
+    '- Free practice and paid mock submissions on dedicated school test accounts',
+    '- Full Admin and Viewer access to Reports & Database Audit',
     '- Only Classes 8–12; all JEE/NEET account and subject tests are excluded',
     '','Practice and mock tests can create attempts or consume free allowance in **test accounts only**.');
 }
