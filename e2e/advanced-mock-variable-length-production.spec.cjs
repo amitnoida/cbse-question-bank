@@ -71,6 +71,6 @@ test('Class 11 paid: start a less-than-60 Chemistry paper, save, resume and scor
  page.once('dialog',dialog=>dialog.accept());
  await page.getByRole('button',{name:'Submit test'}).click();
  await expect(page.getByText('Advanced Mock Test completed. Your result is saved.')).toBeVisible({timeout:30000});
- await expect(page.getByText(new RegExp('\\\\d+/'+n+' correct'))).toBeVisible();
+ await expect(page.getByText(new RegExp('\\d+/'+n+' correct'))).toBeVisible();
  await expect(page.getByRole('button',{name:'Print / Save results as PDF'})).toBeVisible();
 });
