@@ -1,0 +1,46 @@
+name: Final Regression Follow-up — Class 9 Standard Mock Retake
+on:
+  push:
+    branches: [advanced-mock-final-consolidated-e2e-20261028]
+    paths:
+      - '.github/workflows/final-standard-mock-retake-fix.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  class9-retake:
+    name: Retry only previously failing Class 9 paid Standard Mock
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      E2E_BASE_URL: 'https://cbse-question-bank.vercel.app'
+      E2E_ACCOUNTS_JSON: ${{ secrets.E2E_ACCOUNTS_JSON }}
+      FINAL_TEST_SCOPE: 'Class 9 Standard Mock numbered-series retake selector — targeted fix validation'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies and Playwright
+        run: npm ci --no-audit --no-fund && npm install --no-save --package-lock=false @playwright/test && npx playwright install --with-deps chromium
+      - name: Validate configured test accounts
+        run: node e2e/validate-accounts.cjs
+      - name: Retest one fixed Standard Mock journey
+        run: npx playwright test --config=e2e/playwright.config.cjs full-journeys.spec.cjs --grep 'paid student: 60-question mock'
+      - name: Summarize outcome
+        if: always()
+        run: node e2e/final-four-agent-summary.cjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: class9-paid-retake-corrected-test
+          path: |
+            e2e/report/
+            e2e/results/
+          retention-days: 7
+          if-no-files-found: ignore
