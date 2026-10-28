@@ -1,6 +1,6 @@
 # Stage 2 — Class 11/12 Advanced Mock Test (28 October 2026)
 
-**Status:** Phase A **implemented and verified on production Supabase**; Phase B student-facing advanced test delivery **not deployed**.
+**Status:** Phase A and Stage 2 Phase B **database runtime implemented on production Supabase**; Class 11/12 UI is committed on the Stage 2 GitHub branch. **Not yet built/deployed to production or academically released.**
 Production project: `darfsuqfmmunxqiyqlvn`. Branch: `stage2-advanced-mock-20261028` (based on `main`, separate from `stage1-advanced-mock-audit-20261028`).
 
 ## Phase A: complete
@@ -24,7 +24,30 @@ The 1,664 unmapped source questions remain outside the new candidate ledger (ver
 User approved retirement of those 1,664 after archive/guard checks. Their backup and deletion are **not yet executed**. The Stage 1 branch's `13-user-approved-unresolved-retirement-NOT-EXECUTED.sql` has been updated to verify the 7,442 ledger remains intact, and to enable RLS/revoke public grants on its three backup tables.
 **After successful retirement:** original Stage 1 mapping/audit counts should be 7,442 each; Stage 2 candidate ledger remains 7,442; unresolved count becomes 0. Do not automatically rerun the Stage 2 insert or release the questions.
 
-## Phase B: remaining, independent build
+## Phase B: implemented this session
+- Applied migration `03-isolated-advanced-mock-runtime.sql` successfully: isolated `public.advanced_mock_papers` and `public.advanced_mock_answers` (both RLS enabled, zero client table grants).
+- Public RPCs `advanced_mock_overview_v1`, `advanced_mock_start_v1`, `advanced_mock_get_v1`, `advanced_mock_answer_v1`, `advanced_mock_finish_v1` require active student identity and enforce per-paper ownership; start requires paid enrollment in Class 11/12.
+- Private score finalizer in `cbse_import.advanced_mock_finalize_v1`. Source question answer/explanation not returned for STARTED papers, only after COMPLETED. Existing Standard Mock RPCs, assignments, results and practice logic untouched.
+- 60 unique randomized questions per paper, numbered paper sequence followed by retakes; resume and one STARTED paper per student/subject, 60-minute deadline and server-side scoring on completion or expiration.
+- New `app/advanced-mock/page.tsx`: subject selector, eligibility state, history, per-question navigation, save response, timer, submit, completed answer review and print/save-as-PDF.
+- Class 11/12 dashboard `app/app/page.tsx` links to the separate route. Classes 8–10 do not see the link.
+- SQL verification: anonymous functions reject unauthenticated callers (SQLSTATE 42501), anonymous table reads denied and RLS enabled; expected 7,442 candidate rows and 0 release approvals.
+- Full **rollback-only** database simulation with a paid Class 12 test profile: provisionally selected 60 ledger rows *inside a rollback-only subtransaction*, allocated paper, verified 60 questions/no answer exposure before submission, saved answer, finalized score, read review, then rolled back every flag/paper/answer. Confirmed **0** persisted advanced papers, **0** persisted answers, **0** releases. This was a technical simulation, **not** academic verification or live browser testing.
+- The standard system still shows 38 original `public.mock_papers` rows (unchanged).
+
+### Release blockers
+1. **Vercel build quota:** Explicit preview deployment request failed HTTP **402** `api-deployments-free-per-day` (>100 deployments; try after 24 hours or resolve plan limits). No new branch preview or production deployment of this code is verified. GitHub branch is not merged into `main`.
+2. **Academic content:** 7,442 questions remain inactive, **0** ledger release-approved. Student UI will display a pending-approval state; it cannot start a real paper until 60 approved questions exist in a subject.
+3. **Browser end-to-end test:** not performed; no deployment of latest commit available. SQL technical simulation is not a substitute.
+4. **Legacy RLS audit:** six older `cbse_import` tables flagged without RLS, as described below; remediation awaits separate review.
+
+## Further release steps after blockers clear
+1. Validate latest Stage 2 branch build and preview before merging to production. Run authenticated Class 11 and 12 UI tests, time expiry, return/resume, free vs paid denial, cross-student ownership, scoring/report and Standard Mock regression.
+2. Independently academically review and approve sufficient Advanced source MCQs, including answer quality, image accessibility and duplicates. Do not bulk release pending/HOLD questions.
+3. Merge/deploy UI only after branch build and access tests; leave zero-approved gate closed until academic release.
+4. Do not alter the six student profiles tied to legacy competitive class IDs; handle as a separate retirement migration.
+
+## Original Phase B implementation checklist (for traceability)
 1. Implement separate `ADVANCED` mock category, question-pool isolation, entitlement check and independently numbered/retake 60-question paper assignments. The existing `start_next_mock_paper_v2` and 48 MOCK + 12 SHARED standard allocator must remain unchanged. Existing student/class entitlements, resume/history/results must not be affected.
 2. Add a student dashboard Advanced Mock Test section **only for Classes 11/12**, separated from ordinary Standard Mock and chapter practice. Never expose legacy JEE/NEET labels in user-visible UI.
 3. Build isolated authorized question delivery, persisted answers, deadline enforcement, scoring and reporting; no correct answer/explanation before submit; preserve student access controls.
