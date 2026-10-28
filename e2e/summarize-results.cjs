@@ -51,7 +51,7 @@ if(!fs.existsSync(file)){
     '- Homepage, SEO routes, sitemap, registration dropdown and authentication entry points',
     '- Free practice and paid mock submissions on dedicated school test accounts',
     '- Full Admin and Viewer access to Reports & Database Audit',
-    '- Only Classes 8–12; all JEE/NEET account and subject tests are excluded',
+    '- Only Classes 8–12 student cases and Full/Viewer Admin are tested',
     '','Practice and mock tests can create attempts or consume free allowance in **test accounts only**.');
 }
 const output=lines.join('\n')+'\n';
