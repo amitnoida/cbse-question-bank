@@ -33,19 +33,20 @@ export async function GET(req:NextRequest){
  try{
   const a=await requireStatsAdmin(req);
   if(!a)return fail("Administrator sign-in is required.",401);
+  const admin=a;
   const p=req.nextUrl.searchParams;
   const mode=p.get("mode")||"data";
-  const allowed=REPORTS.filter(r=>a.role==="FULL_ADMIN"||r.viewer);
+  const allowed=REPORTS.filter(r=>admin.role==="FULL_ADMIN"||r.viewer);
   if(mode==="catalog"){
-    const filters=await metadata(a.db);
-    return NextResponse.json({role:a.role,reports:allowed,filters},{headers:noStore});
+    const filters=await metadata(admin.db);
+    return NextResponse.json({role:admin.role,reports:allowed,filters},{headers:noStore});
   }
   const report=findReport(p.get("report")||"");
   if(!report)return fail("Unknown report",400);
-  if(a.role!=="FULL_ADMIN"&&!report.viewer)return fail("This report requires Full Admin access.",403);
+  if(admin.role!=="FULL_ADMIN"&&!report.viewer)return fail("This report requires Full Admin access.",403);
   if(report.source==="metadata")return fail("Live security metadata requires a reviewed, read-only database metadata function. No database privileges have been changed.",501);
   if(!["data","csv"].includes(mode))return fail("Invalid report request",400);
-  const filters=await metadata(a.db);
+  const filters=await metadata(admin.db);
   const classNumber=Number(p.get("class")||0);
   const classRow=filters.classes.find(x=>Number(x.class_number)===classNumber);
   const selectedClassId=classNumber?(classRow?Number(classRow.id):-1):0;
@@ -67,7 +68,7 @@ export async function GET(req:NextRequest){
   const decorated=(row:Row):Row=>{
     const out:Row={...row};
     let sid=Number(row.subject_id||0);
-    const ch=chapterById.get(Number(row.chapter_id||row.id&&report.source==="chapters"?row.id:0));
+    const ch=chapterById.get(Number(report.source==="chapters"?row.id:(row.chapter_id||0)));
     if(ch&&report.source==="questions"){sid=Number(ch.subject_id);out.chapter=ch.chapter_name;}
     if(report.source==="chapters"){sid=Number(row.subject_id);out.chapter=row.chapter_name;}
     if(report.source==="subjects"){sid=Number(row.id);}
@@ -80,12 +81,12 @@ export async function GET(req:NextRequest){
   // page or CSV export. Competitive exam accounts are never part of these reports.
   let allowedStudentIds:string[]|null=null;
   if(selectedClassId){
-    const ids=await a.db.from("student_profiles").select("id").eq("class_id",selectedClassId);
+    const ids=await admin.db.from("student_profiles").select("id").eq("class_id",selectedClassId);
     if(ids.error)throw ids.error;
     allowedStudentIds=(ids.data||[]).map(x=>String(x.id));
   }
   function baseQuery(select:string,withCount=false){
-    const query=a.db.from(report!.source).select(select,{count:withCount?"exact":undefined});
+    const query=admin.db.from(report!.source).select(select,{count:withCount?"exact":undefined});
     const source=report!.source;
     let q:any=query;
     if(source==="questions"){
@@ -132,7 +133,7 @@ export async function GET(req:NextRequest){
     return q;
   }
   async function countFor(field:string,value:unknown,table="questions"){
-    const q=a.db.from(table).select("id",{head:true,count:"exact"}).eq(field,value as string);
+    const q=admin.db.from(table).select("id",{head:true,count:"exact"}).eq(field,value as string);
     const res=await q;if(res.error)throw res.error;return res.count||0;
   }
   async function enrich(rows:Row[]){
@@ -143,15 +144,15 @@ export async function GET(req:NextRequest){
         const mapped=await Promise.all(chunk.map(async r=>{
           const ids=filters.chapters.filter(c=>Number(c.subject_id)===Number(r.id)).map(c=>Number(c.id));
           if(!ids.length)return {...decorated(r),active:0,inactive:0,total:0,mock:0,shared:0,total_pool:0,ready:false,required_mock:48,required_shared:12};
-          const by=(s:string,v:unknown)=>a.db.from("questions").select("id",{head:true,count:"exact"}).in("chapter_id",ids).eq(s,v as string);
+          const by=(s:string,v:unknown)=>admin.db.from("questions").select("id",{head:true,count:"exact"}).in("chapter_id",ids).eq(s,v as string);
           if(report!.id==="mcq-summary"){
-            const [active,all]=await Promise.all([by("is_active",true),a.db.from("questions").select("id",{head:true,count:"exact"}).in("chapter_id",ids)]);
+            const [active,all]=await Promise.all([by("is_active",true),admin.db.from("questions").select("id",{head:true,count:"exact"}).in("chapter_id",ids)]);
             if(active.error||all.error)throw Error("Question counts unavailable");
             return {...decorated(r),active:active.count||0,inactive:(all.count||0)-(active.count||0),total:all.count||0};
           }
           const [mock,shared]=await Promise.all([
-            a.db.from("questions").select("id",{head:true,count:"exact"}).in("chapter_id",ids).eq("is_active",true).eq("question_usage","MOCK"),
-            a.db.from("questions").select("id",{head:true,count:"exact"}).in("chapter_id",ids).eq("is_active",true).eq("question_usage","SHARED"),
+            admin.db.from("questions").select("id",{head:true,count:"exact"}).in("chapter_id",ids).eq("is_active",true).eq("question_usage","MOCK"),
+            admin.db.from("questions").select("id",{head:true,count:"exact"}).in("chapter_id",ids).eq("is_active",true).eq("question_usage","SHARED"),
           ]);
           if(mock.error||shared.error)throw Error("Mock counts unavailable");
           return {...decorated(r),mock:mock.count||0,shared:shared.count||0,total_pool:(mock.count||0)+(shared.count||0),required_mock:48,required_shared:12,ready:(mock.count||0)>=48&&(shared.count||0)>=12};
@@ -164,7 +165,7 @@ export async function GET(req:NextRequest){
       const data:Row[]=[];
       for(let i=0;i<rows.length;i+=8){
         const chunk=await Promise.all(rows.slice(i,i+8).map(async r=>{
-          const [act,all]=await Promise.all([a.db.from("questions").select("id",{head:true,count:"exact"}).eq("chapter_id",Number(r.id)).eq("is_active",true),a.db.from("questions").select("id",{head:true,count:"exact"}).eq("chapter_id",Number(r.id))]);
+          const [act,all]=await Promise.all([admin.db.from("questions").select("id",{head:true,count:"exact"}).eq("chapter_id",Number(r.id)).eq("is_active",true),admin.db.from("questions").select("id",{head:true,count:"exact"}).eq("chapter_id",Number(r.id))]);
           if(act.error||all.error)throw Error("Chapter counts unavailable");
           return {...decorated(r),active:act.count||0,inactive:(all.count||0)-(act.count||0),total:all.count||0};
         }));
@@ -207,7 +208,7 @@ export async function GET(req:NextRequest){
     return grouped;
   }
   async function statsRows(){
-    const r=await a.db.rpc("system_stats_db_readonly");
+    const r=await admin.db.rpc("system_stats_db_readonly");
     if(r.error)throw r.error;
     const result=r.data as Record<string,unknown>||{};
     const data:Row[]=[];
@@ -241,7 +242,7 @@ export async function GET(req:NextRequest){
             const batch=await getPage(offset,500);
             total=batch.total;
             if(!batch.rows.length)break;
-            const out=batch.rows.map(row=>csvLine(report.columns.map(c=>row[c]))).join("");
+            const out=batch.rows.map(row=>csvLine(report.columns.map(c=>(row as Row)[c]))).join("");
             controller.enqueue(encoder.encode(out));
             offset+=batch.rows.length;
           }
