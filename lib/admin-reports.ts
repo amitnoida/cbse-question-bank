@@ -28,7 +28,7 @@ export const REPORTS: readonly ReportDefinition[] = [
   { id:"db-size", title:"Database Size & Performance", category:"system", source:"stats", columns:["metric","value","unit"], viewer:false, description:"Live database totals and largest tables." },
   { id:"rls-policies", title:"RLS Policy Details", category:"system", source:"metadata", columns:["schema","table","policy","command"], viewer:false, description:"Live row-level security policy details; requires a dedicated read-only audit RPC." },
   { id:"integrity", title:"Data Integrity Audit", category:"system", source:"questions", columns:["id","class","subject","chapter","question_text","correct_option","explanation","is_active"], viewer:false, description:"Potential missing values in stored questions (not a full relational integrity verification)." },
-  { id:"admin-access", title:"Admin Access Report", category:"system", source:"admin_profiles", columns:["id","full_name","role","is_active","must_change_password","created_at"], viewer:false, description:"Administrative roles and activation state." },
+  { id:"admin-access", title:"Admin Access Report", category:"system", source:"admin_profiles", columns:["id","full_name","email","role","is_active","must_change_password","created_at"], viewer:false, description:"Administrative roles and activation state." },
 ];
 
 export function findReport(id:string){ return REPORTS.find(r=>r.id===id); }
