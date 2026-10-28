@@ -4,10 +4,6 @@ name: CBSE School E2E - 12 Accounts
 # Runs are manual because practice/mock submissions consume dedicated test account quota.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/cloud-e2e.yml'
 
 permissions:
   contents: read
