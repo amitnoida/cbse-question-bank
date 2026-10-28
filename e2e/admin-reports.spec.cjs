@@ -93,7 +93,7 @@ test('Full Admin: live function and RLS policy metadata, pagination and CSV expo
    fnTotal:fn.total,fnCount:fn.rows?.length,fnPage2:fn2.rows?.length,
    fnColumns:fn.columns,fnSample:fn.rows?.[0],
    rlsTotal:rls.total,rlsCount:rls.rows?.length,rlsColumns:rls.columns,rlsSample:rls.rows?.[0],
-   csvHeader:csvText.split('\\r\\n')[0],csvLines:csvText.split('\\r\\n').filter(Boolean).length,
+   csvHeader:csvText.split(/\r\n/)[0],csvLines:csvText.split(/\r\n/).filter(Boolean).length,
    matchTotal:matchData.total,
   };
  });
