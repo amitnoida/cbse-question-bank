@@ -1,4 +1,4 @@
-name: CBSE Full E2E - 18 Accounts
+name: CBSE School E2E - 12 Accounts
 
 # One-click full regression from GitHub Actions > Run workflow.
 # Runs are manual because practice/mock submissions consume dedicated test account quota.
@@ -40,7 +40,7 @@ jobs:
       - name: Install Chromium and browser dependencies
         run: npx playwright install --with-deps chromium
 
-      - name: Validate all 18 GitHub test accounts securely
+      - name: Validate 12 school and administrator test accounts
         run: node e2e/validate-accounts.cjs
 
       - name: Execute all Playwright E2E tests
@@ -55,7 +55,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cbse-full-e2e-18-accounts
+          name: cbse-school-e2e-12-accounts
           path: |
             e2e/results/
             e2e/report/
