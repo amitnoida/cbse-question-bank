@@ -85,6 +85,17 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Abort: one or more unresolved questions is assigned in a saved mock/practice question_id array';
   END IF;
+
+  -- Stage 2 now has a separate ledger containing only mapped source IDs.
+  -- Unresolved cleanup MUST NOT intersect any Stage 2 candidate.
+  IF EXISTS (
+    SELECT 1 FROM cbse_import.advanced_mock_stage2_candidates_20261028 s2
+    JOIN cbse_import.advanced_mock_mapping_20261028 m
+      ON m.source_question_id=s2.source_question_id
+    WHERE m.proposed_chapter_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Abort: a Stage 2 candidate unexpectedly overlaps the unresolved deletion set';
+  END IF;
 END
 $guard$;
 
@@ -108,6 +119,14 @@ SELECT a.*
 FROM cbse_import.advanced_mock_stage1_audit_20261028 a
 JOIN cbse_import.advanced_mock_unresolved_mapping_backup_20261028 m
 ON m.source_question_id=a.source_question_id;
+
+-- Keep all three private archives inaccessible to anonymous and student roles.
+ALTER TABLE cbse_import.advanced_mock_unresolved_questions_backup_20261028 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cbse_import.advanced_mock_unresolved_mapping_backup_20261028 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cbse_import.advanced_mock_unresolved_audit_backup_20261028 ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE cbse_import.advanced_mock_unresolved_questions_backup_20261028 FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE cbse_import.advanced_mock_unresolved_mapping_backup_20261028 FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE cbse_import.advanced_mock_unresolved_audit_backup_20261028 FROM PUBLIC, anon, authenticated;
 
 -- 3. Enforce archival completeness before any DELETE.
 DO $guard$
@@ -161,7 +180,7 @@ $guard$;
 
 -- 6. Postconditions: no targeted questions remain; preserve all 7,442 mapped.
 DO $guard$
-DECLARE nq bigint; nm bigint; na bigint; nx bigint;
+DECLARE nq bigint; nm bigint; na bigint; nx bigint; nc bigint;
 BEGIN
   SELECT count(*) INTO nq FROM public.questions q
     JOIN cbse_import.advanced_mock_unresolved_questions_backup_20261028 b ON b.id=q.id;
@@ -169,9 +188,10 @@ BEGIN
   SELECT count(*) INTO na FROM cbse_import.advanced_mock_stage1_audit_20261028;
   SELECT count(*) INTO nx FROM cbse_import.advanced_mock_mapping_20261028
     WHERE proposed_chapter_id IS NULL;
-  IF nq<>0 OR nm<>7442 OR na<>7442 OR nx<>0 THEN
-    RAISE EXCEPTION 'Abort: postcheck failed. deleted IDs still present %, mapping %, audit %, unmapped %',
-    nq,nm,na,nx;
+  SELECT count(*) INTO nc FROM cbse_import.advanced_mock_stage2_candidates_20261028;
+  IF nq<>0 OR nm<>7442 OR na<>7442 OR nx<>0 OR nc<>7442 THEN
+    RAISE EXCEPTION 'Abort: postcheck failed. deleted IDs still present %, mapping %, audit %, unmapped %, Stage 2 candidates %',
+    nq,nm,na,nx,nc;
   END IF;
 END
 $guard$;
@@ -182,4 +202,5 @@ COMMIT;
 SELECT (SELECT count(*) FROM cbse_import.advanced_mock_mapping_20261028) AS retained_source_mappings,
        (SELECT count(*) FROM cbse_import.advanced_mock_stage1_audit_20261028) AS retained_stage1_audits,
        (SELECT count(*) FROM cbse_import.advanced_mock_unresolved_questions_backup_20261028) AS archived_removed_questions,
-       (SELECT count(*) FROM cbse_import.advanced_mock_mapping_20261028 WHERE proposed_chapter_id IS NULL) AS unresolved_remaining;
+       (SELECT count(*) FROM cbse_import.advanced_mock_mapping_20261028 WHERE proposed_chapter_id IS NULL) AS unresolved_remaining,
+       (SELECT count(*) FROM cbse_import.advanced_mock_stage2_candidates_20261028) AS stage2_candidates_preserved;
