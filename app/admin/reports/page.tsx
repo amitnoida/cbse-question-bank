@@ -81,6 +81,13 @@ export default function AdminReportsPage(){
   admin_profiles:[{value:"created_at",label:"Created"},{value:"full_name",label:"Name"},{value:"role",label:"Role"}],
  };
  const sorts=chosen?sortChoices[chosen.source]||[]:[];
+ const showAcademic=["questions","subjects","chapters","quiz_attempts","free_usage","student_profiles"].includes(chosen?.source||"");
+ const showSubject=["questions","subjects","chapters","quiz_attempts","free_usage"].includes(chosen?.source||"");
+ const showChapter=["questions","chapters"].includes(chosen?.source||"");
+ const showQuestionFields=chosen?.source==="questions";
+ const showStatus=["questions","chapters","subjects","quiz_attempts","student_profiles","subscriptions","coupons","admin_profiles"].includes(chosen?.source||"");
+ const showDates=!["stats","metadata"].includes(chosen?.source||"");
+ const showSearch=["questions","subjects","chapters","student_profiles","coupons","admin_profiles"].includes(chosen?.source||"");
  const categoryReports=reports.filter(r=>r.category===activeCategory);
  const availableSubjects=useMemo(()=>catalog?.filters.subjects.filter(s=>!classNumber||String(s.class_id)===String(catalog.filters.classes.find(c=>String(c.class_number)===classNumber)?.id))||[],[catalog,classNumber]);
  const availableChapters=useMemo(()=>catalog?.filters.chapters.filter(c=>(!subjectId||String(c.subject_id)===subjectId)&&(!classNumber||availableSubjects.some(s=>s.id===c.subject_id)))||[],[catalog,availableSubjects,subjectId,classNumber]);
@@ -122,10 +129,10 @@ export default function AdminReportsPage(){
  function pickCategory(cat:ReportCategory){
   const next=reports.find(r=>r.category===cat);
   if(!next)return;
-  setCategory(cat);setReportId(next.id);setSortField("");setResult(null);setError("");
+  setCategory(cat);setReportId(next.id);setSortField("");setStatus("");setUsage("");setReview("");setResult(null);setError("");
   void load(next.id,1);
  }
- function pickReport(id:string){setReportId(id);setSortField("");setResult(null);setError("");void load(id,1);}
+ function pickReport(id:string){setReportId(id);setSortField("");setStatus("");setUsage("");setReview("");setResult(null);setError("");void load(id,1);}
 
  async function exportCsv(){
   if(!chosen)return;
@@ -190,37 +197,37 @@ export default function AdminReportsPage(){
      <p className="self-end rounded-xl bg-indigo-50 p-3 text-sm leading-6 text-indigo-900">{chosen?.description||"Choose a report."}</p>
     </div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-     <label className="text-xs font-bold text-slate-700">Class
+     {showAcademic&&<label className="text-xs font-bold text-slate-700">Class
       <select aria-label="Filter by class" className="mt-1 block w-full rounded-lg border p-3 font-normal" value={classNumber} onChange={e=>{setClassNumber(e.target.value);setSubjectId("");setChapterId("");}}>
        <option value="">All school classes</option>{catalog.filters.classes.map(c=><option key={c.id} value={c.class_number}>{c.class_name}</option>)}
-      </select></label>
-     <label className="text-xs font-bold text-slate-700">Subject
+      </select></label>}
+     {showSubject&&<label className="text-xs font-bold text-slate-700">Subject
       <select aria-label="Filter by subject" className="mt-1 block w-full rounded-lg border p-3 font-normal" value={subjectId} onChange={e=>{setSubjectId(e.target.value);setChapterId("");}}>
        <option value="">All subjects</option>{availableSubjects.map(s=><option key={s.id} value={s.id}>{s.subject_name}</option>)}
-      </select></label>
-     <label className="text-xs font-bold text-slate-700">Chapter
+      </select></label>}
+     {showChapter&&<label className="text-xs font-bold text-slate-700">Chapter
       <select aria-label="Filter by chapter" className="mt-1 block w-full rounded-lg border p-3 font-normal" value={chapterId} onChange={e=>setChapterId(e.target.value)}>
        <option value="">All chapters</option>{availableChapters.map(c=><option key={c.id} value={c.id}>{c.chapter_name}</option>)}
-      </select></label>
-     <label className="text-xs font-bold text-slate-700">Status
+      </select></label>}
+     {showStatus&&<label className="text-xs font-bold text-slate-700">Status
       <select aria-label="Filter by status" className="mt-1 block w-full rounded-lg border p-3 font-normal" value={status} onChange={e=>setStatus(e.target.value)}>
-       <option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option>
-       <option value="COMPLETED">Completed</option><option value="STARTED">Started</option>
-      </select></label>
-     <label className="text-xs font-bold text-slate-700">Question usage
+       <option value="">All statuses</option>
+       {chosen?.source==="quiz_attempts"?<><option value="COMPLETED">Completed</option><option value="STARTED">Started</option></>:chosen?.source==="subscriptions"?<><option value="ACTIVE">Active</option><option value="EXPIRED">Expired</option></>:<><option value="active">Active</option><option value="inactive">Inactive</option></>}
+      </select></label>}
+     {showQuestionFields&&<label className="text-xs font-bold text-slate-700">Question usage
       <select aria-label="Filter question usage" className="mt-1 block w-full rounded-lg border p-3 font-normal" value={usage} onChange={e=>setUsage(e.target.value)}>
        <option value="">All usage</option><option value="PRACTICE">PRACTICE</option><option value="MOCK">MOCK</option><option value="SHARED">SHARED</option>
-      </select></label>
-     <label className="text-xs font-bold text-slate-700">Review status
+      </select></label>}
+     {showQuestionFields&&<label className="text-xs font-bold text-slate-700">Review status
       <select aria-label="Filter review status" className="mt-1 block w-full rounded-lg border p-3 font-normal" value={review} onChange={e=>setReview(e.target.value)}>
        <option value="">All review states</option>{["PENDING_REVIEW","HOLD","LEGACY","TEST_READY"].map(s=><option key={s}>{s}</option>)}
-      </select></label>
-     <label className="text-xs font-bold text-slate-700">From date
-      <input aria-label="From date" type="date" value={from} onChange={e=>setFrom(e.target.value)} className="mt-1 block w-full rounded-lg border p-3 font-normal"/></label>
-     <label className="text-xs font-bold text-slate-700">To date
-      <input aria-label="To date" type="date" value={to} onChange={e=>setTo(e.target.value)} className="mt-1 block w-full rounded-lg border p-3 font-normal"/></label>
-     <label className="text-xs font-bold text-slate-700 sm:col-span-2">Search
-      <input aria-label="Search report" placeholder="Search matching report data" value={search} onChange={e=>setSearch(e.target.value)} maxLength={100} className="mt-1 block w-full rounded-lg border p-3 font-normal"/></label>
+      </select></label>}
+     {showDates&&<label className="text-xs font-bold text-slate-700">From date
+      <input aria-label="From date" type="date" value={from} onChange={e=>setFrom(e.target.value)} className="mt-1 block w-full rounded-lg border p-3 font-normal"/></label>}
+     {showDates&&<label className="text-xs font-bold text-slate-700">To date
+      <input aria-label="To date" type="date" value={to} onChange={e=>setTo(e.target.value)} className="mt-1 block w-full rounded-lg border p-3 font-normal"/></label>}
+     {showSearch&&<label className="text-xs font-bold text-slate-700 sm:col-span-2">Search
+      <input aria-label="Search report" placeholder="Search matching report data" value={search} onChange={e=>setSearch(e.target.value)} maxLength={100} className="mt-1 block w-full rounded-lg border p-3 font-normal"/></label>}
      {sorts.length>0&&<label className="text-xs font-bold text-slate-700">Sort by
       <select aria-label="Sort by" value={sortField} onChange={e=>setSortField(e.target.value)} className="mt-1 block w-full rounded-lg border p-3 font-normal">
        <option value="">Default order</option>{sorts.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
