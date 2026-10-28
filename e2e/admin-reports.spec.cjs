@@ -59,3 +59,71 @@ test('Viewer: MCQ and aggregate reports only; security and student identities re
  });
  expect(protectedStatus).toBe(403);
 });
+
+test('Full Admin: live function and RLS policy metadata, pagination and CSV export',async({page})=>{
+ test.setTimeout(180000);
+ const account=accounts.find(a=>/full/i.test(a.email));
+ if(!account)throw Error('Missing Full Admin test account');
+ await openReports(page,account);
+ await page.getByRole('tab',{name:/Database, Security & Administration/i}).click();
+ const selector=page.getByRole('combobox',{name:'Select report'});
+ await selector.selectOption('function-audit');
+ await expect(page.getByText('Matching records',{exact:true})).toBeVisible({timeout:45000});
+ await expect(page.getByRole('combobox',{name:'Filter by status'})).toBeVisible();
+ await expect(page.getByRole('button',{name:/Export ALL matching rows/i})).toBeEnabled();
+ await selector.selectOption('rls-policies');
+ await expect(page.getByText('Matching records',{exact:true})).toBeVisible({timeout:45000});
+ const responses=await page.evaluate(async()=>{
+  const key=Object.keys(localStorage).find(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));
+  if(!key)return {error:'No stored session'};
+  const token=JSON.parse(localStorage.getItem(key)).access_token;
+  const make=(path)=>fetch(path,{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+  const functions=await make('/api/admin/reports?report=function-audit&page=1');
+  const fn=await functions.json();
+  const page2=await make('/api/admin/reports?report=function-audit&page=2');
+  const fn2=await page2.json();
+  const policies=await make('/api/admin/reports?report=rls-policies');
+  const rls=await policies.json();
+  const csv=await make('/api/admin/reports?report=rls-policies&mode=csv');
+  const csvText=await csv.text();
+  const matching=await make('/api/admin/reports?report=function-audit&status=definer&search=admin');
+  const matchData=await matching.json();
+  return {
+   statuses:[functions.status,page2.status,policies.status,csv.status,matching.status],
+   fnTotal:fn.total,fnCount:fn.rows?.length,fnPage2:fn2.rows?.length,
+   fnColumns:fn.columns,fnSample:fn.rows?.[0],
+   rlsTotal:rls.total,rlsCount:rls.rows?.length,rlsColumns:rls.columns,rlsSample:rls.rows?.[0],
+   csvHeader:csvText.split('\\r\\n')[0],csvLines:csvText.split('\\r\\n').filter(Boolean).length,
+   matchTotal:matchData.total,
+  };
+ });
+ expect(responses.error).toBeUndefined();
+ expect(responses.statuses).toEqual([200,200,200,200,200]);
+ expect(responses.fnTotal).toBeGreaterThan(50);
+ expect(responses.fnCount).toBe(50);
+ expect(responses.fnPage2).toBeGreaterThan(0);
+ expect(responses.fnColumns).toContain('anon_execute');
+ expect(responses.fnColumns).toContain('rls_enabled');
+ expect(responses.rlsTotal).toBeGreaterThan(0);
+ expect(responses.rlsColumns).toContain('using_expression');
+ expect(responses.rlsColumns).toContain('check_expression');
+ expect(responses.csvHeader).toContain('using_expression');
+ expect(responses.csvLines).toBe(responses.rlsTotal+1);
+});
+test('Viewer cannot access either security metadata report via API',async({page})=>{
+ test.setTimeout(120000);
+ const account=accounts.find(a=>/viewer/i.test(a.email));
+ if(!account)throw Error('Missing Viewer Admin test account');
+ await openReports(page,account);
+ const statuses=await page.evaluate(async()=>{
+  const key=Object.keys(localStorage).find(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));
+  if(!key)return [];
+  const token=JSON.parse(localStorage.getItem(key)).access_token;
+  const urls=['function-audit','rls-policies'].flatMap(id=>[
+   '/api/admin/reports?report='+id,
+   '/api/admin/reports?report='+id+'&mode=csv',
+  ]);
+  return Promise.all(urls.map(async url=>(await fetch(url,{headers:{Authorization:'Bearer '+token}})).status));
+ });
+ expect(statuses).toEqual([403,403,403,403]);
+});
