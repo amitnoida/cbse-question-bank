@@ -13,8 +13,15 @@ const accounts=all.filter(a=>a&&typeof a.email==='string'&&(a.kind==='admin'||(a
 if(accounts.length!==12)throw Error('Expected exactly 12 school/admin accounts; actual count: '+accounts.length);
 if(accounts.filter(a=>a.kind==='admin').length!==2)throw Error('Expected 2 admin test accounts');
 if(accounts.filter(a=>a.kind==='student'&&schoolPattern.test(a.email)).length!==10)throw Error('Expected 10 Class 8–12 free/paid accounts');
+const seen=new Set();
 for(const a of accounts){
  if(typeof a.password!=='string'||a.password.length<1)throw Error('Test password missing');
+ const email=a.email.toLowerCase();
+ if(seen.has(email))throw Error('Duplicate test account email');
+ seen.add(email);
+}
+for(const n of [8,9,10,11,12])for(const plan of ['free','paid']){
+ if(!seen.has('test_'+n+'_'+plan+'@gmail.com'))throw Error('Required school account is missing');
 }
 // Strict host-scoped Vercel automation header; NEVER send to Supabase or external origins.
 async function permitPreview(page){
