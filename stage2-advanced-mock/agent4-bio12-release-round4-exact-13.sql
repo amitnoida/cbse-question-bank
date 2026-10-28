@@ -6,20 +6,6 @@ BEGIN;
 DO $$
 DECLARE n integer;ch integer;bad integer;updated integer;runtime_pool integer;
 BEGIN
- SELECT COUNT(*),COUNT(DISTINCT c.destination_chapter_id) INTO n,ch
- FROM cbse_import.advanced_mock_agent4_bio12_review_round4_20261028 r
- JOIN cbse_import.advanced_mock_stage2_candidates_20261028 c ON c.source_question_id=r.source_question_id
- JOIN public.questions q ON q.id=r.source_question_id
- JOIN public.chapters pch ON pch.id=c.destination_chapter_id
- JOIN public.subjects s ON s.id=pch.subject_id
- JOIN public.classes cl ON cl.id=s.class_id
- LEFT JOIN cbse_import.advanced_mock_bulk_academic_audit_20261028 a ON a.source_question_id=r.source_question_id
- WHERE r.decision='ACCEPT' AND r.checked_answer=q.correct_option::text
- AND c.destination_subject_id=20 AND s.id=20 AND s.subject_name='Biology' AND cl.class_name='Class 12'
- AND pch.is_active AND s.is_active
- AND a.source_question_id IS NULL OR false;
- -- The above query is deliberately replaced by the complete guarded verification below;
- -- using an impossible branch keeps no partial assumption during the review.
  SELECT count(*),count(DISTINCT c.destination_chapter_id) INTO n,ch
  FROM cbse_import.advanced_mock_agent4_bio12_review_round4_20261028 r
  JOIN cbse_import.advanced_mock_stage2_candidates_20261028 c ON c.source_question_id=r.source_question_id
