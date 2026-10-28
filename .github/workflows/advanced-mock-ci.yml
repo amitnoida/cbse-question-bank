@@ -9,7 +9,7 @@ on:
       - 'stage2-advanced-mock/**'
       - '.github/workflows/advanced-mock-ci.yml'
   push:
-    branches: [stage2-advanced-mock-20261028]
+    branches: [main, stage2-advanced-mock-20261028]
     paths:
       - 'app/advanced-mock/**'
       - 'app/app/page.tsx'
