@@ -9,6 +9,7 @@
 - Staged exactly **480 question IDs** in eight 60-question class/subject review lists. Selection favors distinct numerical stem patterns, subject chapter coverage, non-HOLD, non-media-blocked, non-duplicate-flagged, answer choices and explanations. The complete ID list is `academic-review-480-20261028.csv`. This is a **review queue, not a release or source-question update**.
 - Independent worked-solution checks recorded for **9 questions** in `06-nine-individually-reviewed-problems.sql`. Only private review statuses were updated, with evidence. Existing Stage 2 ledger `release_approved` and all four actual release checks are still false.
 - Confirmed **480 rows**, exactly **60 per subject**, RLS enabled on private table, no direct `anon`/`authenticated` SELECT, source questions inactive and unchanged, and **0 released / 0 Advanced paper attempts / 0 Advanced answers**.
+- Independent read-only normalized exact-stem comparison against all active school Class 8–12 questions found **0 exact text collisions** among the 480 selected candidates; this does **not** rule out semantic or numerical near-duplicates.
 
 ## Live Review Progress
 | Class | Subject | Queue | Individually verified | Pending academic check | Blocked for coverage or diversity | Mapped chapters |
