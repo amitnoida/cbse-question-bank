@@ -1,0 +1,2 @@
+-- Agent 2: no approved corrections or activations. Intentionally empty release script.
+-- All 15 inactive Class 9/10 school questions remain on HOLD for Agent 5.
