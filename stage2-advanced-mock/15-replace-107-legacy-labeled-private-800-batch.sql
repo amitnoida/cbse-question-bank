@@ -2,7 +2,7 @@
 -- labels; replace 107 slots with academically *unverified* but structurally
 -- eligible clean school-topic candidates. No deletion of source questions.
 -- C12 Physics has no remaining fresh numeric stem patterns: rebalance its 27
--- old-label slots to C12 Biology instead of importing numeric near-duplicates.
+-- old-label slots plus one Class XI Physics shortfall to C12 Biology instead of importing numeric near-duplicates.
 BEGIN;
 DO $$
 DECLARE bad_before integer; n_deleted integer; n_added integer; n_total integer; n_flagged integer; n_duplicate integer;
@@ -70,7 +70,7 @@ BEGIN
    SELECT *,row_number() OVER(PARTITION BY destination_subject_id ORDER BY chapter_round,md5(source_question_id::text)) AS subject_slot
    FROM by_chapter
  ), caps AS (
-   SELECT * FROM (VALUES(17::bigint,33),(19::bigint,43),(20::bigint,27),(21::bigint,4)) v(subject_id,max_replacement)
+   SELECT * FROM (VALUES(17::bigint,33),(19::bigint,42),(20::bigint,28),(21::bigint,4)) v(subject_id,max_replacement)
  )
  INSERT INTO cbse_import.advanced_mock_bulk_review_batch_20261028
  (source_question_id,destination_subject_id,destination_chapter_id,class_name,subject_name,chapter_name,origin,
