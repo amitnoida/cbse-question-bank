@@ -37,6 +37,7 @@ export default function AdminReportsPage(){
  const [search,setSearch]=useState("");
  const [from,setFrom]=useState("");
  const [to,setTo]=useState("");
+ const [sortField,setSortField]=useState("");
  const [direction,setDirection]=useState("desc");
  const [loading,setLoading]=useState(false);
  const [catalogLoading,setCatalogLoading]=useState(true);
@@ -68,12 +69,25 @@ export default function AdminReportsPage(){
 
  const reports=catalog?.reports||[];
  const chosen=reports.find(r=>r.id===reportId);
+ const sortChoices:Record<string,{value:string;label:string}[]> = {
+  questions:[{value:"id",label:"Question ID"},{value:"created_at",label:"Created"},{value:"updated_at",label:"Updated"},{value:"difficulty",label:"Difficulty"},{value:"is_active",label:"Active status"},{value:"content_review_status",label:"Review status"},{value:"question_usage",label:"Question usage"},{value:"question_text",label:"Question text"}],
+  chapters:[{value:"id",label:"Chapter ID"},{value:"chapter_number",label:"Chapter number"},{value:"chapter_name",label:"Chapter name"},{value:"created_at",label:"Created"}],
+  subjects:[{value:"id",label:"Subject ID"},{value:"subject_name",label:"Subject name"},{value:"created_at",label:"Created"}],
+  student_profiles:[{value:"id",label:"Student ID"},{value:"full_name",label:"Student name"},{value:"created_at",label:"Created"}],
+  quiz_attempts:[{value:"id",label:"Attempt ID"},{value:"started_at",label:"Started"},{value:"percentage",label:"Percentage"}],
+  subscriptions:[{value:"id",label:"Subscription ID"},{value:"end_date",label:"Expiry"},{value:"amount_paid",label:"Paid amount"}],
+  coupons:[{value:"id",label:"Coupon ID"},{value:"valid_until",label:"Expiry"},{value:"usage_count",label:"Redeemed count"}],
+  free_usage:[{value:"id",label:"Usage ID"},{value:"questions_used",label:"Questions used"},{value:"last_used_at",label:"Last used"}],
+  admin_profiles:[{value:"created_at",label:"Created"},{value:"full_name",label:"Name"},{value:"role",label:"Role"}],
+ };
+ const sorts=chosen?sortChoices[chosen.source]||[]:[];
  const categoryReports=reports.filter(r=>r.category===activeCategory);
  const availableSubjects=useMemo(()=>catalog?.filters.subjects.filter(s=>!classNumber||String(s.class_id)===String(catalog.filters.classes.find(c=>String(c.class_number)===classNumber)?.id))||[],[catalog,classNumber]);
  const availableChapters=useMemo(()=>catalog?.filters.chapters.filter(c=>(!subjectId||String(c.subject_id)===subjectId)&&(!classNumber||availableSubjects.some(s=>s.id===c.subject_id)))||[],[catalog,availableSubjects,subjectId,classNumber]);
 
  const params=useCallback((chosenId:string,page:number,mode:"data"|"csv")=>{
   const p=new URLSearchParams({report:chosenId,page:String(page),mode,dir:direction});
+  if(sortField)p.set("sort",sortField);
   if(classNumber)p.set("class",classNumber);
   if(subjectId)p.set("subject",subjectId);
   if(chapterId)p.set("chapter",chapterId);
@@ -84,7 +98,7 @@ export default function AdminReportsPage(){
   if(from)p.set("from",from);
   if(to)p.set("to",to);
   return p;
- },[classNumber,subjectId,chapterId,status,usage,review,search,from,to,direction]);
+ },[classNumber,subjectId,chapterId,status,usage,review,search,from,to,direction,sortField]);
 
  const load=useCallback(async(id=reportId,page=1)=>{
   setLoading(true);setError("");setResult(null);
@@ -108,10 +122,10 @@ export default function AdminReportsPage(){
  function pickCategory(cat:ReportCategory){
   const next=reports.find(r=>r.category===cat);
   if(!next)return;
-  setCategory(cat);setReportId(next.id);setResult(null);setError("");
+  setCategory(cat);setReportId(next.id);setSortField("");setResult(null);setError("");
   void load(next.id,1);
  }
- function pickReport(id:string){setReportId(id);setResult(null);setError("");void load(id,1);}
+ function pickReport(id:string){setReportId(id);setSortField("");setResult(null);setError("");void load(id,1);}
 
  async function exportCsv(){
   if(!chosen)return;
@@ -207,6 +221,10 @@ export default function AdminReportsPage(){
       <input aria-label="To date" type="date" value={to} onChange={e=>setTo(e.target.value)} className="mt-1 block w-full rounded-lg border p-3 font-normal"/></label>
      <label className="text-xs font-bold text-slate-700 sm:col-span-2">Search
       <input aria-label="Search report" placeholder="Search matching report data" value={search} onChange={e=>setSearch(e.target.value)} maxLength={100} className="mt-1 block w-full rounded-lg border p-3 font-normal"/></label>
+     {sorts.length>0&&<label className="text-xs font-bold text-slate-700">Sort by
+      <select aria-label="Sort by" value={sortField} onChange={e=>setSortField(e.target.value)} className="mt-1 block w-full rounded-lg border p-3 font-normal">
+       <option value="">Default order</option>{sorts.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
+      </select></label>}
      <label className="text-xs font-bold text-slate-700">Sort direction
       <select aria-label="Sort direction" value={direction} onChange={e=>setDirection(e.target.value)} className="mt-1 block w-full rounded-lg border p-3 font-normal">
        <option value="desc">Newest first</option><option value="asc">Oldest first</option>
@@ -214,7 +232,7 @@ export default function AdminReportsPage(){
     </div>
     <div className="flex flex-wrap gap-2">
      <button type="button" onClick={()=>void load(reportId,1)} disabled={loading} className="inline-flex min-h-11 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-extrabold text-white disabled:opacity-50">{loading?"Loading…":result?"Refresh / View Report":"View Report"}</button>
-     <button type="button" onClick={()=>{setClassNumber("");setSubjectId("");setChapterId("");setStatus("");setUsage("");setReview("");setSearch("");setFrom("");setTo("");setDirection("desc");setResult(null);}} className="inline-flex min-h-11 items-center rounded-xl border px-4 py-3 text-sm font-bold">Clear filters</button>
+     <button type="button" onClick={()=>{setClassNumber("");setSubjectId("");setChapterId("");setStatus("");setUsage("");setReview("");setSearch("");setFrom("");setTo("");setDirection("desc");setSortField("");setResult(null);}} className="inline-flex min-h-11 items-center rounded-xl border px-4 py-3 text-sm font-bold">Clear filters</button>
      <button type="button" onClick={()=>void exportCsv()} disabled={exportBusy||loading||!chosen} className="inline-flex min-h-11 items-center rounded-xl border border-indigo-600 px-4 py-3 text-sm font-bold text-indigo-700 disabled:opacity-50">{exportBusy?"Exporting "+(exportedBytes/1024).toFixed(0)+" KB…":"Export ALL matching rows (CSV)"}</button>
     </div>
     {result&&<div className="grid gap-3 sm:grid-cols-3" role="status">
