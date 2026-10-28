@@ -41,6 +41,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Generate Next.js route and layout types
+        run: npx next typegen
+
       - name: TypeScript
         run: npx tsc --noEmit
 
