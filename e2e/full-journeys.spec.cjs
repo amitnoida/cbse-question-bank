@@ -117,7 +117,7 @@ test('paid student: 60-question mock, answer persistence and result',async({page
   if(!account) throw Error('Missing class 9 paid test account');
   await loginStudent(page,account);
   await chooseSubject(page);
-  const start=page.getByRole('button',{name:/Start Next Mock Test|Resume Mock Test|Start Mock Test|Retake Mock/i}).first();
+  const start=page.getByRole('button',{name:/Start Next Mock Test|Resume Mock Test|Start Mock Test|Retake Mock|Start Randomized Retake|Resume Retake/i}).first();
   const unavailable=page.getByRole('button',{name:/Need 48 MOCK and 12 SHARED questions/i});
   if(await unavailable.isVisible()){
     test.info().annotations.push({type:'blocked',description:'Insufficient eligible 48 MOCK + 12 SHARED question pool'});
