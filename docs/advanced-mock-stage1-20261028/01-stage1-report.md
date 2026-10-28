@@ -1,0 +1,6 @@
+# Stage 1 audit (28 October 2026)
+Production project darfsuqfmmunxqiyqlvn. Staging only; no source question changes.
+Inventory 9106; structural chapter matches 6362; unresolved 2744. Class 11 mapped 2943; Class 12 mapped 3419. Class 11 Biology 98, Chemistry 1052, Mathematics 608, Physics 1185. Class 12 Biology 1448, Chemistry 959, Mathematics 301, Physics 711.
+Disposition: MAPPED_READY_FOR_REVIEW 6056; DUPLICATE_CANDIDATE 26; MEDIA_BLOCKED 321; NEEDS_ACADEMIC_REVIEW 2703. Duplicate flag total 40 (14 also in other priority categories). Invalid/missing options or key: 0 under basic SQL validation.
+No questions academically approved; ready for activation: 0. The audit table is cbse_import.advanced_mock_stage1_audit_20261028 and original mapping is cbse_import.advanced_mock_mapping_20261028. These are the authoritative question-level inventories. No competitive records deleted or activated.
+Pending: question-level resolution of composite chapters, syllabus-specific academic verification, semantic duplicate and image-reference checks, dependency review before retirement. This is an audit checkpoint, not a claim of full academic clearance.
