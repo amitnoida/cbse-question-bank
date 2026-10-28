@@ -162,16 +162,32 @@ export async function GET(req:NextRequest){
       return data;
     }
     if(report!.id==="chapter-counts"){
-      const data:Row[]=[];
-      for(let i=0;i<rows.length;i+=8){
-        const chunk=await Promise.all(rows.slice(i,i+8).map(async r=>{
-          const [act,all]=await Promise.all([admin.db.from("questions").select("id",{head:true,count:"exact"}).eq("chapter_id",Number(r.id)).eq("is_active",true),admin.db.from("questions").select("id",{head:true,count:"exact"}).eq("chapter_id",Number(r.id))]);
-          if(act.error||all.error)throw Error("Chapter counts unavailable");
-          return {...decorated(r),active:act.count||0,inactive:(all.count||0)-(act.count||0),total:all.count||0};
-        }));
-        data.push(...chunk);
+      const chapterSet=rows.map(r=>Number(r.id));
+      if(!chapterSet.length)return [];
+      const stats=new Map<number,{active:number,total:number}>();
+      // Scan matching chapter IDs in fixed 1,000-row batches, rather than
+      // making two separate DB count requests for every chapter.
+      for(let offset=0;offset<100000;offset+=1000){
+        const q=await admin.db.from("questions")
+          .select("chapter_id,is_active")
+          .in("chapter_id",chapterSet)
+          .order("chapter_id")
+          .range(offset,offset+999);
+        if(q.error)throw Error("Chapter counts unavailable");
+        for(const question of q.data||[]){
+          const id=Number(question.chapter_id);
+          const entry=stats.get(id)||{active:0,total:0};
+          entry.total++;
+          if(question.is_active)entry.active++;
+          stats.set(id,entry);
+        }
+        if((q.data||[]).length<1000)break;
+        if(offset>=99000)throw Error("Too many questions for this chapter count request; narrow the filters.");
       }
-      return data;
+      return rows.map(r=>{
+        const count=stats.get(Number(r.id))||{active:0,total:0};
+        return {...decorated(r),active:count.active,inactive:count.total-count.active,total:count.total};
+      });
     }
     if(report!.id==="student-directory"){
       const ids=rows.map(x=>String(x.id)).filter(Boolean);
