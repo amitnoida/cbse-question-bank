@@ -643,6 +643,9 @@ export default function Home() {
       .eq("id", userId)
       .maybeSingle();
 
+    // Ignore a response belonging to a signed-out or different account.
+    if (authUserIdRef.current !== userId) return null;
+
     if (profileError) {
       console.error(
         "Student profile error:",
@@ -740,6 +743,7 @@ export default function Home() {
 
     const { data, error: usageError } = await supabase.from("free_test_sets")
       .select("subject_id,test_type,practice_session_id,mock_paper_id,completed_at").eq("student_id",userId);
+    if (authUserIdRef.current !== userId) return;
     if (usageError) { setFreeUsageLoading(false); throw usageError; }
     const usageMap: typeof freeUsage = {};
     for (const row of data || []) (usageMap[row.subject_id] ||= []).push(row);
@@ -771,6 +775,8 @@ export default function Home() {
         .order("end_date", { ascending: false })
         .limit(1)
         .maybeSingle();
+
+    if (authUserIdRef.current !== userId) return false;
 
     if (subscriptionError) {
       /*
@@ -846,10 +852,14 @@ export default function Home() {
   }
 
   async function loadQuestionData(
-    classRowsOverride?: ClassRow[]
+    classRowsOverride?: ClassRow[],
+    manageLoading = true,
+    activeUserId?: string
   ) {
-    setLoading(true);
-    setError("");
+    if (manageLoading) {
+      setLoading(true);
+      setError("");
+    }
 
     try {
       const [loadedClasses, subjectRows, chapterRows] =
@@ -873,15 +883,21 @@ export default function Home() {
 
       const classRows = loadedClasses;
 
+      // Discard metadata returned for an account that has since signed out.
+      if (activeUserId && authUserIdRef.current !== activeUserId) return;
       // Question bodies are delivered only after assigning a set (at most 60).
       setClasses(classRows);
       setSubjects(subjectRows);
       setChapters(chapterRows);
     } catch (loadError: unknown) {
       console.error("Question bank loading failed:", loadError);
-      setError(errorMessage(loadError) || "Unable to load questions.");
+      if (!activeUserId || authUserIdRef.current === activeUserId) {
+        setError(errorMessage(loadError) || "Unable to load questions.");
+      }
     } finally {
-      setLoading(false);
+      if (manageLoading && (!activeUserId || authUserIdRef.current === activeUserId)) {
+        setLoading(false);
+      }
     }
   }
 
@@ -894,13 +910,26 @@ export default function Home() {
   ========================= */
 
   const loadAuthResources = useEffectEvent(async (user: User, classRowsOverride: ClassRow[] | undefined, isCurrent: () => boolean) => {
-    await loadStudentProfile(user.id, user);
-    if (!isCurrent() || authUserIdRef.current !== user.id) return;
-    await loadFreeUsage(user.id);
-    if (!isCurrent() || authUserIdRef.current !== user.id) return;
-    await loadPaidMembership(user.id);
-    if (!isCurrent() || authUserIdRef.current !== user.id) return;
-    await loadQuestionData(classRowsOverride);
+    // All four requests depend on the authenticated user, but not on each other.
+    // Await them together rather than adding four network round-trip delays.
+    // Keep the loading view until membership and navigation data are consistent.
+    setError("");
+    try {
+      const results = await Promise.allSettled([
+        loadStudentProfile(user.id, user),
+        loadFreeUsage(user.id),
+        loadPaidMembership(user.id),
+        loadQuestionData(classRowsOverride, false, user.id),
+      ]);
+      if (!isCurrent() || authUserIdRef.current !== user.id) return;
+      const failure = results.find(result => result.status === "rejected");
+      if (failure && failure.status === "rejected") {
+        console.error("Student initialization failed:", failure.reason);
+        setError("Unable to load your student account. Please refresh and try again.");
+      }
+    } finally {
+      if (isCurrent() && authUserIdRef.current === user.id) setLoading(false);
+    }
   });
   useEffect(() => {
     let mounted = true;
@@ -912,6 +941,7 @@ export default function Home() {
       setCurrentUser(null);
       setStudentProfile(null);
       setFreeUsage({});
+      setFreeUsageLoading(false);
       setIsPaidMember(false);
       setMembershipChecked(false);
       setSubjects([]);
