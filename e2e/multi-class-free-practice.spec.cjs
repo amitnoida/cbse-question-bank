@@ -22,7 +22,7 @@ for(const n of [8,10,11,12]){
     const options=await subject.locator('option').evaluateAll(nodes=>nodes.map(x=>x.value).filter(x=>x&&x!=='all'));
     if(!options.length)throw new Error('No available Class '+n+' subjects');
     await subject.selectOption(options[0]);
-    const limitAlert=page.getByRole('alert').filter({hasText:'Free question limit reached'});
+    const limitAlert=page.getByRole('button',{name:'Free Practice set completed',exact:true});
     const begin=page.getByRole('button',{name:/Start \/ Resume Practice/i});
     await expect.poll(async()=>{
       if(await limitAlert.isVisible())return 'exhausted';
@@ -30,7 +30,7 @@ for(const n of [8,10,11,12]){
       return 'loading';
     },{timeout:30000}).not.toBe('loading');
     if(await limitAlert.isVisible()){
-      await expect(page.getByText(/10 \/ 10 used/i)).toBeVisible();
+      await expect(limitAlert).toBeDisabled();
       test.skip(true,'Free allowance is exhausted for this subject; no question can be submitted again');
     }
     await begin.click();

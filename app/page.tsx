@@ -8,7 +8,7 @@ import {
 
 export const metadata: Metadata = {
   title: "CBSE Classes 8–12 MCQ Practice and Mock Tests",
-  description: "Practice CBSE Class 8, 9, 10, 11 and 12 chapter-wise MCQs with answers and explanations. Explore subject guides, 10 free questions per subject and 60-question timed mock tests.",
+  description: "Practice CBSE Class 8, 9, 10, 11 and 12 chapter-wise MCQs with answers and explanations. Explore subject guides, one free Practice set and one free Mock set per subject and 60-question timed mock tests.",
   alternates: { canonical: "/" },
 };
 
@@ -25,8 +25,8 @@ const subjectStyles: Record<string, { icon: string; gradient: string }> = {
 
 const faqs = [
   { q: "Which classes can register?", a: "Classes 8, 9 and 10 offer English, Hindi, Mathematics, Science and Social Science. Classes 11 and 12 offer Physics, Chemistry, Mathematics and Biology." },
-  { q: "What is included in the free plan?", a: "Each registered student can try up to 10 free practice MCQs per subject. The allowance is tracked separately for every subject." },
-  { q: "What is the difference between practice and a real mock test?", a: "Practice displays answer feedback and explanations as you work. Real mock tests have 60 questions, a 60-minute timer and results after submission, subject to your membership." },
+  { q: "What is included in the free plan?", a: "Each registered student gets one free Practice set and one free Mock set per subject, with up to 60 questions in each set. Selecting fewer chapters may create a shorter set, which still uses the full allowance." },
+  { q: "What is the difference between practice and a real mock test?", a: "Practice displays answer feedback and explanations as you work. Real mock tests have up to 60 questions, a 60-minute timer and results after submission. Free students receive one set per subject; membership unlocks more sets." },
   { q: "Can I resume my practice?", a: "Saved practice sessions can be resumed where supported. Review and test history is available for 14 days." },
   { q: "Are all questions officially CBSE-certified?", a: "No. This is an independent practice platform, not affiliated with or endorsed by CBSE. Some newly available questions are in preliminary testing and remain subject to editorial and syllabus review." },
   { q: "How do I get support or request account deletion?", a: "Email support.cbseexam@gmail.com from your registered email address so your request can be verified." },
@@ -51,7 +51,7 @@ export default function Home() {
                 <a href="#classes" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/30 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10">Explore Classes</a>
               </div>
               <div className="mt-8 flex flex-wrap gap-2 text-xs font-semibold text-indigo-100">
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">✓ 10 free MCQs per subject</span>
+                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">✓ One free Practice + Mock set per subject</span>
                 <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">✓ Answer explanations</span>
                 <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">✓ Chapter-wise learning</span>
               </div>
@@ -133,7 +133,7 @@ export default function Home() {
               <article className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50 p-7 sm:p-9">
                 <div className="text-3xl">📖</div><h3 className="mt-4 text-2xl font-black">Chapter-wise Practice</h3>
                 <p className="mt-3 leading-7 text-slate-600">Focus on specific topics, get immediate answer feedback and explanations, and resume saved progress where supported.</p>
-                <p className="mt-4 text-sm font-bold text-indigo-700">10 free MCQs per subject · More with premium</p>
+                <p className="mt-4 text-sm font-bold text-indigo-700">One free Practice + Mock set per subject · More with premium</p>
                 <Link href="/app?auth=signup" className="mt-6 inline-flex min-h-12 items-center rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white hover:bg-indigo-700">Start practicing →</Link>
               </article>
               <article className="rounded-3xl bg-gradient-to-br from-slate-950 to-indigo-950 p-7 text-white sm:p-9">
@@ -155,7 +155,7 @@ export default function Home() {
               <article className="rounded-3xl border border-indigo-200 bg-white p-7 shadow-sm sm:p-9">
                 <p className="text-xs font-extrabold uppercase tracking-wider text-slate-600">Free plan</p>
                 <h3 className="mt-4 text-2xl font-black">Try before subscribing</h3><p className="mt-4 text-4xl font-black">₹0</p>
-                <ul className="mt-7 space-y-3 text-sm font-semibold text-slate-600"><li>✓ 10 free MCQs per subject</li><li>✓ Available subjects and chapters</li><li>✓ Answer explanations</li><li>✓ No payment needed to begin</li></ul>
+                <ul className="mt-7 space-y-3 text-sm font-semibold text-slate-600"><li>✓ One free Practice + Mock set per subject</li><li>✓ Available subjects and chapters</li><li>✓ Answer explanations</li><li>✓ No payment needed to begin</li></ul>
                 <Link href="/app?auth=signup" className="mt-8 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-indigo-50 px-5 py-3 font-extrabold text-indigo-700 hover:bg-indigo-100">Create Free Account</Link>
               </article>
               <article className="rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-800 p-7 text-white shadow-xl sm:p-9">

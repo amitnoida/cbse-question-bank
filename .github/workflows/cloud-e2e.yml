@@ -1,6 +1,6 @@
 name: CBSE School E2E - 12 Accounts
 
-# One-click full regression from GitHub Actions > Run workflow.
+# One-click regression includes chapter selection and independent free Practice/Mock sets.
 # Manual runs, or an explicitly marked release commit, use dedicated test accounts only.
 on:
   workflow_dispatch:

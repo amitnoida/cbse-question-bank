@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const {finishMock}=require('./mock-helpers.cjs');
 const accounts = JSON.parse(process.env.E2E_ACCOUNTS_JSON || '[]').filter(a => a.kind === 'admin' || /^test_(8|9|10|11|12)_(free|paid)@gmail\.com$/i.test(a.email || ''));
 const student = accounts.filter(a => a.kind === 'student');
 const admin = accounts.filter(a => a.kind === 'admin');
@@ -18,10 +19,10 @@ async function chooseSubject(page) {
   const options=await select.locator('option').evaluateAll(els=>els.map(e=>({value:e.value,label:e.textContent.trim()})).filter(e=>e.value!=='all' && e.value));
   if(!options.length) throw new Error('No active subjects available for enrolled class');
   await select.selectOption(options[0].value);
-  // Subject navigation succeeds for a free student whose 10-question allowance
+  // Subject navigation succeeds for a free student whose one-set allowance
   // is already exhausted; starting a NEW practice session is checked separately.
   const start=page.getByRole('button',{name:/Start \/ Resume Practice/i});
-  const exhausted=page.getByRole('alert').filter({hasText:'Free question limit reached'});
+  const exhausted=page.getByRole('button',{name:'Free Practice set completed',exact:true});
   await expect.poll(async()=>await start.isEnabled() || await exhausted.isVisible(),{timeout:30000}).toBe(true);
   return options[0];
 }
@@ -39,7 +40,9 @@ for (const account of student) {
     await chooseSubject(page);
     const paid=account.email.endsWith('_paid@gmail.com');
     await expect(page.getByRole('button',{name:paid?/Premium Active/i:/Subscribe ₹99/i}).first()).toBeVisible({timeout:30000});
-    if(!paid) await expect(page.getByText(/Real Mock Tests require a paid membership/i)).toBeVisible();
+    if(!paid) await expect(page.getByText('One free Practice set and one free Mock set per subject',{exact:true})).toBeVisible();
+    await expect(page.getByText('Find a chapter by name')).toHaveCount(0);
+    await expect(page.getByText(/Available to Paid Members/i)).toHaveCount(0);
     await page.getByRole('link',{name:/Dashboard/i}).first().click();
     await expect(page).toHaveURL(/dashboard/);
   });
@@ -76,7 +79,7 @@ test('free student: practice answer, feedback, submission and dashboard history'
   await chooseSubject(page);
   // The free-usage alert is populated asynchronously after subject selection.
   // Wait for either the exhausted allowance or the enabled practice action.
-  const limitAlert=page.getByRole('alert').filter({hasText:'Free question limit reached'});
+  const limitAlert=page.getByRole('button',{name:'Free Practice set completed',exact:true});
   const practiceStart=page.getByRole('button',{name:/Start \/ Resume Practice/i});
   await expect.poll(async()=>{
     if(await limitAlert.isVisible()) return 'exhausted';
@@ -84,7 +87,7 @@ test('free student: practice answer, feedback, submission and dashboard history'
     return 'loading';
   },{timeout:30000}).not.toBe('loading');
   if(await limitAlert.isVisible()) {
-    await expect(page.getByText(/10 \/ 10 used/i)).toBeVisible();
+    await expect(limitAlert).toBeDisabled();
     test.skip(true,'Class 9 free allowance exhausted: confirmed limit guard, but practice submission was not executed');
   }
   await practiceStart.click();
@@ -95,7 +98,7 @@ test('free student: practice answer, feedback, submission and dashboard history'
     return 'loading';
   },{timeout:30000}).not.toBe('loading');
   if(await limitAlert.isVisible()) {
-    await expect(page.getByText(/10 \/ 10 used/i)).toBeVisible();
+    await expect(limitAlert).toBeDisabled();
     test.skip(true,'Class 9 free allowance exhausted after starting: complete practice submission not executed');
   }
   await expect(questionHeading).toBeVisible();
@@ -113,7 +116,7 @@ test('free student: practice answer, feedback, submission and dashboard history'
   await expect(page).toHaveURL(/\/dashboard/);
 });
 test('paid student: 60-question mock, answer persistence and result',async({page})=>{
-  test.setTimeout(180000);
+  test.setTimeout(360000);
   const account=by(/test_9_paid@gmail\.com$/i);
   if(!account) throw Error('Missing class 9 paid test account');
   await loginStudent(page,account);
@@ -129,9 +132,8 @@ test('paid student: 60-question mock, answer persistence and result',async({page
   await expect(page.getByRole('heading',{name:/Question 1 of 60/i})).toBeVisible({timeout:30000});
   await page.locator('button[aria-pressed]').first().click();
   await expect(page.getByText(/Answered: 1 \/ 60/)).toBeVisible({timeout:30000});
-  await page.getByRole('button',{name:/Finish \/ Review Mock Test/i}).click();
-  await page.getByRole('region',{name:'Confirm mock submission'}).getByRole('button',{name:'Submit Anyway'}).click();
-  await expect(page.getByText('Real Mock Test Result',{exact:true})).toBeVisible({timeout:30000});
+  await expect(page.getByRole('button',{name:'Submit Test',exact:true})).toBeDisabled();
+  await finishMock(page);
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/dashboard/);
 });

@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const subjectNames = getSubjectsForClass(n).map(s => s.name).join(", ");
   return {
     title: `CBSE Class ${n} MCQ Practice by Subject`,
-    description: `Explore Class ${n} chapter-wise MCQ practice and mock tests in ${subjectNames}. Start with 10 free questions per subject.`,
+    description: `Explore Class ${n} chapter-wise MCQ practice and mock tests in ${subjectNames}. Start with one free Practice set and one free Mock set per subject.`,
     alternates: { canonical: classPath(n) },
   };
 }

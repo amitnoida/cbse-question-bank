@@ -63,18 +63,8 @@ type StudentProfile = {
   class_id: number | null;
 };
 
-type FreeUsageRow = {
-  id: number;
-  student_id: string;
-  subject_id: number;
-  chapter_id: number | null;
-  questions_used: number;
-  questions_allowed: number;
-};
-
 const ALL = "all";
-const DEFAULT_FREE_QUESTIONS = 10;
-const MOCK_QUESTION_COUNT = 60;
+
 const MOCK_DURATION_SECONDS = 60 * 60;
 const ANNUAL_PLAN_PRICE = 99;
 // 2027-04-01 00:00 IST is 2027-03-31 18:30 UTC.
@@ -171,10 +161,12 @@ export default function Home() {
   [classes]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [chapters, setChapters] = useState<ChapterRow[]>([]);
-  const [chapterSearch, setChapterSearch] = useState("");
+  const [selectedChapterIds, setSelectedChapterIds] = useState<number[]>([]);
+  const [selectionCounts, setSelectionCounts] = useState({practice:0,mock:0});
+  const [selectionLoading, setSelectionLoading] = useState(false);
   const preferredSubjectApplied = useRef(false);
   const [questions, setQuestions] = useState<MCQ[]>([]);
-  const [chapterQuestionCounts, setChapterQuestionCounts] = useState<Record<number,number>>({});
+  const [, setChapterQuestionCounts] = useState<Record<number,number>>({});
 
   const [loading, setLoading] = useState(true);
   const [subjectQuestionsLoading, setSubjectQuestionsLoading] = useState(false);
@@ -186,29 +178,9 @@ export default function Home() {
   const [studentProfile, setStudentProfile] =
     useState<StudentProfile | null>(null);
 
-  /*
-   * FREE TRIAL
-   *
-   * Key:
-   *     subject_id
-   *
-   * Value:
-   *     questions_used
-   *
-   * Free usage is tracked at SUBJECT level.
-   *
-   * Example:
-   *
-   * Mathematics:
-   *   Chapter 1 -> 4 questions
-   *   Chapter 2 -> 3 questions
-   *   Chapter 3 -> 3 questions
-   *   Total Math -> 10 / 10
-   *
-   * Science has its own separate 10-question allowance.
-   */
+  // Durable per-subject Practice and Mock reservations.
   const [freeUsage, setFreeUsage] = useState<
-    Record<number, number>
+    Record<number, {practice_session_id:string|null;mock_paper_id:string|null;test_type:string;completed_at:string|null}[]>
   >({});
 
   const [freeUsageLoading, setFreeUsageLoading] =
@@ -216,7 +188,7 @@ export default function Home() {
 
   const [, setSelectedClass] = useState(ALL);
   const [selectedSubject, setSelectedSubject] = useState(ALL);
-  const [selectedChapter, setSelectedChapter] = useState(ALL);
+  const [, setSelectedChapter] = useState(ALL);
 
   /* =========================
      PRACTICE TEST
@@ -236,7 +208,7 @@ export default function Home() {
   const [practiceConfirmSubmit, setPracticeConfirmSubmit] = useState(false);
   const [practiceSkippedReview, setPracticeSkippedReview] = useState(false);
   const [mockSkippedReview, setMockSkippedReview] = useState(false);
-  const [mockConfirmSubmit, setMockConfirmSubmit] = useState(false);
+  const [, setMockConfirmSubmit] = useState(false);
   const [practiceSubmitted, setPracticeSubmitted] =
     useState(false);
   const [practiceSubmitting, setPracticeSubmitting] =
@@ -537,6 +509,7 @@ export default function Home() {
   // The public SEO homepage is /. Deep links open the original
   // authentication dialogs here without duplicating the marketing page.
   useEffect(() => {
+    const timer = window.setTimeout(() => {
     const mode = new URLSearchParams(window.location.search).get("auth");
     if (mode === "signup") {
       setShowSignup(true);
@@ -545,6 +518,8 @@ export default function Home() {
       setShowSignin(true);
       setShowSignup(false);
     }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
 
@@ -575,7 +550,6 @@ export default function Home() {
   const [updatePasswordError, setUpdatePasswordError] = useState("");
   const [updatePasswordSuccess, setUpdatePasswordSuccess] = useState("");
 
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
   // Explicit, read-only public homepage preview from the admin panel.
   const isWebsitePreview = typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("website") === "public";
@@ -725,6 +699,7 @@ export default function Home() {
 
       setSelectedSubject(ALL);
       setSelectedChapter(ALL);
+    setSelectedChapterIds([]);
 
       return profile;
     }
@@ -745,6 +720,7 @@ export default function Home() {
       );
       setSelectedSubject(ALL);
       setSelectedChapter(ALL);
+    setSelectedChapterIds([]);
 
       return fallbackProfile;
     }
@@ -762,34 +738,11 @@ export default function Home() {
   async function loadFreeUsage(userId: string) {
     setFreeUsageLoading(true);
 
-    const { data, error: usageError } = await supabase
-      .from("free_usage")
-      .select(
-        "id,student_id,subject_id,chapter_id,questions_used,questions_allowed"
-      )
-      .eq("student_id", userId)
-      .is("chapter_id", null);
-
-    if (usageError) {
-      console.error(
-        "Free usage error:",
-        usageError
-      );
-
-      setFreeUsage({});
-      setFreeUsageLoading(false);
-      return;
-    }
-
-    const usageMap: Record<number, number> = {};
-
-    ((data || []) as FreeUsageRow[]).forEach(
-      (row) => {
-        usageMap[row.subject_id] =
-          row.questions_used;
-      }
-    );
-
+    const { data, error: usageError } = await supabase.from("free_test_sets")
+      .select("subject_id,test_type,practice_session_id,mock_paper_id,completed_at").eq("student_id",userId);
+    if (usageError) { setFreeUsageLoading(false); throw usageError; }
+    const usageMap: typeof freeUsage = {};
+    for (const row of data || []) (usageMap[row.subject_id] ||= []).push(row);
     setFreeUsage(usageMap);
     setFreeUsageLoading(false);
   }
@@ -855,31 +808,6 @@ export default function Home() {
   /* =========================
      FREE USAGE HELPERS
   ========================= */
-
-  function getSubjectUsage(subjectId: number) {
-    return freeUsage[subjectId] || 0;
-  }
-
-  function getSubjectAllowed() {
-    return DEFAULT_FREE_QUESTIONS;
-  }
-
-  function getSubjectRemaining(subjectId: number) {
-    return Math.max(
-      0,
-      getSubjectAllowed() -
-        getSubjectUsage(subjectId)
-    );
-  }
-
-  function isSubjectFreeLimitReached(
-    subjectId: number
-  ) {
-    return (
-      getSubjectUsage(subjectId) >=
-      getSubjectAllowed()
-    );
-  }
 
   /* =========================
      LOAD QUESTION BANK
@@ -1075,6 +1003,7 @@ export default function Home() {
       setSelectedClass(ALL);
       setSelectedSubject(ALL);
       setSelectedChapter(ALL);
+    setSelectedChapterIds([]);
 
       setPracticeConfirmSubmit(false);
       setPracticeSkippedReview(false);
@@ -1371,6 +1300,7 @@ export default function Home() {
       if (preferred && availableSubjects.some(s => s.subject_name === preferred)) {
         setSelectedSubject(preferred);
         setSelectedChapter(ALL);
+    setSelectedChapterIds([]);
         setPracticeSet(1);
       }
     }, 0);
@@ -1395,8 +1325,8 @@ export default function Home() {
         q.subjectName === selectedSubject;
 
       const matchesChapter =
-        selectedChapter === ALL ||
-        q.chapterName === selectedChapter;
+        selectedChapterIds.length === 0 ||
+        selectedChapterIds.includes(q.chapter_id);
 
       return (
         q.is_active &&
@@ -1407,62 +1337,14 @@ export default function Home() {
   }, [
     questions,
     selectedSubject,
-    selectedChapter,
+    selectedChapterIds,
     enrolledClassId,
   ]);
 
-  /*
-   * Questions belonging to the selected subject.
-   *
-   * This is intentionally NOT affected by chapter selection.
-   *
-   * Real Mock Test requires a minimum of 60 active
-   * questions across the complete selected subject.
-   */
-  const selectedSubjectQuestions = useMemo(() => {
-    if (
-      enrolledClassId === null ||
-      selectedSubject === ALL
-    ) {
-      return [];
-    }
-
-    return questions.filter(
-      (q) =>
-        q.is_active &&
-        q.classId === enrolledClassId &&
-        q.subjectName === selectedSubject
-    );
-  }, [
-    questions,
-    selectedSubject,
-    enrolledClassId,
-  ]);
-
-  const selectedSubjectQuestionCount =
-    selectedSubjectQuestions.length;
-
-  const numberedMockCount = Math.max(mockPoolCounts.capacity, ...mockPapers.map(p=>p.paper_number||0), 0);
-  const completedNumberedMocks = mockPapers.filter(
-    (p) => p.paper_number !== null && p.status === "COMPLETED"
-  ).length;
   const unfinishedMock = mockPapers.find(p => p.status === "STARTED");
-  const mockPoolAvailable = mockPoolCounts.mock >= 48 && mockPoolCounts.shared >= 12;
-  const mockCanStart =
-    selectedSubject !== ALL &&
-    (Boolean(unfinishedMock) || mockPoolAvailable) &&
-    !mockStarting && !mockHistoryLoading && !subjectQuestionsLoading;
-  const nextMockNumber = Math.max(0, ...mockPapers.map(p => p.paper_number ?? 0)) + 1;
-  const numberedSeriesComplete = numberedMockCount > 0 &&
-    completedNumberedMocks >= numberedMockCount && !unfinishedMock;
-  const nextRetakeNumber = Math.max(0, ...mockPapers.map(p => p.retake_number ?? 0)) + 1;
-  const mockActionLabel = unfinishedMock
-    ? "Resume " + (unfinishedMock.paper_number !== null
-        ? "Mock Test " + unfinishedMock.paper_number
-        : "Retake " + unfinishedMock.retake_number) + " →"
-    : numberedSeriesComplete
-      ? "Start Randomized Retake " + nextRetakeNumber + " →"
-      : "Start Next Mock Test " + nextMockNumber + " →";
+  const mockCanStart = selectedSubject !== ALL && !selectionLoading &&
+    (Boolean(unfinishedMock) || selectionCounts.mock > 0) && !mockStarting && !mockHistoryLoading && !subjectQuestionsLoading;
+  const mockActionLabel = unfinishedMock ? "Resume Mock Test →" : "Start Next Mock Test →";
 
   useEffect(() => {
     let cancelled = false;
@@ -1509,50 +1391,28 @@ export default function Home() {
     selectedSubject,
   ]);
 
-  const selectedSubjectUsage =
-    selectedSubjectObject
-      ? getSubjectUsage(
-          selectedSubjectObject.id
-        )
-      : 0;
-
-  const selectedSubjectRemaining =
-    selectedSubjectObject
-      ? getSubjectRemaining(
-          selectedSubjectObject.id
-        )
-      : 0;
-
-  const selectedSubjectLimitReached =
-    selectedSubjectObject
-      ? isSubjectFreeLimitReached(
-          selectedSubjectObject.id
-        )
-      : false;
-
   const PRACTICE_SET_SIZE = 60;
+  const chapterSelected = selectedChapterIds.length > 0;
 
-  // Stable order keeps each question in exactly one subject-wide set.
-  const orderedPracticeQuestions = useMemo(
-    () => [...filteredQuestions].sort((a, b) => a.id - b.id),
-    [filteredQuestions]
-  );
-
-  const chapterSelected = selectedChapter !== ALL;
-  const selectedChapterId = chapterSelected
-    ? availableChapters.find(c => c.chapter_name === selectedChapter)?.id ?? null : null;
-  const questionCountForSelection = isPaidMember ? filteredQuestions.length
-    : (selectedChapterId === null
-        ? Object.values(chapterQuestionCounts).reduce((sum,n) => sum+n,0)
-        : (chapterQuestionCounts[selectedChapterId] ?? 0));
-  const freeQuestionCountForSelection = Math.min(questionCountForSelection, selectedSubjectRemaining);
-  // Keep the selected paper valid as the loaded subject/chapter size changes.
-  const practiceSet = Math.min(requestedPracticeSet, Math.max(1, isPaidMember && !chapterSelected
-    ? Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE) : 1));
-  const totalPracticeSets = isPaidMember
-    ? (chapterSelected ? (orderedPracticeQuestions.length > 0 ? 1 : 0)
-        : Math.ceil(orderedPracticeQuestions.length / PRACTICE_SET_SIZE))
-    : (questionCountForSelection > 0 ? 1 : 0);
+  const orderedPracticeQuestions = useMemo(() => [...filteredQuestions].sort((a,b)=>a.id-b.id),[filteredQuestions]);
+  const questionCountForSelection = selectionCounts.practice;
+  const totalPracticeSets = isPaidMember ? Math.ceil(questionCountForSelection/60) : (questionCountForSelection>0?1:0);
+  const practiceSet = Math.min(requestedPracticeSet,Math.max(1,totalPracticeSets));
+  const practiceReservation = selectedSubjectObject ? freeUsage[selectedSubjectObject.id]?.find(r=>r.test_type==="PRACTICE") : undefined;
+  const mockReservation = selectedSubjectObject ? freeUsage[selectedSubjectObject.id]?.find(r=>r.test_type==="MOCK") : undefined;
+  useEffect(() => {
+    let cancelled=false;
+    const load=async()=>{
+      await Promise.resolve(); if(cancelled)return;
+      setSelectionLoading(true);
+      if(!selectedSubjectObject){setSelectionCounts({practice:0,mock:0});setSelectionLoading(false);return;}
+      const {data,error}=await supabase.rpc("cbse_selection_counts_v1",{p_subject_id:selectedSubjectObject.id,p_chapter_ids:selectedChapterIds});
+      if(cancelled)return;
+      if(error){setError(error.message);setSelectionCounts({practice:0,mock:0});}
+      else {const row=data?.[0];setSelectionCounts({practice:Number(row?.practice_count||0),mock:Number(row?.mock_count||0)});}
+      setSelectionLoading(false);
+    };void load();return()=>{cancelled=true;};
+  },[selectedSubjectObject,selectedChapterIds]);
 
   /* =========================
      FILTER HANDLERS
@@ -1575,12 +1435,14 @@ export default function Home() {
 
     setSelectedSubject(ALL);
     setSelectedChapter(ALL);
+    setSelectedChapterIds([]);
     setPracticeSet(1);
   }
 
   function handleSubjectChange(value: string) {
     setSelectedSubject(value);
     setSelectedChapter(ALL);
+    setSelectedChapterIds([]);
     setPracticeSet(1);
   }
 
@@ -1596,6 +1458,7 @@ export default function Home() {
 
     setSelectedSubject(ALL);
     setSelectedChapter(ALL);
+    setSelectedChapterIds([]);
   }
 
   /* =========================
@@ -1610,13 +1473,9 @@ export default function Home() {
     setPracticeStarting(true);
     setPracticeSubmitError("");
     try {
-      const chapterId = chapterSelected
-        ? availableChapters.find(c => c.chapter_name === selectedChapter)?.id ?? null
-        : null;
-      // Always resume or assign on the server. The client never picks free question IDs.
-      const { data: session, error: sessionError } = await supabase.rpc("cbse_start_practice_v1", {
+      const { data: session, error: sessionError } = await supabase.rpc("cbse_start_practice_v2", {
         p_subject_id: selectedSubjectObject.id,
-        p_chapter_id: chapterId,
+        p_chapter_ids: selectedChapterIds,
         p_set_number: practiceSet,
       });
       if (sessionError || !session) throw sessionError || new Error("Could not start practice.");
@@ -1898,18 +1757,15 @@ export default function Home() {
   async function startMockTest() {
     setMockSubmitError("");
     if (!currentUser || !selectedSubjectObject || mockStarting) return;
-    if (!isPaidMember) { openSubscribe(); return; }
     if (subjectQuestionsLoading || mockHistoryLoading) {
       setMockSubmitError("Wait for mock availability to load."); return;
-    }
-    if (!unfinishedMock && !mockPoolAvailable) {
-      setMockSubmitError("A new mock requires 48 MOCK and 12 SHARED questions. Existing assigned mocks may still be resumed."); return;
     }
     setMockStarting(true);
     try {
       // The server resumes an unfinished assignment or allocates the next 48/12 paper.
-      const { data, error } = await supabase.rpc("start_next_mock_paper_v2", {
+      const { data, error } = await supabase.rpc("start_next_mock_paper_v3", {
         p_subject_id: selectedSubjectObject.id,
+        p_chapter_ids: selectedChapterIds,
       });
       if (error || !data) throw error || new Error("Unable to start the next mock.");
       const paper = data as MockPaper;
@@ -1925,13 +1781,14 @@ export default function Home() {
         chapterName: chapterMap.get(q.chapter_id) || "",
         options: [q.option_a,q.option_b,q.option_c,q.option_d].filter(Boolean),
       })) as MCQ[];
-      if (assigned.length !== MOCK_QUESTION_COUNT) {
+      if (!assigned.length || assigned.length !== paper.question_ids.length) {
         throw new Error("Assigned mock questions are incomplete. Contact support.");
       }
       setCompletedMockAttemptId(null);
       setActiveMockPaperId(paper.id);
       await openSavedMock("full", paper.id, assigned);
       await refreshMockPapers(selectedSubjectObject.id);
+      await loadFreeUsage(currentUser.id);
     } catch (err: unknown) {
       setMockSubmitError(errorMessage(err) || "Unable to resume mock test.");
     } finally {
@@ -1969,6 +1826,7 @@ export default function Home() {
   async function submitMockTest(automaticSubmit = false) {
     setMockConfirmSubmit(false);
     if (mockSubmitted || mockSubmitting || mockAnswerLock.current || !mockSessionId) return;
+    if (!automaticSubmit && mockQuestions.some(q=>!mockAnswers[q.id])) return;
     setMockSubmitting(true);
     setMockSubmitError("");
     try {
@@ -2429,6 +2287,7 @@ export default function Home() {
     setSelectedClass(ALL);
     setSelectedSubject(ALL);
     setSelectedChapter(ALL);
+    setSelectedChapterIds([]);
 
     setPracticeMode(false);
     setPracticeQuestions([]);
@@ -2968,7 +2827,11 @@ export default function Home() {
               <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg text-white">📚</span>
               CBSE Question Bank
             </Link>
-            <Link href="/" className="inline-flex min-h-11 items-center rounded-xl px-4 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50">← Public Homepage</Link>
+            <div className="flex w-full items-center justify-between gap-1 sm:w-auto sm:gap-3">
+              <Link href="/" className="inline-flex min-h-11 items-center rounded-xl px-2 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 sm:text-sm">← Public Homepage</Link>
+              <button onClick={openSignin} className="min-h-11 rounded-xl px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50">Sign In</button>
+              <button onClick={openSignup} className="min-h-11 rounded-xl bg-indigo-700 px-3 py-2 text-sm font-bold text-white">Sign Up</button>
+            </div>
           </nav>
         </header>
         <section className="relative overflow-hidden bg-gradient-to-br from-indigo-800 via-indigo-600 to-violet-700 px-5 py-14 text-white sm:py-20">
@@ -2982,12 +2845,12 @@ export default function Home() {
                 <div className="text-3xl" aria-hidden="true">🔐</div>
                 <h2 className="mt-4 text-2xl font-black">Existing Student</h2>
                 <p className="mt-3 min-h-14 text-sm leading-6 text-slate-600">Resume saved practice, view test history and continue available mock tests.</p>
-                <button type="button" onClick={openSignin} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-indigo-800">Sign In</button>
+                <button type="button" onClick={openSignin} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-indigo-800">Continue to Sign In</button>
               </div>
               <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-100 to-white p-6 text-slate-950 shadow-xl sm:p-8">
                 <div className="text-3xl" aria-hidden="true">🎓</div>
                 <h2 className="mt-4 text-2xl font-black">New Student</h2>
-                <p className="mt-3 min-h-14 text-sm leading-6 text-slate-600">Choose Class 8, 9, 10, 11 or 12. Try 10 free practice questions per subject.</p>
+                <p className="mt-3 min-h-14 text-sm leading-6 text-slate-600">Choose Class 8, 9, 10, 11 or 12. Try one free Practice set and one free Mock set per subject.</p>
                 <button type="button" onClick={openSignup} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-400 px-5 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-amber-300">Start Free · Create Account</button>
               </div>
             </div>
@@ -3144,7 +3007,7 @@ export default function Home() {
                 </div>
                 <div className="mt-7 space-y-4 sm:mt-9">
                 {mockQuestions.filter(q => mockReviewFilter === "all" || mockAnswers[q.id] !== q.correct_option.trim().toUpperCase()).map(
-                  (q, index) => {
+                  (q) => {
                     const correct =
                       q.correct_option
                         .trim()
@@ -3355,61 +3218,14 @@ export default function Home() {
           <div className="mt-4 text-sm font-semibold text-slate-700" aria-live="polite">
             Answered: {mockQuestions.filter(q => Boolean(mockAnswers[q.id])).length} / {mockQuestions.length} · Unanswered: {mockQuestions.filter(q => !mockAnswers[q.id]).length}
           </div>
-          {mockConfirmSubmit && (
-            <div role="region" aria-label="Confirm mock submission" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
-              <p className="font-bold text-slate-900">Ready to submit your Mock Test?</p>
-              <p className="mt-1 text-sm text-slate-700">{mockQuestions.filter(q => !mockAnswers[q.id]).length} unanswered question(s). The timer continues running.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {mockQuestions.some(q => !mockAnswers[q.id]) && <button type="button" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white" onClick={() => { setMockConfirmSubmit(false); setMockSkippedReview(true); setMockIndex(mockQuestions.findIndex(q => !mockAnswers[q.id])); }}>Review Unanswered Questions</button>}
-                <button type="button" disabled={mockSubmitting} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50" onClick={() => void submitMockTest(false)}>Submit Anyway</button>
-                <button type="button" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm" onClick={() => setMockConfirmSubmit(false)}>Continue Test</button>
-              </div>
-            </div>
-          )}
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5">
-            <button
-              disabled={
-                mockIndex === 0 ||
-                mockSubmitting
-              }
-              onClick={() =>
-                setMockIndex(
-                  (p) => p - 1
-                )
-              }
-              className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-5"
-            >
-              ← Previous
-            </button>
-
-            {mockIndex <
-            mockQuestions.length - 1 ? (
-              <button
-                disabled={mockSubmitting}
-                onClick={() =>
-                  (() => { if (mockSkippedReview) { const next = mockQuestions.findIndex((q,i) => i > mockIndex && !mockAnswers[q.id]); if (next < 0) { setMockSkippedReview(false); setMockConfirmSubmit(true); } else setMockIndex(next); } else setMockIndex(p => p + 1); })()
-                }
-                className="min-h-11 rounded-lg bg-blue-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
-              >
-                Next →
-              </button>
-            ) : (
-              <button
-                disabled={mockSubmitting}
-                onClick={() =>
-                  setMockConfirmSubmit(true)
-                }
-                className="min-h-11 rounded-lg bg-emerald-700 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
-              >
-                {mockSubmitting
-                  ? "Submitting..."
-                  : "Submit Mock Test"}
-              </button>
-            )}
-          <QuestionNavigator questions={mockQuestions} current={mockIndex} answers={mockAnswers} disabled={mockSubmitting || mockAnswerSaving} onNavigate={index=>{setMockSkippedReview(false);setMockIndex(index);}} />
-          {mockIndex < mockQuestions.length - 1 && (
-            <button type="button" disabled={mockSubmitting} onClick={() => setMockConfirmSubmit(true)} className="mt-3 w-full rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-bold text-emerald-800 disabled:opacity-50">Finish / Review Mock Test</button>
-          )}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button disabled={mockIndex===0 || mockSubmitting || mockAnswerSaving} onClick={()=>setMockIndex(p=>p-1)} className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-3 font-semibold disabled:opacity-40">← Previous</button>
+            <button disabled={mockIndex===mockQuestions.length-1 || mockSubmitting || mockAnswerSaving} onClick={()=>setMockIndex(p=>p+1)} className="min-h-11 rounded-lg bg-blue-700 px-4 py-3 font-bold text-white disabled:opacity-40">Next →</button>
+            <button disabled={!mockQuestions.some(q=>!mockAnswers[q.id]) || mockSubmitting || mockAnswerSaving} onClick={()=>{
+              const next=mockQuestions.findIndex((q,i)=>i>mockIndex&&!mockAnswers[q.id]);
+              setMockIndex(next>=0?next:mockQuestions.findIndex(q=>!mockAnswers[q.id]));
+            }} className="min-h-11 rounded-lg border border-blue-700 bg-white px-3 py-3 text-sm font-bold text-blue-800 disabled:opacity-40">Review Unanswered</button>
+            <button disabled={mockQuestions.some(q=>!mockAnswers[q.id]) || mockSubmitting || mockAnswerSaving} onClick={()=>void submitMockTest(false)} className="min-h-11 rounded-lg bg-emerald-700 px-4 py-3 font-bold text-white disabled:opacity-40">{mockSubmitting?"Submitting...":"Submit Test"}</button>
           </div>
         </section>
       </main>
@@ -3522,7 +3338,7 @@ export default function Home() {
                 </div>
                 <div className="mt-7 space-y-4 sm:mt-9">
                 {practiceQuestions.filter(q => practiceReviewFilter === "all" || practiceAnswers[q.id] !== q.correct_option.trim().toUpperCase()).map(
-                  (q, index) => {
+                  (q) => {
                     const correct =
                       q.correct_option
                         .trim()
@@ -4052,7 +3868,7 @@ export default function Home() {
                 value={selectedSubject}
                 aria-busy={subjectQuestionsLoading}
                 onChange={(e) =>
-                  { setChapterSearch(""); handleSubjectChange(e.target.value); }
+                  { handleSubjectChange(e.target.value); }
                 }
                 className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none hover:border-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 sm:min-h-11"
               >
@@ -4089,110 +3905,21 @@ export default function Home() {
                 Chapter
               </label>
 
-              <select
-                id="practice-chapter"
-                value={selectedChapter}
-                onChange={(e) => {
-                  setSelectedChapter(e.target.value);
-                  setPracticeSet(1);
-                }}
-                disabled={
-                  selectedSubject === ALL ||
-                  availableChapters.length === 0
-                }
-                className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-900 outline-none hover:border-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:min-h-11"
-              >
-                <option value={ALL}>
-                  {selectedSubject === ALL
-                    ? "Select Subject First"
-                    : availableChapters.length
-                    ? "All Chapters"
-                    : "No Chapters Available"}
-                </option>
-
-                {availableChapters.filter(c => c.chapter_name === selectedChapter || c.chapter_name.toLocaleLowerCase().includes(chapterSearch.trim().toLocaleLowerCase())).map((c) => (
-                  <option
-                    key={c.id}
-                    value={c.chapter_name}
-                  >
-                    {c.chapter_number
-                      ? `${c.chapter_number}. `
-                      : ""}
-                    {c.chapter_name}
-                  </option>
-                ))}
-              </select>
+              <details id="practice-chapter" className="rounded-lg border border-slate-300 bg-white">
+                <summary className="min-h-12 cursor-pointer px-3.5 py-3 text-sm font-medium text-slate-900">{selectedSubject===ALL?"Select Subject First":chapterSelected?`${selectedChapterIds.length} chapters selected`:"All Chapters"}</summary>
+                {selectedSubject!==ALL && <fieldset className="max-h-72 space-y-1 overflow-y-auto border-t p-3" aria-label="Select chapters">
+                  <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={!chapterSelected} onChange={()=>{setSelectedChapterIds([]);setPracticeSet(1);}}/>All Chapters</label>
+                  {availableChapters.map(c=><label key={c.id} className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" value={c.id} checked={selectedChapterIds.includes(c.id)} onChange={e=>{setSelectedChapterIds(ids=>(e.target.checked?[...ids,c.id]:ids.filter(id=>id!==c.id)).sort((a,b)=>a-b));setPracticeSet(1);}}/>{c.chapter_number?`${c.chapter_number}. `:""}{c.chapter_name}</label>)}
+                </fieldset>}
+              </details>
             </div>
           </div>
 
-          {selectedSubject !== ALL && availableChapters.length > 8 && <div className="mt-4 max-w-md"><label htmlFor="chapter-search" className="mb-2 block text-xs font-bold text-slate-600">Find a chapter by name</label><input id="chapter-search" type="search" value={chapterSearch} onChange={e=>setChapterSearch(e.target.value)} placeholder="Search chapter names…" className="min-h-11 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"/><p role="status" className="mt-1 text-xs text-slate-500">{availableChapters.filter(c=>c.chapter_name.toLocaleLowerCase().includes(chapterSearch.trim().toLocaleLowerCase())).length} matching chapters. Choose one in the Chapter menu above.</p></div>}
-          {chapterSelected && availableChapters.find(c => c.id === selectedChapterId)?.description && (
-            <p className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
-              {availableChapters.find(c => c.id === selectedChapterId)?.description}
-            </p>
-          )}
-
-          {/* FREE TRIAL STATUS — shown only to non-paid members */}
-          {!isPaidMember && selectedSubjectObject && (
-            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-bold text-amber-900">
-                    Free Trial —{" "}
-                    {selectedSubjectObject.subject_name}
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-amber-800">
-                    You can check up to 10 questions
-                    from this subject for free. All
-                    chapters in this subject share the
-                    same free-question allowance.
-                  </p>
-                </div>
-
-                <div className="w-fit rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-900">
-                  {freeUsageLoading
-                    ? "Loading..."
-                    : `${selectedSubjectUsage} / ${DEFAULT_FREE_QUESTIONS} used`}
-                </div>
-              </div>
-
-              {!freeUsageLoading &&
-                !selectedSubjectLimitReached && (
-                  <p className="mt-2 text-xs font-semibold text-emerald-700">
-                    {selectedSubjectRemaining} free question
-                    {selectedSubjectRemaining === 1
-                      ? ""
-                      : "s"} remaining for this subject.
-                  </p>
-                )}
-
-              {!freeUsageLoading &&
-                selectedSubjectLimitReached && (
-                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold leading-5 text-red-800">
-                    Your free trial limit for this
-                    subject has been reached. A
-                    subscription will be required to
-                    continue with additional practice
-                    questions.
-                  </div>
-                )}
-            </div>
-          )}
-
-          {!isPaidMember && !selectedSubjectObject && (
-            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
-              <p className="text-sm font-bold text-blue-900">
-                Subject-level Free Trial
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-blue-800">
-                Each subject has its own 10-question free
-                allowance. All chapters within a subject
-                share that allowance.
-              </p>
-            </div>
-          )}
+          {!isPaidMember && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-bold">One free Practice set and one free Mock set per subject</p>
+            <p className="mt-1">Each set includes up to 60 questions. A shorter chapter test uses the full set allowance. You can resume an unfinished set.</p>
+            {selectedSubjectObject && <p className="mt-2 font-semibold">{freeUsageLoading?"Loading allowance…":`Practice: ${practiceReservation?.completed_at?"Completed":practiceReservation?"In progress":"Available"} · Mock: ${mockReservation?.completed_at?"Completed":mockReservation?"In progress":"Available"}`}</p>}
+          </div>}
 
           <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-slate-200 pt-4 sm:pt-5">
             <span className="text-xs text-slate-600 sm:text-sm">
@@ -4260,43 +3987,11 @@ export default function Home() {
                   Practice Test
                 </h3>
 
-                <p className="mt-1 max-w-xl text-sm leading-6 text-blue-100">
-                  Select a subject and optionally a
-                  chapter. A chapter opens as one paper; All Chapters
-                  is divided into sets of 60 questions.
-                </p>
-
-                {selectedSubject !== ALL ? (
-                  <div className="mt-3 space-y-1.5">
-                    <p className="text-sm font-semibold text-white">
-                      {questionCountForSelection} total questions available
-                    </p>
-
-                    <p className="text-sm font-semibold text-green-200">
-                      {isPaidMember
-                        ? `${questionCountForSelection} questions unlocked`
-                        : `${freeQuestionCountForSelection} free questions available after starting practice`}
-                    </p>
-
-                    {!isPaidMember &&
-                      questionCountForSelection >
-                        freeQuestionCountForSelection && (
-                      <p className="text-xs leading-5 text-blue-200">
-                        {questionCountForSelection -
-                          freeQuestionCountForSelection}{" "}
-                        questions require a paid plan to access.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm font-semibold text-white">
-                    Select a subject first.
-                  </p>
-                )}
+                <p className="mt-3 text-sm text-blue-100">{Math.min(60,Math.max(0,questionCountForSelection-(practiceSet-1)*60))} questions · Immediate answer feedback</p>
               </div>
 
               <div className="grid w-full min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                {selectedSubject !== ALL && totalPracticeSets > 1 && (
+                {selectedSubject !== ALL && isPaidMember && totalPracticeSets > 1 && (
                   <select
                     aria-label="Select practice set"
                     value={practiceSet}
@@ -4330,7 +4025,7 @@ export default function Home() {
                   onClick={() => void startPracticeTest()}
                   disabled={practiceStarting ||
                     selectedSubject === ALL ||
-                    (!isPaidMember && freeUsageLoading)
+                    selectionLoading || (!isPaidMember && (freeUsageLoading || Boolean(practiceReservation?.completed_at)))
                   }
                   className="min-h-12 w-full rounded-lg bg-white px-5 py-3 text-sm font-bold text-blue-900 shadow-sm hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-11"
                 >
@@ -4338,7 +4033,7 @@ export default function Home() {
                     ? "Select Subject First"
                     : (!isPaidMember && freeUsageLoading)
                     ? "Checking Free Usage..."
-                    : practiceStarting ? "Loading saved practice..." : "Start / Resume Practice →"}
+                    : practiceReservation?.completed_at && !isPaidMember ? "Free Practice set completed" : practiceStarting ? "Loading saved practice..." : "Start / Resume Practice →"}
                 </button>
               </div>
             </div>
@@ -4348,122 +4043,19 @@ export default function Home() {
           <div className="rounded-2xl border border-orange-300 bg-orange-100 p-4 text-slate-900 shadow-sm sm:p-7">
             <div className="flex h-full flex-col justify-between gap-5">
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex min-h-10 items-center rounded-lg border border-orange-300 bg-orange-200 px-3 py-2 text-xs font-bold uppercase tracking-[0.1em] text-orange-900 sm:px-3 sm:text-[11px]">
-                    Real Mock Test
-                  </span>
-
-                  <span className="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-emerald-800">
-                    ⚡ Available to Paid Members
-                  </span>
-                  {subscribeButton()}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-extrabold uppercase text-orange-900">Real Mock Test</span>
+                  {isPaidMember && <span className="rounded-lg border border-emerald-300 bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-800">✓ Premium Active</span>}
                 </div>
-
-                <h3 className="mt-2.5 text-xl font-bold sm:mt-3 sm:text-2xl">
-                  Full Syllabus Mock Tests
-                </h3>
-
-                <p className="mt-1 max-w-xl text-sm leading-6 text-slate-700">
-                  Take 60-question numbered papers covering the full subject syllabus, followed by randomized retakes.
-                  {availableChapters.some(c => c.description?.startsWith("Assessment scope:")) && (
-                    <span className="mt-2 block text-xs">Subject practice mocks can include internal-assessment or supplementary topics. Check chapter notes; these are not official board-paper blueprints.</span>
-                  )}
-                </p>
-
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:max-w-sm">
-                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                      Questions
-                    </p>
-
-                    <p className="mt-1 text-lg font-extrabold text-slate-900">
-                      60
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                      Time
-                    </p>
-
-                    <p className="mt-1 text-lg font-extrabold text-slate-900">
-                      60 Min
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3">
-                  {selectedSubject === ALL ? (
-                    <p className="text-xs font-semibold text-orange-800">
-                      Select a subject first.
-                    </p>
-                  ) : !isPaidMember ? (
-                    <p className="text-xs font-semibold text-orange-800">
-                      Real Mock Tests require a paid membership. Your free practice allowance is separate.
-                    </p>
-                  ) : (
-                    <p
-                      className={`text-xs font-semibold ${
-                        (mockPoolAvailable || Boolean(unfinishedMock))
-                          ? "text-emerald-700"
-                          : "text-red-700"
-                      }`}
-                    >
-                      {mockPoolCounts.mock} MOCK-only + {mockPoolCounts.shared} SHARED eligible questions.
-                      {unfinishedMock ? " Your existing unfinished paper can be resumed." :
-                       !mockPoolAvailable ? " At least 48 MOCK and 12 SHARED are needed to start a new paper." :
-                       " Each new paper uses 48 MOCK and 12 SHARED."}
-                    </p>
-                  )}
-                </div>
+                <h3 className="mt-3 text-xl font-bold sm:text-2xl">{chapterSelected?"Chapter Mock Test":"Full Syllabus Mock Test"}</h3>
+                <p className="mt-3 text-sm font-semibold">{unfinishedMock?unfinishedMock.question_ids.length:Math.min(60,selectionCounts.mock)} questions · 60 minutes</p>
               </div>
-
               <div>
-                {isPaidMember && selectedSubject !== ALL && (
-                  <div className="mb-4 rounded-lg border border-orange-300 bg-white/70 p-3">
-                    <p className="text-sm font-bold">Next numbered mock / resume saved mock</p>
-                    <p className="mt-2 text-xs text-slate-700">
-                      {completedNumberedMocks}/{numberedMockCount} numbered papers completed.
-                      {unfinishedMock ? " Your unfinished paper will resume with its original questions." :
-                        " The next paper uses 48 MOCK + 12 SHARED questions and prefers questions you have not seen."}
-                      {" "}Retakes begin after all numbered mocks are completed.
-                    </p>
-                    <p className="mt-2 text-xs text-slate-600">
-                      Eligible pool: {mockPoolCounts.mock} mock-only and {mockPoolCounts.shared} shared questions.
-                    </p>
-                    {mockPapers.filter(p=>p.status==="COMPLETED" && p.quiz_attempt_id &&
-                      p.completed_at && new Date(p.completed_at).getTime() >= Date.now() - 14 * 86400000).map(p => (
-                      <p key={p.id} className="mt-2 text-xs text-indigo-700">
-                        <Link href={"/report/mock/"+p.quiz_attempt_id} className="font-bold underline">
-                          Download Complete Report PDF — {p.paper_number ? "Mock "+p.paper_number : "Retake "+p.retake_number}
-                        </Link>
-                      </p>
-                    ))}
-                  </div>
-                )}
-                {mockSubmitError && (
-                  <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-xs leading-5 text-red-700">
-                    {mockSubmitError}
-                  </div>
-                )}
-
+                {mockSubmitError && <p role="alert" className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">{mockSubmitError}</p>}
                 <p className="mb-3 text-xs font-semibold text-slate-700">Your test history is saved for 2 weeks only.</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <button
-                    onClick={startMockTest}
-                    disabled={mockStarting || mockHistoryLoading || selectedSubject === ALL || (isPaidMember && !mockCanStart)}
-                    className="min-h-12 w-full rounded-lg bg-orange-500 px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {selectedSubject === ALL ? "Select Subject First"
-                      : !isPaidMember ? "Unlock Real Mock Tests →"
-                      : mockStarting ? "Preparing your mock..."
-                      : mockHistoryLoading || subjectQuestionsLoading ? "Loading availability..."
-                      : !mockCanStart ? "Need 48 MOCK and 12 SHARED questions"
-                      : mockActionLabel}
-                  </button>
-
-
-                </div>
+                <button onClick={()=>void startMockTest()} disabled={!mockCanStart || (!isPaidMember&&(freeUsageLoading || Boolean(mockReservation?.completed_at)))} className="min-h-12 w-full rounded-lg bg-orange-600 px-5 py-3 text-sm font-extrabold text-white disabled:opacity-40">
+                  {selectedSubject===ALL?"Select Subject First":mockStarting?"Preparing your mock...":mockHistoryLoading||subjectQuestionsLoading||selectionLoading?"Loading availability...":!isPaidMember&&mockReservation?.completed_at?"Free Mock set completed":mockActionLabel}
+                </button>
               </div>
             </div>
           </div>

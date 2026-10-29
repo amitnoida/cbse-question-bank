@@ -17,10 +17,10 @@ test('Student portal is a sign-in/register gateway rather than duplicate marketi
   const response = await page.goto('/app');
   expect(response.status()).toBe(200);
   await expect(page.getByRole('heading', { name: 'Welcome to your learning space.' })).toBeVisible({timeout:30000});
-  await expect(page.getByRole('button', { name: 'Sign In', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign In', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Start Free.*Create Account/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Frequently Asked Questions' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign In', exact: true }).first().click();
   await expect(page.getByRole('dialog', { name: 'Student sign in' })).toBeVisible();
 });
 

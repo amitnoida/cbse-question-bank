@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const {finishMock}=require('./mock-helpers.cjs');
 
 // These tests only use dedicated E2E paid accounts. They create mock attempts,
 // so they must run via manual workflow_dispatch, not on a nightly schedule.
@@ -19,7 +20,7 @@ async function loginPaidStudent(page, classNumber) {
 }
 for(const classNumber of [8,10,11,12]){
   test(`Class ${classNumber} paid: begin, answer and submit 60-question real mock`,async({page})=>{
-    test.setTimeout(210000);
+    test.setTimeout(360000);
     await loginPaidStudent(page,classNumber);
     const subject=page.locator('#practice-subject');
     await expect.poll(async()=>subject.locator('option').count(),{timeout:30000}).toBeGreaterThan(1);
@@ -34,10 +35,8 @@ for(const classNumber of [8,10,11,12]){
     await expect(option).toBeVisible();
     await option.click();
     await expect(page.getByText(/Answered: [1-9]\d* \/ 60/)).toBeVisible({timeout:30000});
-    await page.getByRole('button',{name:/Finish \/ Review Mock Test/i}).click();
-    const confirm=page.getByRole('region',{name:'Confirm mock submission'});
-    if(await confirm.isVisible())await confirm.getByRole('button',{name:'Submit Anyway'}).click();
-    await expect(page.getByText('Real Mock Test Result',{exact:true})).toBeVisible({timeout:30000});
+    await expect(page.getByRole('button',{name:'Submit Test',exact:true})).toBeDisabled();
+    await finishMock(page);
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/\/dashboard/);
   });
