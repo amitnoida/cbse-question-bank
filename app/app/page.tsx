@@ -4234,25 +4234,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Advanced Mock uses a separate, release-gated candidate pool and paper history. */}
-        {enrolledClass && ["Class 11", "Class 12"].includes(enrolledClass.class_name) && (
-          <section className="mt-5 rounded-2xl border border-violet-200 bg-violet-50 p-4 sm:p-6" aria-label="Advanced Mock Test">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-violet-950">Advanced Mock Test</h3>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-violet-800">
-                  A separate 60-question timed mock for Class 11 and 12. Access opens only after
-                  subject questions pass academic and media release checks. Standard Mock Tests remain unchanged.
-                </p>
-              </div>
-              <Link href={selectedSubject !== ALL ? "/advanced-mock?subject=" + encodeURIComponent(selectedSubject) : "/advanced-mock"}
-                className="inline-flex min-h-11 items-center rounded-xl bg-violet-800 px-5 py-3 text-sm font-bold text-white hover:bg-violet-900">
-                Advanced Mock Tests
-              </Link>
-            </div>
-          </section>
-        )}
-
         {/* PAPER OPTIONS */}
         {selectedSubject !== ALL && !subjectQuestionsLoading &&
           questionCountForSelection === 0 && mockPoolCounts.mock === 0 &&

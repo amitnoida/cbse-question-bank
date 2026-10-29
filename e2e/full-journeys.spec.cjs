@@ -29,6 +29,7 @@ for (const account of student) {
   test('subject navigation and membership: ' + account.email, async ({page}) => {
     test.setTimeout(90000);
     await loginStudent(page,account);
+    await expect(page.getByRole('link',{name:/Advanced Mock/i})).toHaveCount(0);
     await expect(page.locator('#student-field-12')).toBeDisabled();
     const select=page.locator('#practice-subject');
     await expect.poll(async()=>select.locator('option').count(),{
@@ -117,7 +118,7 @@ test('paid student: 60-question mock, answer persistence and result',async({page
   if(!account) throw Error('Missing class 9 paid test account');
   await loginStudent(page,account);
   await chooseSubject(page);
-  const start=page.getByRole('button',{name:/Start Next Mock Test|Resume Mock Test|Start Mock Test|Retake Mock/i}).first();
+  const start=page.getByRole('button',{name:/Start Next Mock Test|Resume Mock Test|Resume Retake|Start Mock Test|Start Randomized Retake|Retake Mock/i}).first();
   const unavailable=page.getByRole('button',{name:/Need 48 MOCK and 12 SHARED questions/i});
   if(await unavailable.isVisible()){
     test.info().annotations.push({type:'blocked',description:'Insufficient eligible 48 MOCK + 12 SHARED question pool'});

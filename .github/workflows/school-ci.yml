@@ -1,20 +1,18 @@
-name: Advanced Mock TypeScript and Build
+name: School TypeScript and Build
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - 'app/advanced-mock/**'
-      - 'app/app/page.tsx'
-      - 'stage2-advanced-mock/**'
-      - '.github/workflows/advanced-mock-ci.yml'
+      - 'app/**'
+      - 'lib/**'
+      - '.github/workflows/school-ci.yml'
   push:
-    branches: [main, stage2-advanced-mock-20261028]
+    branches: [main]
     paths:
-      - 'app/advanced-mock/**'
-      - 'app/app/page.tsx'
-      - 'stage2-advanced-mock/**'
-      - '.github/workflows/advanced-mock-ci.yml'
+      - 'app/**'
+      - 'lib/**'
+      - '.github/workflows/school-ci.yml'
 
 permissions:
   contents: read

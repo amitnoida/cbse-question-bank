@@ -26,7 +26,7 @@ for(const classNumber of [8,10,11,12]){
     const values=await subject.locator('option').evaluateAll(items=>items.map(x=>x.value).filter(x=>x && x!=='all'));
     if(!values.length)throw new Error('No available subject for Class '+classNumber);
     await subject.selectOption(values[0]);
-    const start=page.getByRole('button',{name:/Start Next Mock Test|Resume Mock Test|Start Mock Test|Retake Mock/i}).first();
+    const start=page.getByRole('button',{name:/Start Next Mock Test|Resume Mock Test|Resume Retake|Start Mock Test|Start Randomized Retake|Retake Mock/i}).first();
     await expect(start).toBeEnabled({timeout:30000});
     await start.click();
     await expect(page.getByRole('heading',{name:/Question \d+ of 60/i})).toBeVisible({timeout:30000});
