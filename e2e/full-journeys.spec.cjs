@@ -39,7 +39,7 @@ for (const account of student) {
     }).toBeGreaterThan(1);
     await chooseSubject(page);
     const paid=account.email.endsWith('_paid@gmail.com');
-    await expect(page.getByRole('button',{name:paid?/Premium Active/i:/Subscribe ₹99/i}).first()).toBeVisible({timeout:30000});
+    await expect(page.getByRole('button',{name:paid?/Manage membership/i:/Membership plans/i}).first()).toBeVisible({timeout:30000});
     if(!paid) await expect(page.getByText('One free Practice set and one free Mock set per subject',{exact:true})).toBeVisible();
     await expect(page.getByText('Find a chapter by name')).toHaveCount(0);
     await expect(page.getByText(/Available to Paid Members/i)).toHaveCount(0);

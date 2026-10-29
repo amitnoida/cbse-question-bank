@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CouponScopeEditor } from "./coupon-scope-editor";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { productCodes, type SubscriptionProduct } from "../../../lib/subscription-catalog";
@@ -44,7 +45,7 @@ function ProductEditor({product, onSaved}: {product: SubscriptionProduct; onSave
     <label className="block text-sm font-medium">Price (INR)<input type="number" min="0" max="999999.99" step="0.01" placeholder="Not set" required={status === "ready"} className={field} value={price} onChange={e => {setPrice(e.target.value);}} /></label>
     <label className="block text-sm font-medium">Description<textarea maxLength={1000} rows={2} className={field} value={description} onChange={e => {setDescription(e.target.value);}} /></label>
     <label className="block text-sm font-medium">Configuration status<select className={field} value={status} onChange={e => {setStatus(e.target.value as "draft" | "ready");}}><option value="draft">Draft</option><option value="ready">Configured — price agreed</option></select></label>
-    <p className="text-xs text-slate-500">Configured plans remain admin-only until the student subscription release.</p>
+    <p className="text-xs text-slate-500">Configured plans appear on the student membership page. Draft plans stay hidden.</p>
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     <button className={button} disabled={busy || !dirty}>{busy ? "Saving…" : "Save plan"}</button>
     <p className="text-xs text-slate-500">Saved price: {priceLabel(product.price_inr)}</p>
@@ -70,10 +71,11 @@ export default function SubscriptionPlansPage() {
   }
   return <main className="mx-auto min-h-screen max-w-6xl space-y-6 bg-slate-50 p-4 text-slate-900 sm:p-8">
     <header className="flex flex-wrap items-center justify-between gap-4"><div><Link href="/admin" className="text-sm font-semibold text-indigo-700">← Admin dashboard</Link><h1 className="mt-3 text-3xl font-extrabold">Subscription plans</h1><p className="mt-1 text-slate-600">Full Admin · Classes 8–12 · Five class plans and two combos</p></div><button className={button} disabled={loading} onClick={() => void load()}>Reload catalogue</button></header>
-    <p className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm">Prepare plan names, prices and descriptions here. Saving configures the future catalogue. Current student memberships, coupons and access remain in their existing flow. Validity and activation dates will be agreed for the student release.</p>
+    <p className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm">Configured plans are available for student selection. Memberships include both Practice and Real Mock. Students choose immediate or next 1 April activation; renewals follow existing coverage. Paid checkout needs Razorpay merchant setup. Existing memberships retain their original dates.</p>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
     {message && <p role="status" className="rounded-xl bg-green-50 p-4 text-green-800">{message}</p>}
     {loading ? <p>Loading subscription catalogue…</p> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{[...products].sort((a,b) => productCodes.indexOf(a.code as typeof productCodes[number]) - productCodes.indexOf(b.code as typeof productCodes[number])).map(p => <ProductEditor key={`${p.code}:${p.revision}`} product={p} onSaved={p => void onSaved(p)} />)}</div>}
+    {products.length > 0 && <CouponScopeEditor />}
     {products.length > 0 && <section className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-bold">Recent changes</h2><p className="mt-1 text-sm text-slate-500">Latest 30 saves · times shown in India Standard Time</p><ul className="mt-4 divide-y">{history.map(a => <li key={a.id} className="py-3 text-sm"><strong>{a.after_value.name}</strong><p>{priceLabel(a.before_value.price_inr)} → {priceLabel(a.after_value.price_inr)} · {a.before_value.status} → {a.after_value.status}</p><p className="text-xs text-slate-500">{new Date(a.created_at).toLocaleString("en-IN", {timeZone: "Asia/Kolkata"})} · Revision {a.after_value.revision}</p></li>)}</ul>{!history.length && <p className="mt-3 text-sm text-slate-500">No changes yet.</p>}</section>}
   </main>;
 }

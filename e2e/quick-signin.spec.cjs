@@ -16,7 +16,7 @@ test('Quick sign-in survives a stale initial anonymous session snapshot',async({
   await dialog.getByRole('button',{name:'Sign In',exact:true}).click();
   await expect(dialog).toBeHidden();await profileStarted;release();
   await expect(page.getByRole('heading',{name:/what will you learn today/i})).toBeVisible({timeout:30000});
-  await expect(page.getByRole('button',{name:/Premium Active/i}).first()).toBeVisible({timeout:30000});
+  await expect(page.getByRole('button',{name:/Manage membership/i}).first()).toBeVisible({timeout:30000});
   await expect(page.locator('#practice-subject')).toBeVisible();
  }finally{release();}
 });

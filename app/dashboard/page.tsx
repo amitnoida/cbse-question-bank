@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { QuestionContent } from "../question-content";
 import { supabase } from "../../lib/supabase";
+import type { MembershipState } from "../../lib/student-memberships";
 import { formatValidThrough } from "../../lib/valid-through";
 
 
@@ -209,7 +210,7 @@ export default function StudentDashboard() {
 
 
 
-          supabase.from("subscriptions").select("status,start_date,end_date").eq("student_id",authUser.id).eq("status","ACTIVE").order("end_date",{ascending:false}).limit(1),
+          supabase.rpc("cbse_student_memberships_v1"),
 
 
 
@@ -225,7 +226,8 @@ export default function StudentDashboard() {
 
 
 
-        const cid=profileRes.data?.class_id ?? authUser.user_metadata?.class_id ?? null;
+        const membershipState = subsRes.data as MembershipState;
+        const cid=membershipState.profile.class_id;
 
 
 
@@ -257,11 +259,11 @@ export default function StudentDashboard() {
 
 
 
-        const active=(subsRes.data||[]).find(s=>!s.end_date||new Date(s.end_date).getTime()>=Date.now());
+        const active=membershipState.memberships.find(s=>s.status === "ACTIVE" && s.class_ids.includes(Number(cid)));
 
 
 
-        setPlan(active?"Paid membership":"Free plan");setExpiry(active?.end_date||null);
+        setPlan(membershipState.paid_current_class?"Paid membership":"Free plan");setExpiry(active?.end_date||null);
 
 
 
@@ -442,7 +444,7 @@ const subjectProgress=useMemo(()=>subjects.filter(s=>s.class_id===classId).map(s
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-indigo-600 sm:text-xs">CBSE Question Bank</p><h1 className="text-lg font-extrabold tracking-tight sm:text-xl">My Learning</h1></div><Link href="/app" className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:px-5 sm:text-sm">← Back to Practice</Link></div></header>
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-8">
       {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-700 to-violet-600 p-5 text-white shadow-lg shadow-indigo-200/60 sm:p-8"><div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-14 h-48 w-48 rounded-full border-[28px] border-white/10"/><div className="relative"><p className="text-xs font-semibold text-indigo-100 sm:text-sm">Welcome back 👋</p><h2 className="mt-2 break-words text-2xl font-black tracking-tight sm:text-4xl">{name}</h2><p className="mt-2 text-sm text-indigo-100">Your preparation, all in one place. Review mistakes, then choose your next chapter.</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">🎓 {className}</span><span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">{plan === "Free plan" ? "✨ Free plan" : "👑 Premium"}</span>{expiry&&<span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">Valid through {formatValidThrough(expiry)}</span>}</div><p className="mt-3 break-all text-xs text-indigo-100">{user.email||"No email available"}</p></div></section>
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-700 to-violet-600 p-5 text-white shadow-lg shadow-indigo-200/60 sm:p-8"><div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-14 h-48 w-48 rounded-full border-[28px] border-white/10"/><div className="relative"><p className="text-xs font-semibold text-indigo-100 sm:text-sm">Welcome back 👋</p><h2 className="mt-2 break-words text-2xl font-black tracking-tight sm:text-4xl">{name}</h2><p className="mt-2 text-sm text-indigo-100">Your preparation, all in one place. Review mistakes, then choose your next chapter.</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">🎓 {className}</span><span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">{plan === "Free plan" ? "✨ Free plan" : "👑 Premium"}</span>{expiry&&<span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">Valid through {formatValidThrough(expiry)}</span>}</div><Link href="/memberships" className="mt-4 inline-block rounded-lg bg-white px-4 py-2 text-sm font-bold text-indigo-800">Plans, renewals &amp; classes →</Link><p className="mt-3 break-all text-xs text-indigo-100">{user.email||"No email available"}</p></div></section>
       <section aria-label="Start learning"><div className="mb-3 flex items-center justify-between"><h3 className="text-lg font-extrabold tracking-tight sm:text-xl">Start learning</h3><span className="text-xs text-slate-500">Choose your mode</span></div><div className="grid gap-3 sm:grid-cols-2"><Link href="/app" className="group flex min-h-32 items-center gap-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-5 transition hover:border-indigo-300 hover:shadow-md"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-2xl text-white">📚</span><span className="min-w-0 flex-1"><strong className="block text-base font-extrabold text-slate-900">Practice Test</strong><span className="mt-1 block text-sm text-slate-600">Practice MCQs chapter by chapter</span></span><span className="font-bold text-indigo-700">→</span></Link><Link href="/app" className="group flex min-h-32 items-center gap-4 rounded-2xl border border-violet-100 bg-violet-50 p-5 transition hover:border-violet-300 hover:shadow-md"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-2xl text-white">⏱️</span><span className="min-w-0 flex-1"><strong className="block text-base font-extrabold text-slate-900">Real Mock Test</strong><span className="mt-1 block text-sm text-slate-600">60 questions · 60 minutes</span></span><span className="font-bold text-violet-700">→</span></Link></div></section>
       <section aria-label="Learning overview"><h3 className="mb-3 text-lg font-extrabold tracking-tight sm:text-xl">Your progress <span className="text-sm font-normal text-slate-500">· last 14 days</span></h3><div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{metricCards.map(x=><article key={x.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60 sm:p-5"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-xl">{x.icon}</span><p className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">{x.value}</p><p className="mt-1 text-xs font-medium text-slate-500 sm:text-sm">{x.label}</p></article>)}</div></section>
       <section className="grid gap-4 lg:grid-cols-2">{(["PRACTICE","MOCK"] as const).map(type=>{const s=type==="PRACTICE"?practiceSummary:mockSummary;return <article key={type} className={card}><div className="flex items-start gap-3"><span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl ${type==="PRACTICE"?"bg-indigo-50":"bg-violet-50"}`}>{type==="PRACTICE"?"📖":"📝"}</span><div><h3 className="text-base font-extrabold sm:text-lg">{type==="PRACTICE"?"Practice Test Summary":"Real Mock Test Summary"}</h3><p className="mt-1 text-xs text-slate-500">Successfully completed tests only</p></div></div><div className="mt-5 grid grid-cols-2 gap-3">{[{label:"Tests completed",value:s.count},{label:"Questions answered",value:s.answered},{label:"Correct answers",value:s.correct},{label:"Wrong answers",value:s.wrong},{label:"Accuracy",value:`${s.accuracy}%`},{label:"Average score",value:s.count?`${s.avgScore}%`:"—"},{label:"Highest score",value:s.count?`${s.highestScore}%`:"—"},{label:"Average time",value:s.count?fmtTime(s.avgTime):"—"}].map(m=><div key={m.label} className="rounded-xl bg-slate-50 p-3 sm:p-4"><p className="text-xs text-slate-500">{m.label}</p><p className="mt-1 text-xl font-black tracking-tight">{m.value}</p></div>)}</div></article>})}</section>

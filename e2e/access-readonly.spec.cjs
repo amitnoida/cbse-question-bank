@@ -15,11 +15,11 @@ for (const [index, account] of accounts.entries()) {
       await expect(page.getByRole('heading',{name:/what will you learn today/i})).toBeVisible({timeout:25000});
       await expect(page.locator('#practice-subject')).toBeVisible();
       await expect(page.locator('#student-field-12')).toBeDisabled();
-      const membershipButton = page.getByRole('button',{name:/Premium Active|Subscribe ₹99/i}).first();
+      const membershipButton = page.getByRole('button',{name:/Manage membership|Membership plans/i}).first();
       await expect(membershipButton).toBeVisible({timeout:25000});
       const expectedPaid = /_paid@gmail\.com$/i.test(account.email);
-      if (expectedPaid) await expect(membershipButton).toContainText('Premium Active');
-      else await expect(membershipButton).toContainText('Subscribe ₹99');
+      if (expectedPaid) await expect(membershipButton).toContainText('Manage membership');
+      else await expect(membershipButton).toContainText('Membership plans');
       await expect(page.getByRole('link',{name:/Dashboard/i}).first()).toBeVisible();
     } else {
       await page.goto('/admin');

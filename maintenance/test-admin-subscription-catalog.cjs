@@ -56,3 +56,22 @@ test('malformed JSON returns 400',async()=>{
 test('database errors do not disclose internals',async()=>{
   const {route}=api({role:'FULL_ADMIN',user:{id:'owner'}},{data:null,error:{code:'XX000',message:'private database detail'}});const r=await route.PATCH(req(valid));assert.equal(r.status,500);assert.ok(!(await r.text()).includes('private database detail'));
 });
+function couponApi(admin,rpcResult={data:{id:1},error:null}){
+ const calls=[];const route=load('app/api/admin/subscriptions/coupons/route.ts',{
+  '../../../../../lib/system-stats-server':{noStore:{'Cache-Control':'no-store'},requireStatsAdmin:async()=>admin?{...admin,db:{rpc:async(name,args)=>{calls.push({name,args});return rpcResult;}}}:null},
+  '../../../../../lib/subscription-catalog':catalog,
+ });return{route,calls};
+}
+test('coupon configuration requires Full Admin',async()=>{
+ for(const [admin,status] of [[null,401],[{role:'ADMIN_VIEW',user:{id:'viewer'}},403]]){
+  const {route,calls}=couponApi(admin);assert.equal((await route.PATCH(req({id:1,product:'CLASS_9',validity:'ONE_YEAR'}))).status,status);assert.equal(calls.length,0);
+ }
+});
+test('coupon configuration validates product and trusted actor',async()=>{
+ const {route,calls}=couponApi({role:'FULL_ADMIN',user:{id:'verified-admin'}});
+ assert.equal((await route.PATCH(req({id:1,product:'CLASS_9',validity:'ONE_YEAR',actor:'spoof'}))).status,200);
+ assert.equal(calls[0].args.p_actor,'verified-admin');
+ assert.equal((await route.PATCH(req({id:1,product:'ARBITRARY',validity:'ONE_YEAR'}))).status,400);
+ assert.equal((await route.PATCH(req({id:1,product:'CLASS_9',validity:'FOREVER'}))).status,400);
+ assert.equal(calls.length,1);
+});

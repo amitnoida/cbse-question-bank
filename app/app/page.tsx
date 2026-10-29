@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { errorMessage } from "../../lib/error-message";
 
 import type { User } from "@supabase/supabase-js";
@@ -9,6 +10,7 @@ import { DialogFocus } from "../dialog-focus";
 import { QuestionNavigator } from "../question-navigator";
 import { QuestionContent } from "../question-content";
 import { supabase } from "../../lib/supabase";
+import type { MembershipClass, MembershipState } from "../../lib/student-memberships";
 import { fetchFeedbackInBatches } from "../../lib/question-feedback";
 
 type ClassRow = {
@@ -66,9 +68,6 @@ type StudentProfile = {
 const ALL = "all";
 
 const MOCK_DURATION_SECONDS = 60 * 60;
-const ANNUAL_PLAN_PRICE = 99;
-// 2027-04-01 00:00 IST is 2027-03-31 18:30 UTC.
-const FREETRIAL_PROMO_END_UTC_MS = Date.parse("2027-03-31T18:30:00.000Z");
 // Prevent network requests from leaving the student on a loading screen forever.
 const SERVICE_REQUEST_TIMEOUT_MS = 12000;
 const AUTH_INITIALIZATION_TIMEOUT_MS = 15000;
@@ -152,6 +151,7 @@ function ServiceUnavailable() {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [classes, setClasses] = useState<ClassRow[]>([]);
   // Registration options are class-scoped and numerically ordered, not sorted by database ID.
   // Competitive exam categories remain separate from the Class 8–12 signup list.
@@ -282,212 +282,11 @@ export default function Home() {
      SUBSCRIPTION / COUPON
   ========================= */
 
-  const [showSubscribeModal, setShowSubscribeModal] =
-    useState(false);
-  // Null avoids server/client hydration mismatch before the browser clock is checked.
-  const [showFreetrialPromotion, setShowFreetrialPromotion] = useState<boolean | null>(null);
-  useEffect(() => {
-    const refreshPromotion = () => setShowFreetrialPromotion(Date.now() < FREETRIAL_PROMO_END_UTC_MS);
-    refreshPromotion();
-    const interval = window.setInterval(refreshPromotion, 30_000);
-    const onVisible = () => { if (document.visibilityState === "visible") refreshPromotion(); };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
-  }, []);
-  const promotionText = showFreetrialPromotion === null ? null : showFreetrialPromotion
-    ? "🎁 FREETRIAL — 100% off the ₹99 membership for eligible students. Free access ends 31 March 2027. Enter FREETRIAL in the coupon field; eligibility is verified when activating."
-    : "🎁 WELCOME10 — 10% welcome discount for eligible new students. Offer eligibility and redemption are verified before purchase.";
-  const [couponCode, setCouponCode] = useState("");
-  const [couponDiscount, setCouponDiscount] =
-    useState(0);
-  const [couponMessage, setCouponMessage] =
-    useState("");
-  const [couponLoading, setCouponLoading] =
-    useState(false);
-  const [isPaidMember, setIsPaidMember] =
-    useState(false);
+  const [isPaidMember, setIsPaidMember] = useState(false);
   const [membershipChecked, setMembershipChecked] = useState(false);
-
-  function openSubscribe() {
-    setCouponCode("");
-    setCouponDiscount(0);
-    setCouponMessage("");
-    setShowSubscribeModal(true);
-  }
-
-  function closeSubscribe() {
-    if (couponLoading) {
-      return;
-    }
-
-    setShowSubscribeModal(false);
-    setCouponCode("");
-    setCouponDiscount(0);
-    setCouponMessage("");
-  }
-
-  async function applyCoupon() {
-    const code = couponCode.trim().toUpperCase();
-
-    setCouponMessage("");
-    setCouponDiscount(0);
-
-    if (!code) {
-      setCouponMessage("Please enter a coupon code.");
-      return;
-    }
-
-    setCouponLoading(true);
-
-    const { data: couponRows, error: couponError } = await supabase.rpc(
-      "validate_coupon_for_student",
-      { p_coupon_code: code }
-    );
-    const data = Array.isArray(couponRows) ? couponRows[0] : null;
-
-    if (couponError) {
-      console.error("Coupon lookup error:", couponError);
-      setCouponMessage(
-        couponError.message ||
-          "Unable to validate the coupon. Please try again."
-      );
-      setCouponLoading(false);
-      return;
-    }
-
-    if (!data) {
-      setCouponMessage("Invalid coupon code.");
-      setCouponLoading(false);
-      return;
-    }
-
-    const now = new Date();
-    const validFrom = data.valid_from
-      ? new Date(data.valid_from)
-      : null;
-    const validUntil = data.valid_until
-      ? new Date(data.valid_until)
-      : null;
-
-    if (!data.is_active) {
-      setCouponMessage("This coupon is inactive.");
-      setCouponLoading(false);
-      return;
-    }
-
-    if (validFrom && now < validFrom) {
-      setCouponMessage("This coupon is not active yet.");
-      setCouponLoading(false);
-      return;
-    }
-
-    if (validUntil && now >= validUntil) {
-      setCouponMessage("This coupon has expired.");
-      setCouponLoading(false);
-      return;
-    }
-
-    if (
-      data.usage_limit !== null &&
-      data.usage_count >= data.usage_limit
-    ) {
-      setCouponMessage("This coupon has reached its usage limit.");
-      setCouponLoading(false);
-      return;
-    }
-
-    const discount = Number(data.discount_percentage);
-
-    if (!Number.isFinite(discount) || discount < 10 || discount > 100) {
-      setCouponMessage("This coupon has an invalid discount.");
-      setCouponLoading(false);
-      return;
-    }
-
-    setCouponDiscount(discount);
-    setCouponMessage(`${discount}% coupon validated for preview. Final eligibility and redemption require server verification.`);
-    setCouponLoading(false);
-  }
-
-  const couponDiscountAmount =
-    Math.round(ANNUAL_PLAN_PRICE * couponDiscount) / 100;
-
-  const finalSubscriptionPrice =
-    Math.max(0, ANNUAL_PLAN_PRICE - couponDiscountAmount);
-
-  async function activateFreeMembership() {
-    if (
-      !currentUser ||
-      finalSubscriptionPrice !== 0 ||
-      couponDiscount <= 0
-    ) {
-      return;
-    }
-
-    setCouponLoading(true);
-    setCouponMessage("");
-
-    try {
-      const { data, error: activationError } =
-        await supabase.rpc(
-          "activate_paid_membership_with_coupon",
-          {
-            p_coupon_code: couponCode.trim().toUpperCase(),
-          }
-        );
-
-      if (activationError) {
-        console.error(
-          "Membership activation error:",
-          activationError
-        );
-
-        setCouponMessage(
-          activationError.message ||
-            "Unable to activate membership. Please try again."
-        );
-        return;
-      }
-
-      const result = Array.isArray(data) ? data[0] : data;
-
-      if (!result?.success) {
-        setCouponMessage(
-          result?.message ||
-            "Unable to activate membership. Please try again."
-        );
-        return;
-      }
-
-      /*
-       * The RPC has already written the subscription to Supabase.
-       * Re-read the database instead of relying only on local React state.
-       */
-      const membershipActive =
-        await loadPaidMembership(currentUser.id);
-
-      if (!membershipActive) {
-        setCouponMessage(
-          "Membership was activated, but the saved subscription could not be verified. Please refresh and try again."
-        );
-        return;
-      }
-
-      setShowSubscribeModal(false);
-    } catch (activationError: unknown) {
-      console.error(
-        "Unexpected membership activation error:",
-        activationError
-      );
-
-      setCouponMessage(
-        errorMessage(activationError) ||
-          "Unable to activate membership. Please try again."
-      );
-    } finally {
-      setCouponLoading(false);
-    }
-  }
+  const [membershipClasses, setMembershipClasses] = useState<MembershipClass[]>([]);
+  function openSubscribe() { router.push("/memberships"); }
+  const promotionText: string | null = null;
 
   /* =========================
      SIGNUP
@@ -637,14 +436,11 @@ export default function Home() {
     userId: string,
     authUser?: User
   ) {
-    const { data, error: profileError } = await supabase
-      .from("student_profiles")
-      .select("full_name,class_id")
-      .eq("id", userId)
-      .maybeSingle();
-
-    // Ignore a response belonging to a signed-out or different account.
+    const {data: membershipData,error: profileError} = await supabase.rpc("cbse_student_memberships_v1");
     if (authUserIdRef.current !== userId) return null;
+    const state = membershipData as MembershipState | null;
+    const data = state?.profile;
+    if (state) setMembershipClasses(state.classes);
 
     if (profileError) {
       console.error(
@@ -755,60 +551,16 @@ export default function Home() {
      LOAD PAID MEMBERSHIP
   ========================= */
 
-  async function loadPaidMembership(
-    userId: string
-  ): Promise<boolean> {
-    console.log(
-      "Checking membership for user:",
-      userId
-    );
-
+  async function loadPaidMembership(userId: string): Promise<boolean> {
     setMembershipChecked(false);
-    const { data, error: subscriptionError } =
-      await supabase
-        .from("subscriptions")
-        .select(
-          "id,student_id,status,start_date,end_date,payment_reference"
-        )
-        .eq("student_id", userId)
-        .eq("status", "ACTIVE")
-        .order("end_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
+    const {data,error} = await supabase.rpc("cbse_student_memberships_v1");
     if (authUserIdRef.current !== userId) return false;
-
-    if (subscriptionError) {
-      /*
-       * Do not overwrite an already-known membership with false
-       * because of a temporary/network/database read error.
-       */
-      console.error(
-        "Subscription lookup error:",
-        subscriptionError
-      );
-      setMembershipChecked(false);
-      return isPaidMember;
-    }
-
-    const membershipActive =
-      !!data &&
-      (!data.end_date ||
-        new Date(data.end_date).getTime() >= Date.now());
-
-    console.log(
-      "Subscription query result:",
-      {
-        data,
-        error: subscriptionError,
-        membershipActive,
-      }
-    );
-
-    setIsPaidMember(membershipActive);
+    if (error) { setMembershipChecked(false); return isPaidMember; }
+    const state = data as MembershipState;
+    setMembershipClasses(state.classes);
+    setIsPaidMember(state.paid_current_class);
     setMembershipChecked(true);
-
-    return membershipActive;
+    return state.paid_current_class;
   }
 
   /* =========================
@@ -943,6 +695,7 @@ export default function Home() {
       setFreeUsage({});
       setFreeUsageLoading(false);
       setIsPaidMember(false);
+      setMembershipClasses([]);
       setMembershipChecked(false);
       setSubjects([]);
       setChapters([]);
@@ -983,11 +736,6 @@ export default function Home() {
       setMockDeadlineAt(null);
     setMockClockOffsetMs(0);
 
-      setShowSubscribeModal(false);
-      setCouponCode("");
-      setCouponDiscount(0);
-      setCouponMessage("");
-      setCouponLoading(false);
     }
 
     async function loadAuthenticatedUser(
@@ -1349,21 +1097,17 @@ export default function Home() {
      FILTER HANDLERS
   ========================= */
 
-  function handleClassChange(value: string) {
-    if (enrolledClassId === null) {
-      return;
-    }
-
-    if (
-      String(enrolledClassId) !== value
-    ) {
-      return;
-    }
-
-    setSelectedClass(
-      String(enrolledClassId)
-    );
-
+  async function handleClassChange(value: string) {
+    const id = Number(value);
+    if (!membershipClasses.some(c => c.id === id)) return;
+    const {data,error} = await supabase.rpc("cbse_switch_class_v1", {p_class_id:id});
+    if (error) { setError(error.message); return; }
+    const state = data as MembershipState;
+    setStudentProfile({full_name:state.profile.full_name,class_id:state.profile.class_id});
+    setMembershipClasses(state.classes);
+    setIsPaidMember(state.paid_current_class);
+    setMembershipChecked(true);
+    setSelectedClass(String(id));
     setSelectedSubject(ALL);
     setSelectedChapter(ALL);
     setSelectedChapterIds([]);
@@ -2195,7 +1939,6 @@ export default function Home() {
   async function handleLogout() {
     if (signingOut) return;
     setSigningOut(true);
-    setShowSubscribeModal(false);
 
     // Keep the premium state unchanged until Supabase confirms sign-out,
     // preventing a transient "Subscribe ₹99" button.
@@ -3522,144 +3265,16 @@ export default function Home() {
   const subscribeButton = (extraClass = "") => (
     <button
       type="button"
-      onClick={!membershipChecked || isPaidMember ? undefined : openSubscribe}
-      disabled={signingOut || !membershipChecked || isPaidMember}
+      onClick={openSubscribe}
+      disabled={signingOut || !membershipChecked}
       className={`inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-lg border border-amber-300 bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-300 disabled:cursor-default disabled:border-emerald-300 disabled:bg-emerald-100 disabled:text-emerald-800 sm:px-3 sm:text-xs ${extraClass}`}
     >
-      {signingOut ? "Signing out…" : !membershipChecked ? "Checking membership…" : isPaidMember ? "✓ Premium Active" : "⭐ Subscribe ₹99"}
+      {signingOut ? "Signing out…" : !membershipChecked ? "Checking membership…" : isPaidMember ? "✓ Manage membership" : "⭐ Membership plans"}
     </button>
   );
 
   return (
     <>
-      {showSubscribeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 px-4 py-6 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-label="Premium membership" tabIndex={-1} className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7"><DialogFocus />
-            <button
-              type="button"
-              onClick={closeSubscribe}
-              disabled={couponLoading}
-              className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-2xl font-extrabold text-slate-950 shadow-md hover:bg-slate-100 disabled:opacity-40"
-              aria-label="Close subscription"
-            >
-              ×
-            </button>
-
-            <div className="pr-10">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
-                Premium Membership
-              </p>
-
-              <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                Premium Access
-              </h2>
-              {promotionText && <p className="mt-2 text-sm font-bold text-amber-700">{promotionText}</p>}
-
-              <p className="mt-1.5 text-sm leading-5 text-slate-500">
-                Get access to paid practice questions and the Real Mock Test.
-              </p>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-blue-800">
-                    Plan until 31 March
-                  </p>
-                  <p className="mt-1 text-3xl font-extrabold text-slate-950">
-                    ₹{ANNUAL_PLAN_PRICE}
-                  </p>
-                </div>
-
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700">
-                  Annual
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-5">
-              <label htmlFor="student-field-11" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">
-                Coupon Code
-              </label>
-
-              <div className="flex gap-2">
-                <input id="student-field-11"
-                  type="text"
-                  value={couponCode}
-                  onChange={(e) => {
-                    setCouponCode(e.target.value.toUpperCase());
-                    setCouponDiscount(0);
-                    setCouponMessage("");
-                  }}
-                  placeholder="Enter coupon code"
-                  disabled={couponLoading}
-                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-semibold uppercase text-slate-900 outline-none placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
-                />
-
-                <button
-                  type="button"
-                  onClick={applyCoupon}
-                  disabled={couponLoading}
-                  className="min-h-11 rounded-lg bg-slate-950 px-4 py-3 text-xs font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
-                >
-                  {couponLoading ? "Checking..." : "Apply"}
-                </button>
-              </div>
-
-              {couponMessage && (
-                <p className={`mt-2 text-xs font-semibold ${
-                  couponDiscount > 0
-                    ? "text-emerald-700"
-                    : "text-red-700"
-                }`}>
-                  {couponMessage}
-                </p>
-              )}
-            </div>
-
-            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex justify-between gap-3 text-sm">
-                <span className="text-slate-600">Plan price</span>
-                <span className="font-semibold text-slate-900">₹{ANNUAL_PLAN_PRICE.toFixed(2)}</span>
-              </div>
-
-              {couponDiscount > 0 && (
-                <div className="mt-2 flex justify-between gap-3 text-sm">
-                  <span className="text-emerald-700">Coupon discount ({couponDiscount}%)</span>
-                  <span className="font-semibold text-emerald-700">-₹{couponDiscountAmount.toFixed(2)}</span>
-                </div>
-              )}
-
-              <div className="mt-3 border-t border-slate-200 pt-3 flex justify-between gap-3">
-                <span className="font-bold text-slate-900">Payable amount</span>
-                <span className="text-xl font-extrabold text-blue-700">₹{finalSubscriptionPrice.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={activateFreeMembership}
-              disabled={
-                couponLoading ||
-                finalSubscriptionPrice !== 0 ||
-                couponDiscount === 0
-              }
-              className="mt-5 min-h-12 w-full rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {couponLoading
-                ? "Activating..."
-                : finalSubscriptionPrice === 0
-                ? "Activate Premium Membership"
-                : "Paid Checkout Coming Soon"}
-            </button>
-
-            <p className="mt-3 text-center text-[11px] leading-5 text-slate-500">
-              Online payment checkout is not active yet. Premium membership can currently be activated only with an eligible 100% discount coupon.
-            </p>
-          </div>
-        </div>
-      )}
-
       <main className="min-h-screen overflow-x-hidden bg-slate-50">
       <style>{`@keyframes welcome10-scroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } } @media (prefers-reduced-motion: reduce) { .welcome10-scroll { animation: none !important; transform: none !important; } }`}</style>
       {promotionText && <div className="w-full overflow-hidden border-b border-amber-300 bg-amber-100 py-2 text-amber-950" role="note" aria-label="Current membership offer">
@@ -3756,36 +3371,12 @@ export default function Home() {
                 Your Class
               </label>
 
-              <select id="student-field-12"
-                value={
-                  enrolledClassId !== null
-                    ? String(enrolledClassId)
-                    : ""
-                }
-                onChange={(e) =>
-                  handleClassChange(
-                    e.target.value
-                  )
-                }
-                disabled
-                className="min-h-12 w-full rounded-lg border border-slate-300 bg-slate-100 px-3.5 py-3 text-sm font-bold text-slate-700 outline-none disabled:cursor-not-allowed sm:min-h-11"
-              >
-                {enrolledClass ? (
-                  <option
-                    value={enrolledClass.id}
-                  >
-                    {enrolledClass.class_name}
-                  </option>
-                ) : (
-                  <option value="">
-                    Class not assigned
-                  </option>
-                )}
+              <select id="student-field-12" value={enrolledClassId === null ? "" : String(enrolledClassId)}
+                onChange={e => void handleClassChange(e.target.value)} disabled={membershipClasses.length < 2}
+                className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-3 text-sm font-bold text-slate-700 disabled:bg-slate-100">
+                {membershipClasses.length ? membershipClasses.map(c => <option key={c.id} value={c.id}>{c.name}{c.paid ? " · Premium" : ""}</option>) : <option value="">Class not assigned</option>}
               </select>
-
-              <p className="mt-1.5 text-[11px] text-slate-500">
-                Class is linked to your account.
-              </p>
+              <Link href="/memberships" className="mt-1.5 inline-block text-xs font-semibold text-indigo-700">Manage plans and class access →</Link>
             </div>
 
             {/* SUBJECT */}

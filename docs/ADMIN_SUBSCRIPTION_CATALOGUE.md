@@ -4,7 +4,7 @@ Open `/admin/subscriptions` through the Admin dashboard. Only active FULL_ADMIN 
 
 Seven fixed products: Classes 8, 9, 10, 11, 12; combos 9+10 and 11+12. Full Admin can edit name, INR price (two decimals), description and configuration status. Prices start unset. Draft permits unset price; Configured requires a price. Both modes are included. Class coverage cannot be altered through the edit API.
 
-This is an admin preparation catalogue, stored separately from the legacy subscription_plans. Configured does not publish a product, grant entitlements or change current prices. Student selection, payments, class progression, validity/activation policy and coupon migration belong to the later student release.
+Configured products now appear in the student membership workspace. Draft products remain hidden. Membership activation uses server-verified class coverage and coupon eligibility. See STUDENT_MEMBERSHIP_RELEASE.md for lifecycle rules and the remaining Razorpay merchant-account dependency.
 
 Saves use a revision check and row lock. A stale editor receives HTTP 409 and must reload. Product changes and before/after audit entries commit together. Client roles have no table or function access; the server uses its existing service client after authenticating the administrator. The RPC independently rechecks the actor role and membership. No credentials are added.
 
