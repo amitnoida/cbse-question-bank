@@ -36,6 +36,6 @@ test('Admin Viewer cannot read or edit subscription catalogue',async({page})=>{
  expect(await status(page,'GET')).toBe(403);
  expect(await status(page,'PATCH')).toBe(403);
  await page.goto('/admin/subscriptions');
- await expect(page.getByRole('alert')).toHaveText('Full Admin permission required.',{timeout:30000});
+ await expect(page.getByRole('main').getByRole('alert')).toHaveText('Full Admin permission required.',{timeout:30000});
  await expect(page.getByRole('button',{name:'Save plan',exact:true})).toHaveCount(0);
 });
