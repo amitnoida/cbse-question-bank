@@ -1,0 +1,47 @@
+name: No-cost AI-assisted preparation
+on:
+  workflow_dispatch:
+  schedule:
+    # Every second Monday, gated below using whole weeks from 2026-11-02.
+    - cron: '0 4 * * 1'
+    - cron: '0 4 1 * *'
+  pull_request:
+    paths: ['agents/no-cost/**', '.github/workflows/no-cost-assistant.yml']
+permissions:
+  contents: read
+concurrency:
+  group: no-cost-preparation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  prepare:
+    # No private-repository runner allowance/overage, no model APIs, no caches/artifacts.
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify offline preparation tools
+        run: python3 -m unittest discover -s agents/no-cost -p 'test_*.py' -v
+      - name: Prepare owner work brief
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          python3 - <<'PY'
+          import datetime as dt, os, subprocess
+          today = dt.datetime.now(dt.timezone.utc).date()
+          kind = 'manual'
+          if os.environ['EVENT_NAME'] == 'schedule':
+              if os.environ['SCHEDULE'] == '0 4 1 * *':
+                  kind = 'monthly'
+              else:
+                  weeks = (today - dt.date(2026,11,2)).days // 7
+                  if weeks < 0 or weeks % 2:
+                      raise SystemExit(0)
+                  kind = 'fortnightly'
+          brief = subprocess.check_output(['python3','agents/no-cost/assistant.py','brief','--kind',kind], text=True)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
+              summary.write(brief)
+          PY
