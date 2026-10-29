@@ -1,0 +1,44 @@
+name: Admin Subscription Catalogue Checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/admin-subscriptions-e2e.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: admin-subscription-catalogue
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: API validation and authorization unit tests
+        run: node --test maintenance/test-admin-subscription-catalog.cjs
+      - name: Wait for new production endpoint
+        run: |
+          node --input-type=module <<'JS'
+          let ready=false;
+          for(let i=0;i<60;i++) {
+            try {const r=await fetch('https://cbse-question-bank.vercel.app/api/admin/subscriptions'); if(r.status===401){ready=true;break;}} catch {}
+            await new Promise(r=>setTimeout(r,5000));
+          }
+          if(!ready)throw Error('Production subscription API did not become ready');
+          JS
+      - name: Install browser test tools
+        run: npm install --no-save --package-lock=false @playwright/test@1.56.1 && npx playwright install --with-deps chromium
+      - name: Read-only production admin checks
+        env:
+          E2E_ACCOUNTS_JSON: ${{ secrets.E2E_ACCOUNTS_JSON }}
+          E2E_BASE_URL: https://cbse-question-bank.vercel.app
+        run: npx playwright test --config=e2e/admin-subscriptions.config.cjs
