@@ -165,11 +165,11 @@ export default function Home() {
   const [selectionCounts, setSelectionCounts] = useState({practice:0,mock:0});
   const [selectionLoading, setSelectionLoading] = useState(false);
   const preferredSubjectApplied = useRef(false);
-  const [questions, setQuestions] = useState<MCQ[]>([]);
-  const [, setChapterQuestionCounts] = useState<Record<number,number>>({});
 
   const [loading, setLoading] = useState(true);
-  const [subjectQuestionsLoading, setSubjectQuestionsLoading] = useState(false);
+  const subjectQuestionsLoading = selectionLoading;
+  const [selectionError, setSelectionError] = useState("");
+  const [selectionReload, setSelectionReload] = useState(0);
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -267,7 +267,6 @@ export default function Home() {
     quiz_attempt_id: string | null;
   };
   const [mockPapers, setMockPapers] = useState<MockPaper[]>([]);
-  const [mockPoolCounts, setMockPoolCounts] = useState<{ mock: number; shared: number; capacity: number }>({ mock: 0, shared: 0, capacity: 0 });
   const [completedMockAttemptId, setCompletedMockAttemptId] = useState<number | null>(null);
   const [mockFeedbackReady, setMockFeedbackReady] = useState(false);
   const [savedMockScore, setSavedMockScore] = useState<{
@@ -873,20 +872,10 @@ export default function Home() {
 
       const classRows = loadedClasses;
 
-      // Load subject metadata first; question text is fetched only for the selected subject.
-      const mcqs: MCQ[] = [];
-
+      // Question bodies are delivered only after assigning a set (at most 60).
       setClasses(classRows);
       setSubjects(subjectRows);
       setChapters(chapterRows);
-      setQuestions(mcqs);
-
-      console.info("Question bank loaded:", {
-        classes: classRows.length,
-        subjects: subjectRows.length,
-        chapters: chapterRows.length,
-        activeMCQs: mcqs.length,
-      });
     } catch (loadError: unknown) {
       console.error("Question bank loading failed:", loadError);
       setError(errorMessage(loadError) || "Unable to load questions.");
@@ -894,79 +883,6 @@ export default function Home() {
       setLoading(false);
     }
   }
-
-  // Lazy-load MCQs for one subject at a time. Avoid downloading both classes' entire question bank at login.
-  const subjectUserId = currentUser?.id;
-  const subjectClassId = studentProfile?.class_id ?? getMetadataClassId(currentUser);
-  useEffect(() => {
-    let cancelled = false;
-    const loadSubject = async () => {
-      // Defer external-data initialization so cleanup can cancel an obsolete selection.
-      await Promise.resolve();
-      if (cancelled) return;
-      if (!subjectUserId || selectedSubject === ALL || !subjects.length || !chapters.length || !classes.length) {
-        setQuestions([]);
-        setChapterQuestionCounts({});
-        setSubjectQuestionsLoading(false);
-        return;
-      }
-      const classId = subjectClassId;
-      const subject = subjects.find(row => row.class_id === classId && row.subject_name === selectedSubject);
-      if (!subject) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
-      const chapterRows = chapters.filter(c => c.subject_id === subject.id);
-      const chapterIds = chapterRows.map(c => c.id);
-      if (!chapterIds.length) { setQuestions([]); setSubjectQuestionsLoading(false); return; }
-      setSubjectQuestionsLoading(true);
-      setQuestions([]);
-      setChapterQuestionCounts({});
-      try {
-        // Question bodies are delivered through a server-authorized RPC.
-        // Correct answers and explanations are never sent before a saved answer.
-        // PostgREST limits a single response; fetch secure, ordered pages as the bank grows.
-        const loadQuestionPages = async (): Promise<QuestionRow[]> => {
-          const result: QuestionRow[] = [];
-          const pageSize = 500;
-          for (let offset = 0; !cancelled; offset += pageSize) {
-            const { data, error } = await supabase.rpc("cbse_subject_practice_questions_v2", {
-              p_subject_id: subject.id,
-            }).order("id", { ascending: true }).range(offset, offset + pageSize - 1);
-            if (error) throw error;
-            if (cancelled) return [];
-            const page = (data || []) as QuestionRow[];
-            result.push(...page);
-            if (page.length < pageSize) break;
-          }
-          return result;
-        };
-        const [questionData, countsResponse, mockCountsResponse] = await Promise.all([
-          loadQuestionPages(),
-          supabase.rpc("cbse_chapter_counts_v1", { p_subject_id: subject.id }),
-          supabase.rpc("cbse_mock_pool_counts_v2", { p_subject_id: subject.id }),
-        ]);
-        if (mockCountsResponse.error) throw mockCountsResponse.error;
-        const pool = (mockCountsResponse.data || [])[0] as { mock_count: number; shared_count: number; numbered_paper_capacity: number } | undefined;
-        if (!cancelled) setMockPoolCounts({
-          mock: Number(pool?.mock_count||0),
-          shared: Number(pool?.shared_count||0),
-          capacity: Number(pool?.numbered_paper_capacity||0),
-        });
-        const { data: countsData, error: countsError } = countsResponse;
-        if (countsError) throw countsError;
-        if (!cancelled) setChapterQuestionCounts(Object.fromEntries(((countsData || []) as Array<{chapter_id:number,question_count:number}>).map(c => [Number(c.chapter_id),Number(c.question_count)])));
-        const rows = (questionData || []) as QuestionRow[];
-        if (cancelled) return;
-        const chapterMap = new Map(chapterRows.map(c => [c.id, c]));
-        const className = classes.find(c => c.id === classId)?.class_name || "";
-        setQuestions(rows.map(q => ({ ...q, classId: classId!, subjectId: subject.id, className,
-          subjectName: subject.subject_name, chapterName: chapterMap.get(q.chapter_id)?.chapter_name || "",
-          options: [q.option_a, q.option_b, q.option_c, q.option_d].filter(Boolean) })));
-      } catch (err: unknown) {
-        if (!cancelled) setError(errorMessage(err) || "Unable to load selected subject questions.");
-      } finally { if (!cancelled) setSubjectQuestionsLoading(false); }
-    };
-    void loadSubject();
-    return () => { cancelled = true; };
-  }, [subjectUserId, subjectClassId, selectedSubject, subjects, chapters, classes]);
 
   // Administrator access is handled on /admin, where the protected RPC
   // is called only within the administrator workflow. Do not probe admin
@@ -997,7 +913,6 @@ export default function Home() {
       setFreeUsage({});
       setIsPaidMember(false);
       setMembershipChecked(false);
-      setQuestions([]);
       setSubjects([]);
       setChapters([]);
 
@@ -1315,40 +1230,6 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [currentUser, availableSubjects]);
 
-  const filteredQuestions = useMemo(() => {
-    if (enrolledClassId === null) {
-      return [];
-    }
-
-    return questions.filter((q) => {
-      const matchesStudentClass =
-        q.classId === enrolledClassId;
-
-      if (!matchesStudentClass) {
-        return false;
-      }
-
-      const matchesSubject =
-        selectedSubject === ALL ||
-        q.subjectName === selectedSubject;
-
-      const matchesChapter =
-        selectedChapterIds.length === 0 ||
-        selectedChapterIds.includes(q.chapter_id);
-
-      return (
-        q.is_active &&
-        matchesSubject &&
-        matchesChapter
-      );
-    });
-  }, [
-    questions,
-    selectedSubject,
-    selectedChapterIds,
-    enrolledClassId,
-  ]);
-
   const unfinishedMock = mockPapers.find(p => p.status === "STARTED");
   const mockCanStart = selectedSubject !== ALL && !selectionLoading &&
     (Boolean(unfinishedMock) || selectionCounts.mock > 0) && !mockStarting && !mockHistoryLoading && !subjectQuestionsLoading;
@@ -1361,7 +1242,6 @@ export default function Home() {
       await Promise.resolve();
       if (cancelled) return;
       setMockPapers([]);
-      setMockPoolCounts({mock:0,shared:0,capacity:0});
       if (!currentUser?.id || !availableSubjects.find(s => s.subject_name === selectedSubject)?.id) { setMockHistoryLoading(false); return; }
 
       setMockHistoryLoading(true);
@@ -1402,7 +1282,6 @@ export default function Home() {
   const PRACTICE_SET_SIZE = 60;
   const chapterSelected = selectedChapterIds.length > 0;
 
-  const orderedPracticeQuestions = useMemo(() => [...filteredQuestions].sort((a,b)=>a.id-b.id),[filteredQuestions]);
   const questionCountForSelection = selectionCounts.practice;
   const totalPracticeSets = isPaidMember ? Math.ceil(questionCountForSelection/60) : (questionCountForSelection>0?1:0);
   const practiceSet = Math.min(requestedPracticeSet,Math.max(1,totalPracticeSets));
@@ -1413,14 +1292,21 @@ export default function Home() {
     const load=async()=>{
       await Promise.resolve(); if(cancelled)return;
       setSelectionLoading(true);
+      setSelectionError("");
       if(!selectedSubjectObject){setSelectionCounts({practice:0,mock:0});setSelectionLoading(false);return;}
-      const {data,error}=await supabase.rpc("cbse_selection_counts_v1",{p_subject_id:selectedSubjectObject.id,p_chapter_ids:selectedChapterIds});
+      let response=await supabase.rpc("cbse_selection_counts_v1",{p_subject_id:selectedSubjectObject.id,p_chapter_ids:selectedChapterIds});
+      if(!cancelled && response.error && (response.status===0 || response.status>=500)){
+        await new Promise(resolve=>window.setTimeout(resolve,200));
+        if(cancelled)return;
+        response=await supabase.rpc("cbse_selection_counts_v1",{p_subject_id:selectedSubjectObject.id,p_chapter_ids:selectedChapterIds});
+      }
+      const {data,error}=response;
       if(cancelled)return;
-      if(error){setError(error.message);setSelectionCounts({practice:0,mock:0});}
+      if(error){setSelectionError("Test availability could not be loaded. Please retry.");setSelectionCounts({practice:0,mock:0});}
       else {const row=data?.[0];setSelectionCounts({practice:Number(row?.practice_count||0),mock:Number(row?.mock_count||0)});}
       setSelectionLoading(false);
     };void load();return()=>{cancelled=true;};
-  },[selectedSubjectObject,selectedChapterIds]);
+  },[selectedSubjectObject,selectedChapterIds,selectionReload]);
 
   /* =========================
      FILTER HANDLERS
@@ -2288,7 +2174,6 @@ export default function Home() {
     setStudentProfile(null);
     setFreeUsage({});
     setIsPaidMember(false);
-    setQuestions([]);
     setSubjects([]);
     setChapters([]);
 
@@ -3822,7 +3707,7 @@ export default function Home() {
             </div>
 
             <div className="w-fit rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-bold text-blue-800">
-              {isPaidMember ? filteredQuestions.length : questionCountForSelection} MCQs
+              {questionCountForSelection} MCQs
             </div>
           </div>
 
@@ -3896,7 +3781,7 @@ export default function Home() {
 
               {subjectQuestionsLoading && (
                 <p role="status" className="mt-1.5 text-[11px] font-semibold text-blue-700">
-                  Loading questions for this subject… You can choose a chapter now.
+                  Checking test availability… You can choose chapters now.
                 </p>
               )}
 
@@ -3922,6 +3807,8 @@ export default function Home() {
               </details>
             </div>
           </div>
+
+          {selectionError && <div role="alert" className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{selectionError}<button type="button" onClick={()=>setSelectionReload(n=>n+1)} className="ml-3 min-h-11 font-bold underline">Retry availability</button></div>}
 
           {!isPaidMember && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="font-bold">One free Practice set and one free Mock set per subject</p>
@@ -3970,9 +3857,8 @@ export default function Home() {
         </div>
 
         {/* PAPER OPTIONS */}
-        {selectedSubject !== ALL && !subjectQuestionsLoading &&
-          questionCountForSelection === 0 && mockPoolCounts.mock === 0 &&
-          mockPoolCounts.shared === 0 && (
+        {selectedSubject !== ALL && !subjectQuestionsLoading && !selectionError &&
+          questionCountForSelection === 0 && selectionCounts.mock === 0 && (
           <p role="status" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium leading-6 text-amber-950">
             Questions for this subject are still being prepared. New practice and real mock
             tests will become available when questions are published. Existing saved sessions
@@ -4008,7 +3894,7 @@ export default function Home() {
                   >
                     {Array.from({ length: totalPracticeSets }, (_, index) => {
                       const from = index * PRACTICE_SET_SIZE + 1;
-                      const to = Math.min((index + 1) * PRACTICE_SET_SIZE, orderedPracticeQuestions.length);
+                      const to = Math.min((index + 1) * PRACTICE_SET_SIZE, questionCountForSelection);
                       return (
                         <option key={index + 1} value={index + 1}>
                           {`Set ${index + 1} — Questions ${from}–${to}`}
