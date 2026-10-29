@@ -3338,7 +3338,7 @@ export default function Home() {
                 </div>
                 <div className="mt-7 space-y-4 sm:mt-9">
                 {practiceQuestions.filter(q => practiceReviewFilter === "all" || practiceAnswers[q.id] !== q.correct_option.trim().toUpperCase()).map(
-                  (q) => {
+                  (q, index) => {
                     const correct =
                       q.correct_option
                         .trim()
