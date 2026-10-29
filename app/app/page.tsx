@@ -987,6 +987,7 @@ export default function Home() {
   });
   useEffect(() => {
     let mounted = true;
+    let authRevision = 0;
 
     function clearAuthenticatedState() {
       authUserIdRef.current = null;
@@ -1052,6 +1053,7 @@ export default function Home() {
       }
 
       const userId = user.id;
+      const revision = authRevision;
 
       // Do not load student-only data for an admin viewing the public homepage.
       if (isWebsitePreview) {
@@ -1069,7 +1071,7 @@ export default function Home() {
           supabase.from("admin_users").select("user_id").eq("user_id", userId).maybeSingle(),
           3000
         );
-        if (!mounted) return;
+        if (!mounted || revision !== authRevision) return;
         if (!roleError && adminRow) {
           window.location.replace("/admin");
           return;
@@ -1082,7 +1084,7 @@ export default function Home() {
       }
 
       // Covers both fresh logins and previously authenticated sessions.
-      if (!mounted || authUserIdRef.current !== null && authUserIdRef.current !== userId) return;
+      if (!mounted || revision !== authRevision || authUserIdRef.current !== null && authUserIdRef.current !== userId) return;
 
       /*
        * Prevent duplicate loads caused by signInWithPassword()
@@ -1091,10 +1093,11 @@ export default function Home() {
       authUserIdRef.current = userId;
       setCurrentUser(user);
 
-      await loadAuthResources(user, classRowsOverride, () => mounted);
+      await loadAuthResources(user, classRowsOverride, () => mounted && revision === authRevision);
     }
 
     async function initializeApp() {
+      const revision = authRevision;
       setAuthLoading(true);
       try {
         // Class metadata and auth session are independent. Both have a deadline.
@@ -1102,7 +1105,9 @@ export default function Home() {
           loadClasses(),
           withTimeout(supabase.auth.getSession(), AUTH_INITIALIZATION_TIMEOUT_MS),
         ]);
-        if (!mounted) return;
+        // A quick sign-in can finish while initial class metadata is loading.
+        // Its newer auth event must win over the earlier anonymous snapshot.
+        if (!mounted || revision !== authRevision) return;
         const { data: { session }, error: sessionError } = sessionResult;
         if (sessionError) throw sessionError;
         if (session?.user) {
@@ -1113,9 +1118,9 @@ export default function Home() {
         }
       } catch (initializationError) {
         console.error("Application initialization failed:", initializationError);
-        if (mounted) setError("Unable to connect to the learning platform.");
+        if (mounted && revision === authRevision) setError("Unable to connect to the learning platform.");
       } finally {
-        if (mounted) setAuthLoading(false);
+        if (mounted && revision === authRevision) setAuthLoading(false);
       }
     }
 
@@ -1131,6 +1136,8 @@ export default function Home() {
         if (!mounted) {
           return;
         }
+        if (event === "INITIAL_SESSION" && authRevision > 0) return;
+        if (event === "SIGNED_OUT" || (event === "SIGNED_IN" && authUserIdRef.current !== session?.user?.id)) authRevision++;
 
         if (event === "PASSWORD_RECOVERY") {
           setUpdatePasswordError("");
@@ -1161,8 +1168,9 @@ export default function Home() {
         /*
          * Defer the database calls until the auth callback finishes.
          */
+        const scheduledRevision = authRevision;
         window.setTimeout(() => {
-          if (!mounted) {
+          if (!mounted || scheduledRevision !== authRevision) {
             return;
           }
 

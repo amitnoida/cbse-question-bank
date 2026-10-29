@@ -1,6 +1,6 @@
 name: CBSE School E2E - 12 Accounts
 
-# One-click regression verifies chapter selection, free sets, reports and unobstructed test controls.
+# One-click regression also checks quick sign-in while initial metadata is still loading.
 # Manual runs, or an explicitly marked release commit, use dedicated test accounts only.
 on:
   workflow_dispatch:
