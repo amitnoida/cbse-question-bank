@@ -19,9 +19,11 @@ async function subject(page,value){
  return value;
 }
 async function chapters(page,ids){
- await page.locator('#practice-chapter summary').click();
+ const picker=page.locator('#practice-chapter');
+ if(await picker.getAttribute('open')===null)await picker.locator('summary').click();
+ await expect(picker).toHaveAttribute('open','');
  for(const id of ids)await page.locator(`#practice-chapter input[value="${id}"]`).check();
- await page.locator('#practice-chapter summary').click();
+ await picker.locator('summary').click();
  await expect(page.getByRole('button',{name:/Start Next Mock Test|Resume Mock Test/})).toBeEnabled({timeout:30000});
 }
 for(const n of [8,9,10,11,12])test(`Class ${n} free: one 60-question mock, saved resume and second-set block`,async({page})=>{

@@ -162,6 +162,7 @@ export default function Home() {
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [chapters, setChapters] = useState<ChapterRow[]>([]);
   const [selectedChapterIds, setSelectedChapterIds] = useState<number[]>([]);
+  const [chapterPickerOpen, setChapterPickerOpen] = useState(false);
   const [selectionCounts, setSelectionCounts] = useState({practice:0,mock:0});
   const [selectionLoading, setSelectionLoading] = useState(false);
   const preferredSubjectApplied = useRef(false);
@@ -968,6 +969,12 @@ export default function Home() {
       }
 
       const userId = user.id;
+      // INITIAL_SESSION and the explicit session read may resolve together.
+      // Reserve this user before the first await so only one metadata load runs.
+      if (authUserIdRef.current === userId) return;
+      authUserIdRef.current = userId;
+      setCurrentUser(user);
+      setLoading(true);
       const revision = authRevision;
 
       // Do not load student-only data for an admin viewing the public homepage.
@@ -1334,6 +1341,7 @@ export default function Home() {
   }
 
   function handleSubjectChange(value: string) {
+    setChapterPickerOpen(false);
     setSelectedSubject(value);
     setSelectedChapter(ALL);
     setSelectedChapterIds([]);
@@ -3798,7 +3806,7 @@ export default function Home() {
                 Chapter
               </label>
 
-              <details id="practice-chapter" className="rounded-lg border border-slate-300 bg-white">
+              <details id="practice-chapter" open={chapterPickerOpen} onToggle={e=>setChapterPickerOpen(e.currentTarget.open)} className="rounded-lg border border-slate-300 bg-white">
                 <summary className="min-h-12 cursor-pointer px-3.5 py-3 text-sm font-medium text-slate-900">{selectedSubject===ALL?"Select Subject First":chapterSelected?`${selectedChapterIds.length} chapters selected`:"All Chapters"}</summary>
                 {selectedSubject!==ALL && <fieldset className="max-h-72 space-y-1 overflow-y-auto border-t p-3" aria-label="Select chapters">
                   <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={!chapterSelected} onChange={()=>{setSelectedChapterIds([]);setPracticeSet(1);}}/>All Chapters</label>

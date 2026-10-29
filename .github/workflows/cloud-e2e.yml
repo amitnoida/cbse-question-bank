@@ -1,6 +1,6 @@
 name: CBSE School E2E - 12 Accounts
 
-# One-click regression checks quick sign-in and resilient, lightweight subject loading.
+# One-click regression checks stable chapter selection, startup and lightweight subject loading.
 # Manual runs, or an explicitly marked release commit, use dedicated test accounts only.
 on:
   workflow_dispatch:
