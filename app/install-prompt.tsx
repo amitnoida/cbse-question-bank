@@ -72,7 +72,12 @@ export default function InstallPrompt() {
   }
 
   if (!ready || installed || !["/", "/app", "/dashboard", "/install"].includes(pathname)) return null;
-  return <aside className="fixed bottom-3 right-3 z-40 max-w-[calc(100vw-1.5rem)] text-slate-900 sm:bottom-5 sm:right-5" aria-label="Install CBSE app">
+  // Student controls must remain clickable, including shorter chapter papers.
+  // Keep installation available below the content instead of overlaying tests.
+  const placement = pathname === "/app" || pathname === "/dashboard"
+    ? "mx-auto my-6 w-fit"
+    : "fixed bottom-3 right-3 z-40 sm:bottom-5 sm:right-5";
+  return <aside className={`${placement} max-w-[calc(100vw-1.5rem)] text-slate-900`} aria-label="Install CBSE app">
     {open ? <section className="w-80 rounded-2xl border border-indigo-200 bg-white p-4 shadow-xl" aria-labelledby="install-app-title">
       <div className="flex items-start justify-between gap-3"><h2 id="install-app-title" className="font-extrabold">📲 Install CBSE Question Bank</h2><button type="button" onClick={dismiss} aria-label="Dismiss install suggestion" className="min-h-10 min-w-10 rounded-lg border">✕</button></div>
       <p className="mt-2 text-sm">Open your quizzes quickly from your home screen. Internet is required for tests and sign-in.</p>

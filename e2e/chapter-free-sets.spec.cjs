@@ -71,6 +71,10 @@ test('Paid Class 9: chapter mock below 60 questions and next mock remain availab
  const assigned=page.waitForResponse(r=>r.url().includes('/rpc/start_next_mock_paper_v3'));
  await page.getByRole('button',{name:/Start Next Mock Test|Resume Mock Test/}).click();const paper=await(await assigned).json();
  expect(paper.chapter_ids).toEqual([220]);expect(paper.question_ids.length).toBeLessThan(60);await finishMock(page);
+ const reportResponse=page.waitForResponse(r=>r.url().includes('/api/reports/mock?attemptId='));
+ await page.getByRole('link',{name:'Download Complete Report PDF',exact:true}).click();
+ const response=await reportResponse;expect(response.ok()).toBe(true);const report=await response.json();
+ expect(report.attempt.total).toBe(paper.question_ids.length);expect(report.items).toHaveLength(paper.question_ids.length);
  await page.goto('/app');await expect(page.locator('#practice-subject')).toBeVisible({timeout:30000});await subject(page,'Social Science');
  await expect(page.getByRole('button',{name:/Start Next Mock Test/})).toBeEnabled();
 });
