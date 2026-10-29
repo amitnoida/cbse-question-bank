@@ -13,7 +13,9 @@ for(const [i,a] of accounts.entries())test('school account '+(i+1)+': membership
  await expect(page.getByRole('button',{name:new RegExp('Class '+classNumber+' · Selected')})).toBeVisible();
  await expect(page.getByRole('heading',{name:'Your memberships',exact:true})).toBeVisible();
  if(!paid){
-  const plan=page.getByLabel('Membership plan',{exact:true});
+  const plan=page.getByRole('combobox').first();
+  await expect(plan).toBeVisible();
+  await expect.poll(()=>plan.locator('option').count()).toBeGreaterThan(1);
   const value=await plan.locator('option').evaluateAll(options=>options.find(o=>o.value)?.value);
   expect(value).toBeTruthy();await plan.selectOption(value);
   await page.getByRole('button',{name:'Review plan and dates',exact:true}).click();

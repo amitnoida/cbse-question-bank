@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/student-memberships-e2e.yml'
+      - 'e2e/student-memberships*'
   workflow_dispatch:
 permissions:
   contents: read
