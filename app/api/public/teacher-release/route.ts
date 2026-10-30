@@ -1,1 +1,1 @@
-export async function GET(){return Response.json({version:3},{headers:{'Cache-Control':'no-store'}});}
+export async function GET(){return Response.json({version:4},{headers:{'Cache-Control':'no-store'}});}

@@ -6,8 +6,10 @@ export async function readMcqDocument(bytes:ArrayBuffer,name:string,progress:(me
  const pdfjs=await import('pdfjs-dist');
  pdfjs.GlobalWorkerOptions.workerSrc='/document-readers/pdf.worker.min.mjs';
  const loading=pdfjs.getDocument({data:new Uint8Array(bytes),useSystemFonts:true});
- const doc=await loading.promise;
+ let timer:ReturnType<typeof setTimeout>|undefined;
  try{
+ const doc=await Promise.race([loading.promise,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('PDF reader timed out. Source retained; retry or use a simpler text PDF.')),45000);})]);
+ if(timer)clearTimeout(timer);
  if(doc.numPages>300)throw Error('Maximum 300 PDF pages in this POC. Split the file before retrying.');
  let text='';
  for(let i=1;i<=doc.numPages;i++){
@@ -18,7 +20,7 @@ export async function readMcqDocument(bytes:ArrayBuffer,name:string,progress:(me
  }
  if(text.trim().length<20)throw Error('No readable PDF text found. Scans and screenshots are not supported; upload a selectable-text PDF.');
  return text;
- }finally{await loading.destroy();}
+ }finally{if(timer)clearTimeout(timer);await loading.destroy();}
  }
  if(/\.docx$/i.test(name)){
  progress('Reading Word document…');
