@@ -12,9 +12,9 @@ test('PDF + Word: teacher uploads, admin imports readable MCQs, skips failures/d
  test.setTimeout(300000);const run=process.env.GITHUB_RUN_ID,attempt=process.env.GITHUB_RUN_ATTEMPT||1;if(!/^\d+$/.test(run||''))throw Error('Run identity required');
  const suffix=run+'-'+attempt,email=`qa_import_${run}_${attempt}@example.com`,password=randomBytes(24).toString('base64url')+'aA1!';
  execFileSync('python',['maintenance/generate-import-poc.py',suffix,'e2e/generated-import-fixtures']);
- const ac=await browser.newContext(),tc=await browser.newContext();
+ const ac=await browser.newContext(),tc=await browser.newContext();let admin;
  try{
- const admin=await ac.newPage();admin.setDefaultTimeout(20000);admin.on('pageerror',e=>console.log('Admin page error:',e.message));await adminLogin(admin);await create(admin,email,password,'TEACHER');
+ admin=await ac.newPage();admin.setDefaultTimeout(20000);admin.on('pageerror',e=>console.log('Admin page error:',e.message));await adminLogin(admin);await create(admin,email,password,'TEACHER');
  const teacher=await tc.newPage();teacher.setDefaultTimeout(20000);await login(teacher,email,password);await expect(teacher).toHaveURL(/\/teacher$/,{timeout:30000});
  const h=await(await api(request,teacher,'/api/teacher')).json();const subject=h.subjects.find(s=>/mathematics/i.test(s.subject_name));expect(subject).toBeTruthy();
  await teacher.getByLabel('Subject for new MCQs',{exact:true}).selectOption(String(subject.id));
@@ -34,7 +34,7 @@ test('PDF + Word: teacher uploads, admin imports readable MCQs, skips failures/d
  const afterFailure=await(await api(request,admin,'/api/admin/teacher-imports')).json();const kept=afterFailure.files.find(f=>f.id===pdf.id);expect(kept.source_deleted_at).toBeNull();expect(Array.isArray(kept.teacher_mcq_imports)?kept.teacher_mcq_imports.length:kept.teacher_mcq_imports).toBeFalsy();
  console.log('POC: interrupted download preserved source');const expected=[[pdf,3,2],[word,2,3]];
  for(const [file,imported,skipped] of expected){
- console.log('POC: processing',file.file_name);card=admin.getByRole('article').filter({has:admin.getByRole('heading',{name:file.file_name,exact:true})}).filter({hasText:suffix});await card.getByRole('button',{name:'Process & Import',exact:true}).click();await expect(admin.getByRole('alert')).toHaveCount(0);await Promise.race([card.getByText('Completed — source file deleted',{exact:true}).waitFor({timeout:90000}),admin.getByRole('alert').waitFor({timeout:90000}).then(async()=>{throw Error(await admin.getByRole('alert').innerText());})]);
+ console.log('POC: processing',file.file_name);card=admin.getByRole('article').filter({has:admin.getByRole('heading',{name:file.file_name,exact:true})}).filter({hasText:suffix});await card.getByRole('button',{name:'Process & Import',exact:true}).click();await Promise.race([card.getByText('Completed — source file deleted',{exact:true}).waitFor({timeout:90000}),admin.getByRole('alert').waitFor({timeout:90000}).then(async()=>{throw Error(await admin.getByRole('alert').innerText());})]);
  const status=await(await api(request,admin,'/api/admin/teacher-imports')).json();const row=status.files.find(f=>f.id===file.id);const batch=Array.isArray(row.teacher_mcq_imports)?row.teacher_mcq_imports[0]:row.teacher_mcq_imports;expect(batch.imported_count).toBe(imported);expect(batch.skipped_count).toBe(skipped);expect(batch.source_deleted_at).toBeTruthy();
  const view=await api(request,admin,`/api/admin/teacher-imports?fileId=${file.id}`);expect(view.ok()).toBe(true);const questions=(await view.json()).questions;expect(questions).toHaveLength(imported);for(const q of questions){expect(q.chapter_id).toBe(Number(chapter));expect(q.is_active).toBe(true);expect(q.explanation.length).toBeGreaterThan(5);expect(q.question_text).toContain(suffix);}
  await card.getByRole('button',{name:'View imported MCQs',exact:true}).click();await expect(card.locator('details')).toHaveCount(imported);
@@ -42,5 +42,5 @@ test('PDF + Word: teacher uploads, admin imports readable MCQs, skips failures/d
  const missing=await api(request,teacher,'/api/teacher/submissions',{action:'download',submissionId:submission.id,fileId:file.id});expect(missing.status()).toBe(404);
  }
  await teacher.reload();await expect(teacher.getByText(/Processing complete. Readable, complete MCQs imported/)).toBeVisible();
- }finally{await ac.close().catch(()=>{});await tc.close().catch(()=>{});}
+ }catch(e){if(admin)console.log('POC failure alert:',await admin.getByRole('alert').allTextContents().catch(()=>[]));throw e;}finally{await ac.close().catch(()=>{});await tc.close().catch(()=>{});}
 });
