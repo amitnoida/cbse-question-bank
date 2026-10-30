@@ -1,0 +1,37 @@
+name: ExamYari Public Trust and Privacy Smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/privacy/**'
+      - 'app/terms/**'
+      - 'app/contact/**'
+      - 'app/page.tsx'
+      - 'app/app/page.tsx'
+      - 'app/public-navigation.tsx'
+      - 'next.config.ts'
+      - 'e2e/examyari-public-trust.spec.cjs'
+      - '.github/workflows/examyari-public-trust.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      E2E_BASE_URL: https://examyari.com
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - name: Read-only production trust and consent checks
+        run: npx playwright test --config=e2e/playwright.config.cjs e2e/examyari-public-trust.spec.cjs
