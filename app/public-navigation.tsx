@@ -8,7 +8,7 @@ export function PublicHeader() {
     <header className="border-b border-slate-200 bg-white">
       <nav aria-label="Main navigation" className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4">
         <Link className="flex items-center gap-2 text-lg font-black tracking-tight text-slate-950" href="/">
-          <span aria-hidden="true" className="rounded-xl bg-indigo-600 px-2.5 py-1.5 text-white">Q</span>CBSE Question Bank
+          <span aria-hidden="true" className="rounded-xl bg-indigo-600 px-2.5 py-1.5 text-white">Q</span>ExamYari
         </Link>
         <div className="flex flex-wrap items-center gap-1 text-sm font-bold">
           {CLASS_NUMBERS.map(n => <Link key={n} className="rounded-xl px-2.5 py-2.5 text-slate-600 hover:bg-slate-100 sm:px-3" href={classPath(n)}>Class {n}</Link>)}
@@ -25,7 +25,7 @@ export function PublicFooter() {
       <nav aria-label="Help and resources" className="flex flex-wrap gap-5">
         <Link className="py-2 font-semibold hover:text-indigo-700" href="/install">Install app</Link>
         <AnalyticsPreferencesButton />
-        <a className="py-2 font-semibold hover:text-indigo-700" href="mailto:support.cbseexam@gmail.com">Contact support</a>
+        <Link className="py-2 font-semibold hover:text-indigo-700" href="/privacy">Privacy</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/terms">Terms</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/contact">Contact support</Link>
         <Link className="py-2 font-semibold hover:text-indigo-700" href="/app">Student app →</Link>
       </nav>
     </div>
