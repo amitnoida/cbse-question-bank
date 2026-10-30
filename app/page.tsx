@@ -28,8 +28,8 @@ const faqs = [
   { q: "What is included in the free plan?", a: "Each registered student gets one free Practice set and one free Mock set per subject, with up to 60 questions in each set. Selecting fewer chapters may create a shorter set, which still uses the full allowance." },
   { q: "What is the difference between practice and a real mock test?", a: "Practice displays answer feedback and explanations as you work. Real mock tests have up to 60 questions, a 60-minute timer and results after submission. Free students receive one set per subject; membership unlocks more sets." },
   { q: "Can I resume my practice?", a: "Saved practice sessions can be resumed where supported. Review and test history is available for 14 days." },
-  { q: "Are all questions officially CBSE-certified?", a: "No. This is an independent practice platform, not affiliated with or endorsed by CBSE. Some newly available questions are in preliminary testing and remain subject to editorial and syllabus review." },
-  { q: "How do I get support or request account deletion?", a: "Email support.cbseexam@gmail.com from your registered email address so your request can be verified." },
+  { q: "Are all questions officially CBSE-certified?", a: "No. This is an independent practice platform, not affiliated with or endorsed by CBSE. Questions are provided for educational practice and are not independently certified or guaranteed error-free. Parents and teachers may report errors to support." },
+  { q: "How do I get support or request account deletion?", a: "Visit the Contact page or email support.cbseexam@gmail.com from your registered email; parent/guardian identity may need verification for account requests." },
 ];
 
 export default function Home() {
@@ -160,10 +160,10 @@ export default function Home() {
               </article>
               <article className="rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-800 p-7 text-white shadow-xl sm:p-9">
                 <p className="text-xs font-extrabold uppercase tracking-wider text-amber-300">Premium</p>
-                <h3 className="mt-4 text-2xl font-black">Financial-Year Membership</h3>
-                <p className="mt-4 text-4xl font-black">₹99 <span className="text-sm font-semibold text-indigo-200">until 31 March</span></p>
-                <ul className="mt-7 space-y-3 text-sm font-semibold text-indigo-100"><li>✓ Full access to available practice questions</li><li>✓ All available chapters unlocked</li><li>✓ Answer explanations and review</li><li>✓ 60-minute mock tests and eligible retakes</li></ul>
-                <Link href="/app?auth=signup" className="mt-8 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-400 px-5 py-3 font-extrabold text-slate-950 hover:bg-amber-300">Explore Premium</Link>
+                <h3 className="mt-4 text-2xl font-black">13-Month Membership</h3>
+                <p className="mt-4 text-4xl font-black">₹99 <span className="text-sm font-semibold text-indigo-200">eligible class plan · 13 months</span></p>
+                <ul className="mt-7 space-y-3 text-sm font-semibold text-indigo-100"><li>✓ Full access to available practice questions</li><li>✓ All available chapters unlocked</li><li>✓ Answer explanations and practice</li><li>✓ 60-minute mock tests and eligible retakes</li></ul>
+                <Link href="/app?auth=signup" className="mt-8 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-400 px-5 py-3 font-extrabold text-slate-950 hover:bg-amber-300">View membership options</Link>
               </article>
             </div>
           </div>

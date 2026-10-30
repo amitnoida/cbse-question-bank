@@ -12,17 +12,17 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://examyari.com"),
-  title: { default: "CBSE Question Bank | Class 8–12 MCQ Practice", template: "%s | CBSE Question Bank" },
+  title: { default: "ExamYari | Class 8–12 CBSE MCQ Practice", template: "%s | ExamYari" },
   description: "CBSE MCQ practice, chapter-wise questions, explanations and 60-question mock tests for Classes 8, 9, 10, 11 and 12, including Physics, Chemistry, Mathematics and Biology in Classes 11–12.",
-  applicationName: "CBSE Question Bank",
+  applicationName: "ExamYari",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "CBSE MCQs", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "ExamYari", statusBarStyle: "default" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
   robots: { index: true, follow: true },
   openGraph: {
-    type: "website", siteName: "CBSE Question Bank",
+    type: "website", siteName: "ExamYari",
     url: "https://examyari.com",
-    title: "CBSE Question Bank | Classes 8–12 MCQ Practice",
+    title: "ExamYari | Classes 8–12 MCQ Practice",
     description: "Class 8, 9, 10, 11 and 12 subject-wise MCQ practice and timed mock tests."
   },
 };
