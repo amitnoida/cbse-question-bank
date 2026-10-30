@@ -6,7 +6,7 @@ export async function GET(req:NextRequest){
  const a=await requireStatsAdmin(req);
  if(!a)return respond({error:"Admin sign in required."},401);
  if(a.role!=="FULL_ADMIN")return respond({error:"Full Admin only."},403);
- const {data,error}=await a.db.from("guardian_consent_invitations").select("id,guardian_email,verification_method,verification_reference,statement_version,consent_captured_at,created_at,expires_at,used_at,revoked_at").order("created_at",{ascending:false}).limit(100);
+ const {data,error}=await a.db.from("guardian_consent_invitations").select("id,guardian_email,verification_method,verification_reference,statement_version,consent_captured_at,created_at,expires_at,used_at,revoked_at,withdrawn_at").order("created_at",{ascending:false}).limit(100);
  if(error)return respond({error:"Consent ledger unavailable."},503);
  return respond({invitations:data||[]});
 }
@@ -39,4 +39,16 @@ export async function DELETE(req:NextRequest){
  const {error}=await a.db.from("guardian_consent_invitations").update({revoked_at:new Date().toISOString()}).eq("id",id).is("used_at",null);
  if(error)return respond({error:"Unable to revoke invitation."},503);
  return respond({ok:true});
+}
+
+export async function PATCH(req:NextRequest){
+ const a=await requireStatsAdmin(req);
+ if(!a)return respond({error:"Admin sign in required."},401);
+ if(a.role!=="FULL_ADMIN")return respond({error:"Full Admin only."},403);
+ let b:{id?:unknown;evidence?:unknown};try{b=await req.json();}catch{return respond({error:"Invalid request."},400);}
+ const id=typeof b.id==="string"?b.id:"",evidence=typeof b.evidence==="string"?b.evidence.trim():"";
+ if(!/^[0-9a-f-]{36}$/i.test(id)||evidence.length<8||evidence.length>180)return respond({error:"A valid invitation and evidence reference are required."},400);
+ const {data,error}=await a.db.rpc("cbse_guardian_consent_withdraw_v1",{p_actor:a.user.id,p_invitation:id,p_evidence:evidence});
+ if(error)return respond({error:"Withdrawal could not be confirmed. No account changes claimed."},409);
+ return respond({result:data});
 }
