@@ -2,13 +2,13 @@
 import {useCallback,useEffect,useState} from "react";
 import Link from "next/link";
 import {supabase} from "../../../lib/supabase";
-type Entry={id:string;guardian_email:string;verification_method:string;verification_reference:string;created_at:string;expires_at:string;used_at:string|null;revoked_at:string|null};
+type Entry={id:string;guardian_email:string;verification_method:string;verification_reference:string;created_at:string;expires_at:string;used_at:string|null;revoked_at:string|null;withdrawn_at:string|null};
 export default function GuardianConsent(){
  const [email,setEmail]=useState(""),[method,setMethod]=useState(""),[reference,setReference]=useState("");
  const [adult,setAdult]=useState(false),[consent,setConsent]=useState(false),[authority,setAuthority]=useState(false);
  const [code,setCode]=useState(""),[expires,setExpires]=useState(""),[rows,setRows]=useState<Entry[]>([]);
  const [error,setError]=useState(""),[busy,setBusy]=useState(false);
- const request=useCallback(async(method:"GET"|"POST"|"DELETE",body?:object,query="")=>{
+ const request=useCallback(async(method:"GET"|"POST"|"DELETE"|"PATCH",body?:object,query="")=>{
  const {data:{session}}=await supabase.auth.getSession();if(!session)throw Error("Sign in as Full Admin.");
  const response=await fetch("/api/admin/guardian-consent"+query,{method,headers:{"Authorization":"Bearer "+session.access_token,...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined,cache:"no-store"});
  const data=await response.json();if(!response.ok)throw Error(data.error||"Request denied");return data;
@@ -19,6 +19,7 @@ export default function GuardianConsent(){
  const r=await request("POST",{guardianEmail:email,method,reference,consentConfirmed:consent,adultIdentityConfirmed:adult,guardianAuthorityConfirmed:authority});
  setCode(r.invitationCode);setExpires(r.expiresAt);setEmail("");setReference("");setMethod("");setAdult(false);setConsent(false);setAuthority(false);await refresh();
  }catch(e){setError(e instanceof Error?e.message:"Unable to issue");}finally{setBusy(false);}}
+ async function withdraw(id:string){const evidence=window.prompt("Enter the verified guardian withdrawal request/case reference (no identity numbers).");if(!evidence||evidence.trim().length<8)return;if(!window.confirm("This will disable the linked student's learning access and revoke active device sessions. Continue only after verifying the guardian request?"))return;try{setBusy(true);await request("PATCH",{id,evidence:evidence.trim()});await refresh();}catch(e){setError(e instanceof Error?e.message:"Withdrawal could not be confirmed");}finally{setBusy(false);}}
  async function revoke(id:string){if(!window.confirm("Revoke this unused guardian invitation?"))return;try{await request("DELETE",undefined,"?id="+encodeURIComponent(id));await refresh();}catch(e){setError(e instanceof Error?e.message:"Revoke failed");}}
  return <main className="mx-auto max-w-5xl space-y-5 p-5 text-slate-900"><Link href="/admin" className="font-semibold text-indigo-700">← Admin</Link>
  <h1 className="text-3xl font-extrabold">Guardian consent verification</h1>
@@ -32,6 +33,6 @@ export default function GuardianConsent(){
  <button className="rounded-lg bg-indigo-700 px-5 py-3 font-bold text-white disabled:opacity-50" disabled={busy||!adult||!authority||!consent}>{busy?"Saving…":"Create one-use invitation"}</button></form>
  {code&&<section className="rounded-xl border border-green-500 bg-green-50 p-4"><h2 className="font-bold">Invitation issued: show once</h2><p className="mt-2 break-all font-mono text-sm">{code}</p><p className="mt-2 text-sm">Expires {new Date(expires).toLocaleString("en-IN")}. Give only to the verified guardian privately. The code is not stored as plaintext and will not display again.</p><button className="mt-2 rounded-lg border bg-white px-3 py-2 font-semibold" onClick={()=>void navigator.clipboard.writeText(code)}>Copy code</button></section>}
  {error&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">{error}</p>}
- <section className="space-y-3"><h2 className="text-xl font-bold">Recent consent evidence (no secret codes)</h2><div className="overflow-x-auto rounded-xl border"><table className="w-full text-left text-sm"><thead><tr>{["Guardian","Verification route","Reference","State","Action"].map(x=><th key={x} className="p-3">{x}</th>)}</tr></thead><tbody>{rows.map(r=><tr className="border-t" key={r.id}><td className="p-3">{r.guardian_email}</td><td className="p-3">{r.verification_method}</td><td className="p-3">{r.verification_reference}</td><td className="p-3">{r.revoked_at?"Revoked":r.used_at?"Used":new Date(r.expires_at)<new Date()?"Expired":"Unused"}</td><td className="p-3">{!r.used_at&&!r.revoked_at&&<button className="font-semibold text-red-700" onClick={()=>void revoke(r.id)}>Revoke</button>}</td></tr>)}</tbody></table></div></section>
+ <section className="space-y-3"><h2 className="text-xl font-bold">Recent consent evidence (no secret codes)</h2><div className="overflow-x-auto rounded-xl border"><table className="w-full text-left text-sm"><thead><tr>{["Guardian","Verification route","Reference","State","Action"].map(x=><th key={x} className="p-3">{x}</th>)}</tr></thead><tbody>{rows.map(r=><tr className="border-t" key={r.id}><td className="p-3">{r.guardian_email}</td><td className="p-3">{r.verification_method}</td><td className="p-3">{r.verification_reference}</td><td className="p-3">{r.withdrawn_at?"Withdrawn / access suspended":r.revoked_at?"Revoked":r.used_at?"Used":new Date(r.expires_at)<new Date()?"Expired":"Unused"}</td><td className="p-3">{!r.used_at&&!r.revoked_at&&<button className="font-semibold text-red-700" onClick={()=>void revoke(r.id)}>Revoke</button>}{r.used_at&&!r.withdrawn_at&&<button className="font-semibold text-red-700" disabled={busy} onClick={()=>void withdraw(r.id)}>Verify withdrawal &amp; suspend</button>}</td></tr>)}</tbody></table></div></section>
  </main>;
 }
