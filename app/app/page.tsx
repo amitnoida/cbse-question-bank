@@ -320,6 +320,7 @@ export default function Home() {
   const [signupConfirmPassword, setSignupConfirmPassword] =
     useState("");
   const [signupClassId, setSignupClassId] = useState("");
+  const [guardianInvitation, setGuardianInvitation] = useState("");
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState("");
@@ -1685,6 +1686,11 @@ export default function Home() {
       return;
     }
 
+    if (!/^[0-9a-f]{64}$/i.test(guardianInvitation.trim())) {
+      setSignupError("A one-time invitation from a verified parent or legal guardian is required before a new student account can be created. Contact ExamYari support to arrange guardian verification.");
+      return;
+    }
+
     setSignupLoading(true);
 
     const {
@@ -1699,6 +1705,7 @@ export default function Home() {
         data: {
           full_name: fullName,
           class_id: Number(signupClassId),
+          guardian_invitation: guardianInvitation.trim(),
         },
       },
     });
@@ -1755,6 +1762,7 @@ export default function Home() {
     setSignupPassword("");
     setSignupConfirmPassword("");
     setSignupClassId("");
+    setGuardianInvitation("");
     setSignupLoading(false);
   }
 
@@ -2223,6 +2231,7 @@ export default function Home() {
                   </select>
                 </div>
 
+                <label className="block text-xs font-bold uppercase text-slate-700" htmlFor="student-guardian-code">Verified guardian invitation code<input id="student-guardian-code" className="mt-2 min-h-11 w-full rounded-lg border border-slate-300 px-3 py-3 font-mono text-sm" type="text" inputMode="text" autoComplete="off" required minLength={64} maxLength={64} value={guardianInvitation} onChange={e=>setGuardianInvitation(e.target.value.trim())} disabled={signupLoading} placeholder="One-use code supplied by your parent or guardian"/></label><p className="text-xs leading-5 text-slate-600">To protect schoolchildren, new student registration requires verified parent or guardian consent. A parent/guardian must first contact <a className="font-bold text-indigo-700 underline" href="/contact" target="_blank" rel="noopener noreferrer">ExamYari support</a> to arrange adult identity and consent verification. Email confirmation alone is not enough.</p>
                 <p className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs leading-5 text-slate-700">For students under 18, a parent or legal guardian should supervise registration. Read the <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Terms of Use</a>. Registration does not verify guardian identity; parents can request help or account deletion through <a href="/contact" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Support</a>.</p>
 
                 <button
