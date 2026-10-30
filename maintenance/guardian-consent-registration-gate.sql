@@ -2,8 +2,8 @@
 -- No government document scans stored. Full Admin verifies legal-adult identity and
 -- affirmative guardian consent OFFLINE before generating any invitation.
 -- Existing students are left unchanged. Admin-created student/teacher identities
--- created via the trusted admin_student_request flow are exempt from this SELF-SIGNUP trigger;
--- they require an independent admin-creation safeguard before compliance sign-off.
+-- created through trusted admin_student_request must ALSO provide guardian consent;
+-- verified adult teacher accounts are exempt from this CHILD signup gate.
 BEGIN;
 CREATE TABLE IF NOT EXISTS public.guardian_consent_invitations(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -29,9 +29,7 @@ CREATE OR REPLACE FUNCTION public.require_student_guardian_invitation_v1()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $guard$
 DECLARE raw_code text; code_hash text; invitation_id uuid;
 BEGIN
- -- Trusted administrative provisioning has its own established create/finish flow.
- -- A public user cannot set raw_app_meta_data on auth.signUp.
- IF coalesce(NEW.raw_app_meta_data,'{}'::jsonb) ? 'admin_student_request' THEN RETURN NEW; END IF;
+ -- Teachers created by the trusted Full Admin provisioning endpoint are adults\n -- and are outside child account registration. Student admin creation IS gated.\n -- raw_app_meta_data cannot be provided by a public signup request.\n IF coalesce(NEW.raw_app_meta_data,'{}'::jsonb)->>'admin_student_role'='TEACHER'\n AND coalesce(NEW.raw_app_meta_data,'{}'::jsonb) ? 'admin_student_request' THEN RETURN NEW; END IF;
  -- Enforce on ALL ordinary Auth registrations; missing class metadata is not an escape.
  IF nullif(btrim(coalesce(NEW.raw_user_meta_data->>'class_id','')),'') IS NULL
    THEN RAISE EXCEPTION 'Student class and verified guardian invitation required' USING ERRCODE='23514'; END IF;
