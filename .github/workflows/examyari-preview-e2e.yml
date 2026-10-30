@@ -8,6 +8,7 @@ on:
       - 'e2e/admin-reports.spec.cjs'
       - 'e2e/student-memberships.spec.cjs'
       - 'e2e/preview-protection.cjs'
+      - 'e2e/preview-preflight.cjs'
   workflow_dispatch:
 
 permissions:
