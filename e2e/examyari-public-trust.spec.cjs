@@ -1,0 +1,26 @@
+const {test,expect}=require("@playwright/test");
+test("Trust pages disclose contact, privacy, learning limits and guardian supervision",async({page})=>{
+ await page.goto("/");
+ await expect(page.getByRole("link",{name:"Privacy"})).toBeVisible();
+ await expect(page.getByRole("link",{name:"Terms"})).toBeVisible();
+ await expect(page.getByRole("link",{name:"Contact support"})).toBeVisible();
+ for(const [url,heading] of [["/privacy","Privacy Policy"],["/terms","Terms of Use"],["/contact","Contact ExamYari Support"]]){
+  await page.goto(url);
+  await expect(page.getByRole("heading",{level:1,name:heading})).toBeVisible();
+  await expect(page.getByText("support.cbseexam@gmail.com").first()).toBeVisible();
+  const response=await page.request.get(url);
+  expect(response.status()).toBe(200);
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["x-frame-options"]).toBe("DENY");
+  expect(response.headers()["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+ }
+ await page.goto("/app?auth=signup");
+ await expect(page.getByText(/For students under 18, a parent or legal guardian/)).toBeVisible();
+ await expect(page.getByRole("link",{name:"Privacy Policy"})).toBeVisible();
+});
+test("Privacy choices do not require acceptance to view public educational pages",async({page})=>{
+ await page.goto("/");
+ await page.getByRole("button",{name:"Decline"}).click();
+ await page.goto("/class-9/mathematics");
+ await expect(page.getByRole("button",{name:"Allow public-page analytics"})).toHaveCount(0);
+});
