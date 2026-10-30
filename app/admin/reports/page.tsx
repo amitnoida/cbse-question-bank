@@ -13,8 +13,9 @@ type Row=Record<string,unknown>;
 type Result={columns:string[];rows:Row[];total:number;page:number;pageSize:number;summary:{matching_records:number;page_records:number};asOf:string};
 const categories:{id:ReportCategory;title:string;description:string}[]=[
  {id:"mcq",title:"MCQ & Academic",description:"Question bank, content health and mock readiness"},
- {id:"students",title:"Students & Business",description:"Activity, subscriptions, coupons and free usage"},
- {id:"system",title:"Database, Security & Administration",description:"Database monitoring, integrity and access"},
+ {id:"operations",title:"Admin Operations",description:"Student enrollment, memberships, coupons and admin users"},
+ {id:"students",title:"Student Performance",description:"Student activity and mock test outcomes"},
+ {id:"system",title:"Technical & Database",description:"Developer-only database, security and integrity audits"},
 ];
 
 // Explanations and suggested actions are guidance, not automated security or academic findings.
@@ -29,8 +30,8 @@ const format=(v:unknown)=>{
 };
 export default function AdminReportsPage(){
  const [catalog,setCatalog]=useState<Catalog|null>(null);
- const [activeCategory,setCategory]=useState<ReportCategory>("mcq");
- const [reportId,setReportId]=useState("mcq-summary");
+ const [activeCategory,setCategory]=useState<ReportCategory>("operations");
+ const [reportId,setReportId]=useState("student-directory");
  const [classNumber,setClassNumber]=useState("");
  const [subjectId,setSubjectId]=useState("");
  const [chapterId,setChapterId]=useState("");
@@ -130,7 +131,8 @@ export default function AdminReportsPage(){
  useEffect(()=>{
   if(!catalog||requestVersion!==0)return;
   setRequestVersion(1);
-  void load("mcq-summary",1);
+  if(!catalog.reports.some(r=>r.id==="student-directory")){setCategory("mcq");setReportId("mcq-summary");}
+  void load(catalog.reports.some(r=>r.id==="student-directory")?"student-directory":"mcq-summary",1);
  },[catalog,requestVersion,load]);
 
  function pickCategory(cat:ReportCategory){
@@ -180,14 +182,14 @@ export default function AdminReportsPage(){
   <div className="mx-auto max-w-7xl space-y-6">
    <header className="flex flex-wrap items-center justify-between gap-3">
     <div><p className="text-xs font-extrabold uppercase tracking-widest text-indigo-600">Admin Control Panel</p>
-     <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Reports &amp; Database Audit</h1>
-     <p className="mt-2 text-sm text-slate-600">On-demand reporting · Live database data · Server-verified permissions</p></div>
+     <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Reports &amp; Admin Insights</h1>
+     <p className="mt-2 text-sm text-slate-600">Daily operations, student outcomes and technical reports in separate sections</p></div>
     <div className="flex flex-wrap gap-2"><Link href="/admin" className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-indigo-700">← Admin Dashboard</Link>
      <Link href="/admin/system-stats" className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-indigo-700">System Stats</Link></div>
    </header>
    {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">{error}<button className="ml-4 underline" onClick={()=>void (catalog?load():window.location.reload())}>Retry</button></div>}
    {catalog&&<p className="rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm text-slate-700">Signed in as <strong>{catalog.role==="FULL_ADMIN"?"Full Admin":"Admin Viewer"}</strong>. {catalog.role==="FULL_ADMIN"?"Full report and export access.":"Only MCQ reports and aggregate student summaries are available. Individual student data and security audits are restricted."}</p>}
-   {catalog&&<div className="grid gap-3 md:grid-cols-3" role="tablist" aria-label="Report categories">
+   {catalog&&<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" role="tablist" aria-label="Report categories">
     {categories.map(c=>{
      const allowed=reports.some(r=>r.category===c.id);
      return <button key={c.id} type="button" role="tab" aria-selected={activeCategory===c.id} disabled={!allowed} onClick={()=>pickCategory(c.id)} className={`rounded-2xl border p-4 text-left transition ${activeCategory===c.id?"border-indigo-600 bg-indigo-700 text-white shadow-lg":"border-slate-200 bg-white text-slate-900 hover:border-indigo-300"} disabled:cursor-not-allowed disabled:opacity-40`}>
