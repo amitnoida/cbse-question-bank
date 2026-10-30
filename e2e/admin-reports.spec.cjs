@@ -27,6 +27,11 @@ test('Full Admin: all 19 reporting menus available and live MCQ summary renders'
  await expect(selector.locator('option')).toHaveCount(2);
  await page.getByRole('tab',{name:/Admin Operations/i}).click();
  await expect(selector.locator('option')).toHaveCount(5);
+ await selector.selectOption('admin-access');
+ await expect(page.getByRole('columnheader',{name:'Name',exact:true})).toBeVisible({timeout:45000});
+ await expect(page.getByRole('columnheader',{name:'Role',exact:true})).toBeVisible();
+ await expect(page.getByRole('columnheader',{name:'Id',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:/About this report/i})).toBeVisible();
  await expect(page.getByRole('heading',{name:/About this report/i})).toBeVisible();
  await page.getByRole('tab',{name:/Technical & Database/i}).click();
  await expect(selector.locator('option')).toHaveCount(4);
