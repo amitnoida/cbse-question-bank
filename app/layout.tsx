@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   applicationName: "ExamYari",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "ExamYari", statusBarStyle: "default" },
-  icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
+  icons: { icon: "/icons/examyari-192-v2.png", apple: "/icons/examyari-apple-v2.png" },
   robots: { index: true, follow: true },
   openGraph: {
     type: "website", siteName: "ExamYari",
