@@ -22,12 +22,12 @@ test('Full Admin: all 19 reporting menus available and live MCQ summary renders'
  await openReports(page,account);
  await expect(page.getByText('Full Admin',{exact:true})).toBeVisible();
  const selector=page.getByRole('combobox',{name:'Select report'});
- await expect(selector.locator('option')).toHaveCount(8);
+ await expect(selector.locator('option')).toHaveCount(5);
  await page.getByRole('tab',{name:/Student Performance/i}).click();
  await expect(selector.locator('option')).toHaveCount(2);
  await page.getByRole('tab',{name:/Admin Operations/i}).click();
  await expect(selector.locator('option')).toHaveCount(5);
- await expect(page.getByText('About this report')).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:/About this report/i})).toBeVisible();
  await page.getByRole('tab',{name:/Technical & Database/i}).click();
  await expect(selector.locator('option')).toHaveCount(4);
  await page.getByRole('tab',{name:/MCQ & Academic/i}).click();
