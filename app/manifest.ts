@@ -7,8 +7,9 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/app", scope: "/", display: "standalone",
     background_color: "#ffffff", theme_color: "#4338ca",
     icons: [
-      {src:"/icons/icon-192.png",sizes:"192x192",type:"image/png",purpose:"maskable"},
-      {src:"/icons/icon-512.png",sizes:"512x512",type:"image/png",purpose:"maskable"}
+      {src:"/icons/examyari-512-v2.png",sizes:"512x512",type:"image/png",purpose:"any"},
+      {src:"/icons/examyari-192-v2.png",sizes:"192x192",type:"image/png",purpose:"any"},
+      {src:"/icons/examyari-512-v2.png",sizes:"512x512",type:"image/png",purpose:"maskable"}
     ]
   };
 }
