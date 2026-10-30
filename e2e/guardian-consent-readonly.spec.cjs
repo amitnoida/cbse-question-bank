@@ -8,13 +8,21 @@ async function login(page,account){
  await expect(page.getByRole("heading",{name:/Management overview/i})).toBeVisible({timeout:30000});
 }
 async function token(page){return page.evaluate(()=>{const key=Object.keys(localStorage).find(x=>x.startsWith("sb-")&&x.endsWith("-auth-token"));return key?JSON.parse(localStorage.getItem(key)||"{}").access_token:null})}
-test("Under-18 signup is blocked and sent to parent route without submitting child data",async({page})=>{
+test("Student signup offers fields without an age gate and requires the supervision acknowledgement",async({page})=>{
  await page.goto("/app?auth=signup");
- await page.getByLabel(/I am under 18, or a parent registering a child/).check();
- await expect(page.getByText(/Self-registration is unavailable for children/)).toBeVisible();
- await expect(page.getByRole("button",{name:"Create Account"})).toBeDisabled();
+ await expect(page.getByLabel("Full Name",{exact:true})).toBeVisible();
+ await expect(page.locator('input[type="date"]')).toHaveCount(0);
+ await expect(page.locator('input[name="age-confirmation"]')).toHaveCount(0);
+ const submit=page.getByRole("button",{name:"Create Account",exact:true});
+ const acknowledgement=page.getByRole("checkbox",{name:/I agree to the Terms of Use/});
+ await expect(acknowledgement).not.toBeChecked();
+ await expect(submit).toBeDisabled();
+ await acknowledgement.check();
+ await expect(submit).toBeEnabled();
+ await acknowledgement.uncheck();
+ await expect(submit).toBeDisabled();
  await page.goto("/parent-consent");
- await expect(page.getByRole("heading",{name:/Parents and guardians: student registration/})).toBeVisible();
+ await expect(page.getByText("Contacting support is not a prerequisite for online registration.",{exact:false})).toBeVisible();
 });
 test("Anonymous access to guardian evidence or admin student API denied",async({request})=>{
  for(const p of ["/api/admin/guardian-consents","/api/admin/students"]){

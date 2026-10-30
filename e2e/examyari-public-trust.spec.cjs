@@ -15,7 +15,7 @@ test("Trust pages disclose contact, privacy, learning limits and guardian superv
   expect(response.headers()["referrer-policy"]).toBe("strict-origin-when-cross-origin");
  }
  await page.goto("/app?auth=signup");
- await expect(page.getByText(/For students under 18, a parent or legal guardian/)).toBeVisible();
+ await expect(page.getByRole("checkbox",{name:/If I am under 18/})).toBeVisible();
  await expect(page.getByRole("link",{name:"Privacy Policy"})).toBeVisible();
 });
 test("Privacy choices do not require acceptance to view public educational pages",async({page})=>{
