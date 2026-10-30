@@ -2223,6 +2223,8 @@ export default function Home() {
                   </select>
                 </div>
 
+                <p className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs leading-5 text-slate-700">For students under 18, a parent or legal guardian should supervise registration. Read the <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Terms of Use</a>. Registration does not verify guardian identity; parents can request help or account deletion through <a href="/contact" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Support</a>.</p>
+
                 <button
                   type="submit"
                   disabled={signupLoading}
