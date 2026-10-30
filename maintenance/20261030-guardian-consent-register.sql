@@ -27,7 +27,7 @@ BEGIN
  IF NOT EXISTS (SELECT 1 FROM public.admin_profiles p WHERE p.id=p_admin AND p.role='FULL_ADMIN' AND p.is_active AND NOT p.must_change_password)
  THEN RAISE EXCEPTION 'Full Admin required' USING ERRCODE='42501'; END IF;
  SELECT * INTO c FROM public.guardian_account_consents WHERE id=p_consent FOR UPDATE;
- IF NOT FOUND OR c.verified_by IS NULL OR c.student_id IS NOT NULL OR
+ IF NOT FOUND OR c.verified_by IS NULL OR (c.student_id IS NOT NULL AND c.creation_request<>p_request) OR
     (c.creation_request IS NOT NULL AND c.creation_request<>p_request)
  THEN RAISE EXCEPTION 'Valid unused guardian consent is required' USING ERRCODE='22023'; END IF;
  UPDATE public.guardian_account_consents SET creation_request=p_request WHERE id=p_consent;
