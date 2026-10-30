@@ -1,7 +1,7 @@
 import type {Metadata} from "next";
 import Link from "next/link";
 import {PublicFooter,PublicHeader} from "../public-navigation";
-export const metadata:Metadata={title:"Privacy Policy |title:"undefined",description:"How ExamYari handles student accounts, educational test results and optional public-page analytics.",alternates:{canonical:"/privacy"}};
+export const metadata:Metadata={title:"Privacy Policy",description:"How ExamYari handles student accounts, educational test results and optional public-page analytics.",alternates:{canonical:"/privacy"}};
 export default function Privacy(){return <><PublicHeader/><main id="main-content" className="mx-auto w-full max-w-3xl space-y-6 px-5 py-12 text-slate-900">
 <h1 className="text-3xl font-extrabold">Privacy Policy</h1><p className="text-sm text-slate-600">Last updated 30 October 2026 · Applies to examyari.com</p>
 <p>ExamYari is an independent learning and practice website for CBSE school subjects. This notice explains how the platform uses personal data. The operator can be contacted using the address below.</p>
