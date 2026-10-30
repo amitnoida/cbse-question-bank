@@ -1,0 +1,26 @@
+name: ExamYari Guardian Consent Production Read-Only E2E
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guardian-privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      E2E_BASE_URL: https://examyari.com
+      E2E_ACCOUNTS_JSON: ${{ secrets.E2E_ACCOUNTS_JSON }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - name: Guardian routes and age gate without data writes
+        run: npx playwright test --config=e2e/playwright.config.cjs e2e/guardian-consent-readonly.spec.cjs
