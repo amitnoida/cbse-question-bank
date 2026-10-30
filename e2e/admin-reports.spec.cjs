@@ -8,7 +8,7 @@ async function openReports(page, account){
  await page.getByRole('button',{name:/^Sign in$/i}).click();
  await expect(page.getByRole('heading',{name:/Management overview/i})).toBeVisible({timeout:30000});
  await page.goto('/admin/reports');
- await expect(page.getByRole('heading',{name:'Reports & Database Audit'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Reports & Admin Insights'})).toBeVisible();
  await expect(page.getByRole('tab',{name:/MCQ & Academic/i})).toBeVisible({timeout:30000});
 }
 test('Reports API must reject unauthenticated requests',async({request})=>{
@@ -23,10 +23,13 @@ test('Full Admin: all 19 reporting menus available and live MCQ summary renders'
  await expect(page.getByText('Full Admin',{exact:true})).toBeVisible();
  const selector=page.getByRole('combobox',{name:'Select report'});
  await expect(selector.locator('option')).toHaveCount(8);
- await page.getByRole('tab',{name:/Students & Business/i}).click();
- await expect(selector.locator('option')).toHaveCount(6);
- await page.getByRole('tab',{name:/Database, Security & Administration/i}).click();
+ await page.getByRole('tab',{name:/Student Performance/i}).click();
+ await expect(selector.locator('option')).toHaveCount(2);
+ await page.getByRole('tab',{name:/Admin Operations/i}).click();
  await expect(selector.locator('option')).toHaveCount(5);
+ await expect(page.getByText('About this report')).toHaveCount(0);
+ await page.getByRole('tab',{name:/Technical & Database/i}).click();
+ await expect(selector.locator('option')).toHaveCount(4);
  await page.getByRole('tab',{name:/MCQ & Academic/i}).click();
  await expect(page.getByText('Matching records',{exact:true})).toBeVisible({timeout:90000});
  const apiStatus=await page.evaluate(async()=>{
@@ -45,8 +48,9 @@ test('Viewer: MCQ and aggregate reports only; security and student identities re
  await openReports(page,account);
  const selector=page.getByRole('combobox',{name:'Select report'});
  await expect(selector.locator('option')).toHaveCount(8);
- await expect(page.getByRole('tab',{name:/Database, Security & Administration/i})).toBeDisabled();
- await page.getByRole('tab',{name:/Students & Business/i}).click();
+ await expect(page.getByRole('tab',{name:/Admin Operations/i})).toBeDisabled();
+ await expect(page.getByRole('tab',{name:/Technical & Database/i})).toBeDisabled();
+ await page.getByRole('tab',{name:/Student Performance/i}).click();
  await expect(selector.locator('option')).toHaveCount(2);
  await expect(selector.locator('option',{hasText:'Student Directory'})).toHaveCount(0);
  await expect(selector.locator('option',{hasText:'Subscription & Expiry'})).toHaveCount(0);
@@ -65,7 +69,7 @@ test('Full Admin: live function and RLS policy metadata, pagination and CSV expo
  const account=accounts.find(a=>/full/i.test(a.email));
  if(!account)throw Error('Missing Full Admin test account');
  await openReports(page,account);
- await page.getByRole('tab',{name:/Database, Security & Administration/i}).click();
+ await page.getByRole('tab',{name:/Technical & Database/i}).click();
  const selector=page.getByRole('combobox',{name:'Select report'});
  await selector.selectOption('function-audit');
  await expect(page.getByText('Matching records',{exact:true})).toBeVisible({timeout:45000});
