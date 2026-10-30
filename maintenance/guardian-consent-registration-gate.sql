@@ -29,7 +29,10 @@ CREATE OR REPLACE FUNCTION public.require_student_guardian_invitation_v1()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $guard$
 DECLARE raw_code text; code_hash text; invitation_id uuid;
 BEGIN
- -- Teachers created by the trusted Full Admin provisioning endpoint are adults\n -- and are outside child account registration. Student admin creation IS gated.\n -- raw_app_meta_data cannot be provided by a public signup request.\n IF coalesce(NEW.raw_app_meta_data,'{}'::jsonb)->>'admin_student_role'='TEACHER'\n AND coalesce(NEW.raw_app_meta_data,'{}'::jsonb) ? 'admin_student_request' THEN RETURN NEW; END IF;
+ -- Teachers created by the trusted Full Admin provisioning endpoint are adults
+ -- and are outside child account registration. Student admin creation IS gated.
+ -- raw_app_meta_data cannot be provided by a public signup request.
+ IF coalesce(NEW.raw_app_meta_data,'{}'::jsonb)->>'admin_student_role'='TEACHER'\n AND coalesce(NEW.raw_app_meta_data,'{}'::jsonb) ? 'admin_student_request' THEN RETURN NEW; END IF;
  -- Enforce on ALL ordinary Auth registrations; missing class metadata is not an escape.
  IF nullif(btrim(coalesce(NEW.raw_user_meta_data->>'class_id','')),'') IS NULL
    THEN RAISE EXCEPTION 'Student class and verified guardian invitation required' USING ERRCODE='23514'; END IF;
