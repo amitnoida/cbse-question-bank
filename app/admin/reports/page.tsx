@@ -13,9 +13,13 @@ type Row=Record<string,unknown>;
 type Result={columns:string[];rows:Row[];total:number;page:number;pageSize:number;summary:{matching_records:number;page_records:number};asOf:string};
 const categories:{id:ReportCategory;title:string;description:string}[]=[
  {id:"mcq",title:"MCQ & Academic",description:"Question bank, content health and mock readiness"},
- {id:"students",title:"Students & Business",description:"Activity, subscriptions, coupons and free usage"},
- {id:"system",title:"Database, Security & Administration",description:"Database monitoring, integrity and access"},
+ {id:"operations",title:"Admin Operations",description:"Student enrollment, memberships, coupons and admin users"},
+ {id:"students",title:"Student Performance",description:"Student activity and mock test outcomes"},
+ {id:"system",title:"Technical & Database",description:"Developer-only database, security and integrity audits"},
 ];
+
+// Explanations and suggested actions are guidance, not automated security or academic findings.
+const reportGuidance: Record<string,[string,string,string]> = {"mcq-summary":["Question counts by class and subject, split into active and inactive.","Find subjects with limited question coverage.","Review subjects with unusually low active counts; counts do not confirm academic accuracy."],"mcq-master":["Complete question text, options, answers and explanations.","Inspect a particular question or verify answer content.","Check suspicious answers with an academic reviewer before editing."],"academic-master":["Configured classes, subjects and chapter reference records.","Check syllabus and chapter mapping.","Verify chapter names and mappings against the applicable syllabus."],"chapter-counts":["Active and inactive question counts per chapter.","Find chapters with too few usable questions.","Prioritize chapters with low active question counts for content review."],"mcq-quality":["Questions flagged for missing explanations or incomplete content.","Identify content needing corrections.","Review the affected questions before activating them."],"mcq-inactive":["Inactive questions and questions pending academic clearance.","Track blocked content.","Review reasons for inactivity; do not bulk-activate unverified questions."],"media-audit":["Questions with media references or pending image assets.","Identify questions requiring diagram or image checks.","Preview essential images and verify accessibility; a ready flag alone is not proof."],"mock-readiness":["Question pool availability against the configured mock eligibility rule.","Identify subjects that cannot support the intended mock format.","Check missing MOCK/SHARED counts and content quality before enabling tests."],"student-directory":["Registered student accounts, verification and membership information.","Manage enrollment and identify accounts needing attention.","Investigate unverified or inactive accounts using authorized workflows."],"student-activity":["Aggregated student quiz attempts and outcomes.","Understand engagement by class and subject.","Compare periods and distinguish attempts from unique students."],"subscriptions":["Membership status, start dates, expiry and recorded payments.","Identify upcoming renewals and expired access.","Review expiring memberships and verify entitlement dates before contacting students."],"coupons":["Created coupon codes, validity and redemption limits.","Monitor coupon availability and usage.","Check expiring coupons and redemption limits; retain redeemed history."],"mock-performance":["Aggregated mock-test attempts, completions and scores.","Spot subjects where students may need more support.","Investigate low averages with enough real-student attempts; do not assume answer keys are wrong."],"free-usage":["Per-subject free practice consumption.","Understand trial usage and possible upgrade interest.","Review usage patterns without treating every free user as a conversion prospect."],"function-audit":["Database table RLS and function execution security metadata.","Support developer review of database access controls.","Review verified exceptions with a qualified developer; function-only fields are not applicable to table rows."],"db-size":["Live database sizes and performance-related totals.","Track database growth and capacity.","Compare against a verified provider quota; investigate unusual growth."],"rls-policies":["Database row-level security policies and their expressions.","Help technical reviewers assess access restrictions.","Review policy ownership and scope before changing any permissions."],"integrity":["Potential missing question values; not a full integrity certification.","Find data-quality records needing investigation.","Validate flagged records before making database corrections."],"admin-access":["Administrator accounts, roles, activation and password setup state.","Review authorized administrative access.","Investigate inactive accounts or pending password setup; roles alone are not vulnerabilities."]};
 const label=(v:string)=>v.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
 const format=(v:unknown)=>{
  if(v===null||v===undefined)return "—";
@@ -24,10 +28,33 @@ const format=(v:unknown)=>{
  if(typeof v==="string"&&/^\d{4}-\d\d-\d\dT/.test(v))return new Date(v).toLocaleString("en-IN");
  return String(v);
 };
+// Keep database identifiers in the export and underlying API, but show meaningful
+// business labels first. Technical identifiers remain available on demand.
+const businessColumns=(report:string,columns:string[])=>{
+ if(["student-directory","admin-access","subscriptions","coupons","free-usage"].includes(report))return columns.filter(c=>c!=="id"&&c!=="student_id"&&c!=="plan_id");
+ return columns;
+};
+const friendlyHeader=(column:string)=>({
+ full_name:"Name",email_verified:"Email verified",is_active:"Status",
+ must_change_password:"Password setup required",created_at:"Created on",
+ valid_until:"Coupon expires",valid_from:"Coupon valid from",
+ end_date:"Membership expires",start_date:"Membership starts",
+ amount_paid:"Amount paid",discount_percentage:"Discount",
+ usage_count:"Redemptions",usage_limit:"Redemption limit",
+ questions_used:"Free questions used",questions_allowed:"Free allowance",
+ last_used_at:"Last practice",account_type:"Account type",
+ } as Record<string,string>)[column]||label(column);
+const friendlyValue=(report:string,column:string,value:unknown)=>{
+ if(report==="admin-access"&&column==="role")return value==="FULL_ADMIN"?"Full Admin":value==="ADMIN_VIEW"?"Viewer Admin":format(value);
+ if(column==="must_change_password")return value===true?"Required":value===false?"Complete":"Unknown";
+ if(column==="is_active")return value===true?"Active":value===false?"Inactive":"Unknown";
+ if(column==="discount_percentage"&&value!==null&&value!==undefined)return format(value)+"%";
+ return format(value);
+};
 export default function AdminReportsPage(){
  const [catalog,setCatalog]=useState<Catalog|null>(null);
- const [activeCategory,setCategory]=useState<ReportCategory>("mcq");
- const [reportId,setReportId]=useState("mcq-summary");
+ const [activeCategory,setCategory]=useState<ReportCategory>("operations");
+ const [reportId,setReportId]=useState("student-directory");
  const [classNumber,setClassNumber]=useState("");
  const [subjectId,setSubjectId]=useState("");
  const [chapterId,setChapterId]=useState("");
@@ -127,7 +154,8 @@ export default function AdminReportsPage(){
  useEffect(()=>{
   if(!catalog||requestVersion!==0)return;
   setRequestVersion(1);
-  void load("mcq-summary",1);
+  if(!catalog.reports.some(r=>r.id==="student-directory")){setCategory("mcq");setReportId("mcq-summary");}
+  void load(catalog.reports.some(r=>r.id==="student-directory")?"student-directory":"mcq-summary",1);
  },[catalog,requestVersion,load]);
 
  function pickCategory(cat:ReportCategory){
@@ -177,14 +205,14 @@ export default function AdminReportsPage(){
   <div className="mx-auto max-w-7xl space-y-6">
    <header className="flex flex-wrap items-center justify-between gap-3">
     <div><p className="text-xs font-extrabold uppercase tracking-widest text-indigo-600">Admin Control Panel</p>
-     <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Reports &amp; Database Audit</h1>
-     <p className="mt-2 text-sm text-slate-600">On-demand reporting · Live database data · Server-verified permissions</p></div>
+     <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Reports &amp; Admin Insights</h1>
+     <p className="mt-2 text-sm text-slate-600">Daily operations, student outcomes and technical reports in separate sections</p></div>
     <div className="flex flex-wrap gap-2"><Link href="/admin" className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-indigo-700">← Admin Dashboard</Link>
      <Link href="/admin/system-stats" className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-indigo-700">System Stats</Link></div>
    </header>
    {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">{error}<button className="ml-4 underline" onClick={()=>void (catalog?load():window.location.reload())}>Retry</button></div>}
    {catalog&&<p className="rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm text-slate-700">Signed in as <strong>{catalog.role==="FULL_ADMIN"?"Full Admin":"Admin Viewer"}</strong>. {catalog.role==="FULL_ADMIN"?"Full report and export access.":"Only MCQ reports and aggregate student summaries are available. Individual student data and security audits are restricted."}</p>}
-   {catalog&&<div className="grid gap-3 md:grid-cols-3" role="tablist" aria-label="Report categories">
+   {catalog&&<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" role="tablist" aria-label="Report categories">
     {categories.map(c=>{
      const allowed=reports.some(r=>r.category===c.id);
      return <button key={c.id} type="button" role="tab" aria-selected={activeCategory===c.id} disabled={!allowed} onClick={()=>pickCategory(c.id)} className={`rounded-2xl border p-4 text-left transition ${activeCategory===c.id?"border-indigo-600 bg-indigo-700 text-white shadow-lg":"border-slate-200 bg-white text-slate-900 hover:border-indigo-300"} disabled:cursor-not-allowed disabled:opacity-40`}>
@@ -199,6 +227,13 @@ export default function AdminReportsPage(){
        {categoryReports.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
       </select></label>
      <p className="self-end rounded-xl bg-indigo-50 p-3 text-sm leading-6 text-indigo-900">{chosen?.description||"Choose a report."}</p>
+     {chosen&&reportGuidance[chosen.id]&&<div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-slate-800 sm:col-span-2" aria-label="About this report and recommended actions">
+      <h2 className="font-bold text-indigo-950">About this report — {chosen.title}</h2>
+      <p className="mt-2"><strong>What it shows:</strong> {reportGuidance[chosen.id][0]}</p>
+      <p className="mt-2"><strong>Why it helps:</strong> {reportGuidance[chosen.id][1]}</p>
+      <p className="mt-2"><strong>Admin insight &amp; recommended action:</strong> {reportGuidance[chosen.id][2]}</p>
+      <p className="mt-2 text-xs text-slate-600">Guidance only. Review the actual filtered results before making changes.</p>
+     </div>}
      {chosen?.source==="metadata"&&<p className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900 sm:col-span-2">Live public-schema security metadata. Full Admin only. The function audit includes all public tables and functions; RLS Policy Details includes exact policy roles and expressions. These are observations, not automatic security fixes.</p>}
     </div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -254,10 +289,11 @@ export default function AdminReportsPage(){
     </div>}
     {loading&&<p role="status" className="py-6 text-sm font-semibold text-indigo-700">Loading report records on demand…</p>}
     {result&&<div className="space-y-4">
+     {["student-directory","admin-access","subscriptions","coupons","free-usage"].includes(reportId)&&<details className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600"><summary className="cursor-pointer font-semibold">Technical details</summary><p className="mt-2">Internal database IDs are hidden from the main table. Authorized administrators can still use the full CSV export for troubleshooting.</p></details>}
      <div className="max-w-full overflow-x-auto rounded-xl border border-slate-200">
       <table className="w-full min-w-[680px] text-left text-xs sm:text-sm">
-       <thead className="sticky top-0 bg-slate-100"><tr>{result.columns.map(c=><th key={c} scope="col" className="whitespace-nowrap border-b p-3 font-black">{label(c)}</th>)}</tr></thead>
-       <tbody>{result.rows.map((r,i)=><tr key={String(r.id??i)+"-"+i} className="border-b hover:bg-indigo-50/40">{result.columns.map(c=><td key={c} className="max-w-[320px] break-words p-3 align-top text-slate-700">{format(r[c])}</td>)}</tr>)}</tbody>
+       <thead className="sticky top-0 bg-slate-100"><tr>{businessColumns(reportId,result.columns).map(c=><th key={c} scope="col" className="whitespace-nowrap border-b p-3 font-black">{friendlyHeader(c)}</th>)}</tr></thead>
+       <tbody>{result.rows.map((r,i)=><tr key={String(r.id??i)+"-"+i} className="border-b hover:bg-indigo-50/40">{businessColumns(reportId,result.columns).map(c=><td key={c} className="max-w-[320px] break-words p-3 align-top text-slate-700">{friendlyValue(reportId,c,r[c])}</td>)}</tr>)}</tbody>
       </table>
       {!result.rows.length&&<p className="p-6 text-center text-sm text-slate-600">No matching records for these filters.</p>}
      </div>
