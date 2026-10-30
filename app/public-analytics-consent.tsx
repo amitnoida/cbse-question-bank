@@ -41,6 +41,15 @@ export default function PublicAnalyticsConsent() {
   const [loaded, setLoaded] = useState(false);
   const [showChoices, setShowChoices] = useState(false);
 
+  // A client-side transition from a public page must not carry the GA library
+  // into a student, membership, account, or admin page.
+  useEffect(() => {
+    if (allowed || !window.gtag) return;
+    (window as unknown as Record<string, unknown>)["ga-disable-" + measurementId] = true;
+    window.gtag("consent", "update", { analytics_storage: "denied" });
+    window.location.reload();
+  }, [allowed]);
+
   useEffect(() => {
     if (!allowed) return;
     try {
