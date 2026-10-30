@@ -1,5 +1,6 @@
 -- Run only after the session-aware frontend is deployed and READY.
--- Preserve the two newest current logins; expire older native sessions and their refresh tokens.
+-- Preserve the two newest current logins and reject older tokens immediately.
+-- Native Auth cleanup is performed by the installed per-student claim function on the next client check.
 do $enable$
 begin
  perform 1 from cbse_sessions.policy where singleton for update;
@@ -13,7 +14,6 @@ begin
  insert into public.student_device_sessions(session_id,student_id,signed_in_at,revoked_at,revoke_reason)
  select id,user_id,signed_at,case when rn>2 then now() else null end,case when rn>2 then 'DEVICE_LIMIT' else null end from ranked
  on conflict(session_id) do nothing;
- delete from auth.sessions s using public.student_device_sessions d where s.id=d.session_id and s.user_id=d.student_id and d.revoked_at is not null and d.revoke_reason='DEVICE_LIMIT';
  update cbse_sessions.policy set enabled=true where singleton;
 end $enable$;
 select enabled,max_sessions from cbse_sessions.policy where singleton;

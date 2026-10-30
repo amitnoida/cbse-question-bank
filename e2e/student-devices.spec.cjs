@@ -10,7 +10,7 @@ async function rpc(request,key,token,name,data={}){return request.post(project+'
 test('two browser sessions: oldest logout, old JWT/refresh denied, saved work preserved and local logout isolated',async({browser,request})=>{
  test.setTimeout(240000);
  const run=process.env.GITHUB_RUN_ID;if(!/^\d+$/.test(run||''))throw Error('Run identity required');
- const email=`qa_devices_${run}@example.com`,password=randomBytes(24).toString('base64url')+'aA1!';
+ const email=`qa_devices_${run}_${process.env.GITHUB_RUN_ATTEMPT||1}@example.com`,password=randomBytes(24).toString('base64url')+'aA1!';
  const adminContext=await browser.newContext();const admin=await adminContext.newPage();
  const contexts=[];
  let apiKey;

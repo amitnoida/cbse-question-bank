@@ -14,7 +14,7 @@ Normal student logout uses local scope so the other retained device stays signed
 
 ## Rollout
 
-Apply the staged session migration and native-revocation correction with policy disabled. Deploy frontend/server checks and confirm READY/build success. Run `20261030-enable-student-two-sessions.sql` once: it preserves the latest two native sessions per student, marks older ones revoked, removes only those evicted native sessions and enables enforcement atomically. Do not enable against an older frontend. Already-open pages running old bundles may need refresh to receive the new sign-out notice, while server enforcement still applies.
+Apply the staged session migration and native-revocation correction with policy disabled. Deploy frontend/server checks and confirm READY/build success. Run `20261030-enable-student-two-sessions.sql` once: it preserves the latest two native sessions per student, marks older ones revoked and enables enforcement atomically. The installed per-student claim removes their evicted native Auth sessions on the next browser check; new-login evictions remove native sessions in the same admission transaction. Do not enable against an older frontend. Already-open pages running old bundles may need refresh to receive the new sign-out notice, while server enforcement still applies.
 
 Config is private, RLS-protected and unavailable to client roles. The registry permits owned reads only, with no direct client writes. It stores session IDs/timestamps/reasons, no passwords or tokens. No paid Supabase session feature or new infrastructure is enabled.
 
