@@ -1,7 +1,7 @@
 import type {Metadata} from "next";
 import Link from "next/link";
 import {PublicFooter,PublicHeader} from "../public-navigation";
-export const metadata:Metadata={title:"Contact and Support |title:"undefined",description:"ExamYari student, parent and teacher support and account/privacy request information.",alternates:{canonical:"/contact"}};
+export const metadata:Metadata={title:"Contact and Support",description:"ExamYari student, parent and teacher support and account/privacy request information.",alternates:{canonical:"/contact"}};
 export default function Contact(){return <><PublicHeader/><main id="main-content" className="mx-auto max-w-3xl space-y-6 px-5 py-12 text-slate-900">
 <h1 className="text-3xl font-extrabold">Contact ExamYari Support</h1>
 <p>Students, parents and teachers can contact us about login problems, test access, questions or explanations, account deletion, privacy and safety concerns.</p>
