@@ -15,8 +15,8 @@ export async function POST(req:NextRequest){
  const input=parseAdminStudent(body);if(!input)return reply({error:"Enter a full name, valid email, password of 12–128 characters, class and Free/Paid selection."},400);
  // School student accounts require a verified guardian consent record before any child identity is created.
  const consentId=typeof (body as Record<string,unknown>)?.guardianConsentId==="string"?(body as Record<string,string>).guardianConsentId:"";
- const student=input.accountRole==="STUDENT";
- if(student){
+ const creatingStudent=input.accountRole==="STUDENT";
+ if(creatingStudent){
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(consentId))
     return reply({error:"Verified parental consent ID is mandatory before creating a student account."},400);
   const {error:claimError}=await a.db.rpc("cbse_guardian_claim_v1",{p_admin:a.user.id,p_consent:consentId,p_request:input.requestId});
