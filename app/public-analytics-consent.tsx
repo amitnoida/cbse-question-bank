@@ -79,7 +79,8 @@ export default function PublicAnalyticsConsent() {
     if (!allowed || preference !== "accepted" || activeStudentSession()) return;
     if (!window.gtag) {
       window.dataLayer = window.dataLayer || [];
-      // gtag.js requires the function Arguments object; plain arrays are ignored.\n      window.gtag = function (..._args: unknown[]) { window.dataLayer?.push(arguments as unknown as unknown[]); };
+      // gtag.js requires the function Arguments object; plain arrays are ignored.
+      window.gtag = function (..._args: unknown[]) { window.dataLayer?.push(arguments as unknown as unknown[]); };
       window.gtag("js", new Date());
       window.gtag("config", measurementId, {
         send_page_view: false,
