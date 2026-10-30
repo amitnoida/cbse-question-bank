@@ -9,26 +9,17 @@ for(const [i,a] of accounts.entries())test('school account '+(i+1)+': membership
  await page.getByRole('button',{name:paid?/Manage membership/i:/Membership plans/i}).first().click();
  await expect(page).toHaveURL(/\/memberships$/);
  const classNumber=a.email.match(/test_(\d+)_/)[1];
- const direct12=classNumber==='12';
- if(direct12){
-  await expect(page.getByRole('heading',{name:'Class 12 membership',exact:true})).toBeVisible({timeout:30000});
-  await expect(page.getByRole('combobox')).toHaveCount(0);
-  await expect(page.getByText(/Start next 1 April/)).toHaveCount(0);
- }else{
-  await expect(page.getByRole('heading',{name:'Your available classes',exact:true})).toBeVisible({timeout:30000});
-  await expect(page.getByRole('button',{name:new RegExp('Class '+classNumber+' · Selected')})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Your memberships',exact:true})).toBeVisible();
- }
+ await expect(page.getByRole('heading',{name:'Plans and classes',exact:true})).toBeVisible({timeout:30000});
+ await expect(page.getByRole('radio')).toHaveCount(7);
+ await expect(page.getByRole('combobox')).toHaveCount(0);
+ await expect(page.getByText(/Start next 1 April|Razorpay merchant/)).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'Your available classes',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:new RegExp('Class '+classNumber+' · Selected')})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Your memberships',exact:true})).toBeVisible();
  if(!paid){
-  if(!direct12){
-   const plan=page.getByRole('combobox').first();
-   await expect(plan).toBeVisible();
-   await expect.poll(()=>plan.locator('option').count()).toBeGreaterThan(1);
-   const value=await plan.locator('option').evaluateAll(options=>options.find(o=>o.value)?.value);
-   expect(value).toBeTruthy();await plan.selectOption(value);
-  }
-  await page.getByRole('button',{name:direct12?'Review payment / coupon':'Review plan and dates',exact:true}).click();
-  await expect(page.getByText(/Online payment is not available yet/)).toBeVisible({timeout:30000});
+  await page.locator('input[type=radio][name=membership]:not(:disabled)').first().check();
+  await page.getByRole('button',{name:'Review plan and dates',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Payments coming soon',exact:true})).toBeVisible({timeout:30000});
   await expect(page.getByRole('button',{name:'Confirm membership activation',exact:true})).toHaveCount(0);
  }
  if(i===0){await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
