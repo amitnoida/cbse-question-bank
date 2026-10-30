@@ -10,7 +10,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://cbse-question-bank.vercel.app"),
+  metadataBase: new URL("https://examyari.com"),
   title: { default: "CBSE Question Bank | Class 8–12 MCQ Practice", template: "%s | CBSE Question Bank" },
   description: "CBSE MCQ practice, chapter-wise questions, explanations and 60-question mock tests for Classes 8, 9, 10, 11 and 12, including Physics, Chemistry, Mathematics and Biology in Classes 11–12.",
   applicationName: "CBSE Question Bank",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   openGraph: {
     type: "website", siteName: "CBSE Question Bank",
-    url: "https://cbse-question-bank.vercel.app",
+    url: "https://examyari.com",
     title: "CBSE Question Bank | Classes 8–12 MCQ Practice",
     description: "Class 8, 9, 10, 11 and 12 subject-wise MCQ practice and timed mock tests."
   },
