@@ -19,7 +19,7 @@ test('two browser sessions: oldest logout, old JWT/refresh denied, saved work pr
   admin.on('request',r=>{if(r.url().startsWith(project+'/rest/v1/'))apiKey=r.headers().apikey||apiKey;});
   await admin.goto('/admin/create-user');await expect.poll(()=>admin.getByRole('combobox').first().locator('option').count()).toBeGreaterThan(1);
   await admin.getByLabel('Full name',{exact:true}).fill('QA Disposable Device Policy');await admin.getByLabel('Email ID',{exact:true}).fill(email);await admin.locator('input[type=password]').fill(password);
-  await admin.getByRole('combobox').first().selectOption({label:'Class 9'});await admin.getByRole('combobox').nth(1).selectOption('PAID');
+  await admin.getByRole('combobox').first().selectOption({label:'Class 9'});await admin.getByLabel('Free / Paid',{exact:true}).selectOption('PAID');
   const created=admin.waitForResponse(r=>r.url().endsWith('/api/admin/students')&&r.request().method()==='POST');await admin.getByRole('button',{name:'Submit',exact:true}).click();expect((await created).status()).toBe(201);
   async function device(){const c=await browser.newContext();contexts.push(c);const p=await c.newPage();p.on('request',r=>{if(r.url().startsWith(project+'/rest/v1/'))apiKey=r.headers().apikey||apiKey;});await studentLogin(p,email,password);return p;}
   const first=await device();const one=await session(first);expect(one?.access_token).toBeTruthy();await expect.poll(()=>Boolean(apiKey)).toBe(true);

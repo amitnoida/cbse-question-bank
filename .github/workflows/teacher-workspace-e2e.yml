@@ -1,0 +1,42 @@
+name: Teacher Workspace Checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/teacher-workspace-e2e.yml'
+      - 'e2e/teacher-workspace*'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: teacher-workspace
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node --test maintenance/test-admin-create-student.cjs maintenance/test-student-session-policy.cjs
+      - name: Wait for teacher release
+        run: |
+          node --input-type=module <<'JS'
+          let ready=false;
+          for(let i=0;i<60;i++){
+            try{const r=await fetch('https://cbse-question-bank.vercel.app/api/public/teacher-release');if(r.ok&&(await r.json()).version===1){ready=true;break;}}catch{}
+            await new Promise(r=>setTimeout(r,5000));
+          }
+          if(!ready)throw Error('Teacher release was not ready');
+          JS
+      - run: npm install --no-save --package-lock=false @playwright/test@1.56.1 && npx playwright install --with-deps chromium
+      - name: Verify teacher review and private submissions
+        env:
+          E2E_ACCOUNTS_JSON: ${{ secrets.E2E_ACCOUNTS_JSON }}
+        run: npx playwright test --config=e2e/teacher-workspace.config.cjs

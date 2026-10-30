@@ -13,7 +13,7 @@ export async function POST(req:NextRequest){
  const a=await requireStatsAdmin(req);if(!a)return reply({error:"Sign in as an administrator."},401);if(a.role!=="FULL_ADMIN")return reply({error:"Full Admin permission required."},403);
  let body:unknown;try{body=await req.json();}catch{return reply({error:"Invalid JSON."},400);}
  const input=parseAdminStudent(body);if(!input)return reply({error:"Enter a full name, valid email, password of 12–128 characters, class and Free/Paid selection."},400);
- const {data:begin,error:beginError}=await a.db.rpc("admin_student_creation_begin_v1",{p_actor:a.user.id,p_request:input.requestId,p_name:input.fullName,p_email:input.email,p_class:input.classId,p_paid:input.membership==="PAID"});
+ const {data:begin,error:beginError}=await a.db.rpc("admin_account_creation_begin_v2",{p_actor:a.user.id,p_request:input.requestId,p_name:input.fullName,p_email:input.email,p_class:input.classId,p_paid:input.membership==="PAID",p_role:input.accountRole});
  if(beginError)return reply({error:beginError.code==="22023"?"Choose an active school class and check the account details.":"Unable to start account creation. Retry with the same details."},beginError.code==="22023"?400:409);
  if(begin.status==="COMPLETE")return reply({student:begin.result,alreadyCreated:true});
  if(begin.status==="BUSY")return reply({error:"This submission is still being processed. Retry shortly with the same details."},409);

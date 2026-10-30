@@ -763,6 +763,14 @@ export default function Home() {
         return;
       }
 
+      // Routing hint only. Teacher API verifies the server-owned role and native session.
+      try {
+        const {data:{session}}=await supabase.auth.getSession();
+        if(session){const r=await fetch('/api/teacher?action=identity',{headers:{Authorization:`Bearer ${session.access_token}`},cache:'no-store'});
+          if(!mounted||revision!==authRevision)return;
+          if(r.ok&&(await r.json()).teacher){window.location.replace('/teacher');return;}}
+      }catch{/* Normal student/admin loading can retry through its existing controls. */}
+
       // Detect admin accounts using the existing role mapping. The admin page
       // remains responsible for enforcing permissions; this is routing only.
       // Use a short deadline so an unavailable role lookup cannot block students.
