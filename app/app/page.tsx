@@ -163,6 +163,25 @@ export default function Home() {
   const [chapters, setChapters] = useState<ChapterRow[]>([]);
   const [selectedChapterIds, setSelectedChapterIds] = useState<number[]>([]);
   const [chapterPickerOpen, setChapterPickerOpen] = useState(false);
+  // Dismiss the chapter multi-select on outside click or Escape, keeping selections.
+  useEffect(() => {
+    if (!chapterPickerOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const picker = document.getElementById("practice-chapter");
+      if (picker && event.target instanceof Node && !picker.contains(event.target)) {
+        setChapterPickerOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setChapterPickerOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [chapterPickerOpen]);
   const [selectionCounts, setSelectionCounts] = useState({practice:0,mock:0});
   const [selectionLoading, setSelectionLoading] = useState(false);
   const preferredSubjectApplied = useRef(false);
@@ -3546,7 +3565,7 @@ export default function Home() {
                   </div>
                 )}
 
-                <p className="mb-3 text-xs font-semibold text-slate-700">Your test history is saved for 2 weeks only.</p>
+                <p className="mb-3 text-xs font-semibold text-white">Your test history is saved for 2 weeks only.</p>
                 {practiceSubmitError && (
                   <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800 sm:col-span-2">
                     {practiceSubmitError}
