@@ -37,38 +37,31 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[#f8f7ff] text-slate-950">
       <PublicHeader />
       <main id="main-content" tabIndex={-1}>
-        <section id="home" className="relative overflow-hidden bg-gradient-to-br from-indigo-800 via-indigo-600 to-violet-700 text-white">
-          <div aria-hidden="true" className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-          <div aria-hidden="true" className="absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-3xl" />
-          <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-5 py-12 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:px-8 lg:py-24">
-            <div>
-              <p className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/15 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-wider text-amber-200">🇮🇳 CBSE Classes 8, 9, 10, 11 &amp; 12</p>
-              <h1 className="mt-6 max-w-3xl text-4xl font-black leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">Practice Smarter.<span className="block text-amber-300">Score Better.</span></h1>
-              <p className="mt-6 max-w-2xl text-base leading-8 text-indigo-100 sm:text-lg">Explore chapter-wise CBSE MCQs, strengthen understanding with answer explanations, and build confidence with subject practice and timed mock tests.</p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link href="/app?auth=signup" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-amber-400 px-6 py-3 text-sm font-extrabold text-slate-950 shadow-lg shadow-indigo-950/20 transition hover:bg-amber-300">Start Free 🎯</Link>
-                <Link href="/app?auth=signin" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-white/20">Student Sign In</Link>
-                <a href="#classes" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/30 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10">Explore Classes</a>
+        <section id="home" className="ey-home-hero">
+          <div className="ey-hero-grid">
+            <div className="ey-hero-copy">
+              <p className="ey-eyebrow">YOUR STUDY COMPANION · CBSE CLASSES 8–12</p>
+              <h1>Practice today.<br />A <span>brighter</span> tomorrow.</h1>
+              <p className="ey-hero-description">A little practice every day goes a long way. Explore chapter-wise questions, understand each answer, and build confidence with timed mock tests.</p>
+              <div className="ey-hero-actions">
+                <Link href="/app?auth=signup" className="ey-primary-action">Start learning free <span aria-hidden="true">→</span></Link>
+                <a href="#how-it-works" className="ey-secondary-action">See how it works</a>
               </div>
-              <div className="mt-8 flex flex-wrap gap-2 text-xs font-semibold text-indigo-100">
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">✓ One free Practice + Mock set per subject</span>
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">✓ Answer explanations</span>
-                <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">✓ Chapter-wise learning</span>
-              </div>
+              <p className="ey-free-note">One free Practice + Mock set per subject. No payment needed to begin.</p>
+              <p className="ey-tagline">Har Exam Ki Pakki Yaari!</p>
             </div>
-            <div className="mx-auto w-full max-w-xl">
-              <div className="overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-indigo-50 to-violet-100 p-5 shadow-2xl shadow-indigo-950/20">
-                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Students studying together for CBSE classes" className="mx-auto h-auto max-h-80 w-full object-contain" priority />
-                <div className="mt-4 rounded-2xl bg-white p-4 text-slate-950 shadow-sm">
-                  <p className="text-xs font-extrabold uppercase tracking-widest text-indigo-600">Choose · Practice · Improve</p>
-                  <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-xl bg-violet-50 p-3"><span className="block text-lg font-black text-indigo-700">01</span><span className="text-xs">Choose class</span></div>
-                    <div className="rounded-xl bg-sky-50 p-3"><span className="block text-lg font-black text-sky-700">02</span><span className="text-xs">Practice MCQs</span></div>
-                    <div className="rounded-xl bg-amber-50 p-3"><span className="block text-lg font-black text-amber-700">03</span><span className="text-xs">Review results</span></div>
-                  </div>
-                </div>
-              </div>
+            <div className="ey-hero-art">
+              <Image src="/images/examyari-students.webp" alt="Two students smiling while studying together" width={775} height={655} sizes="(max-width: 767px) 100vw, 50vw" className="ey-student-photo" preload />
+              <div className="ey-photo-caption"><span aria-hidden="true">✦</span> Practice. Learn. Improve. Grow.</div>
             </div>
+          </div>
+          <div className="ey-benefits" aria-label="Learning features">
+            {[
+              { icon: "📚", title: "Chapter-wise practice", text: "Focus on one topic at a time" },
+              { icon: "⏱", title: "Timed mock tests", text: "Build your exam rhythm" },
+              { icon: "💡", title: "Answer explanations", text: "Understand the why" },
+              { icon: "↗", title: "Review your progress", text: "Find your next learning goal" },
+            ].map(item => <div key={item.title}><span aria-hidden="true" className="ey-benefit-icon">{item.icon}</span><div><p>{item.title}</p><small>{item.text}</small></div></div>)}
           </div>
         </section>
 

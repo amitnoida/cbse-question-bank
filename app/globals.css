@@ -14,3 +14,21 @@ a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline:3px s
 
 /* Study flow: reachable focus, clearer disabled states, comfortable reading. */
 [id]{scroll-margin-top:1.5rem} summary{touch-action:manipulation} [role="dialog"]{overscroll-behavior:contain} dialog::backdrop{background:rgba(15,23,42,.7)}
+
+/* ExamYari marketing identity, scoped to the public landing hero. */
+.ey-home-hero{background:linear-gradient(115deg,#eff8ff 0%,#fffdf6 78%);padding:42px 24px 28px;color:#0b2452}
+.ey-hero-grid{max-width:1200px;margin:auto;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:48px}
+.ey-eyebrow{font-size:11px;font-weight:800;letter-spacing:.13em;color:#245888}
+.ey-hero-copy h1{font-size:clamp(38px,4.5vw,64px);line-height:1.09;letter-spacing:-.045em;font-weight:900;margin:22px 0}
+.ey-hero-copy h1 span{color:#c64a0b;text-decoration:underline;text-decoration-color:#ffd74c;text-underline-offset:9px;text-decoration-thickness:5px}
+.ey-hero-description{max-width:520px;line-height:1.8;color:#475569;font-size:17px}
+.ey-hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.ey-primary-action,.ey-secondary-action{display:inline-flex;align-items:center;justify-content:center;gap:18px;min-height:50px;padding:12px 22px;border-radius:12px;font-size:14px;font-weight:800}
+.ey-primary-action{background:#c44708;color:#fff;box-shadow:0 7px 18px #c447081c}.ey-primary-action:hover{background:#a83c06}
+.ey-secondary-action{background:#fff;border:1px solid #a7bfdc;color:#123e72}.ey-secondary-action:hover{background:#edf6ff}
+.ey-free-note{font-size:12px;color:#526274;margin-top:16px;line-height:1.7}.ey-tagline{font-size:18px;color:#183c64;font-weight:700;margin-top:24px}
+.ey-hero-art{position:relative;padding:0 0 20px}.ey-student-photo{width:100%;height:auto;max-height:500px;object-fit:cover;border-radius:32px 32px 80px 32px;box-shadow:0 20px 50px #193b631c}
+.ey-photo-caption{position:absolute;bottom:0;left:20px;right:20px;padding:16px 12px;text-align:center;background:#fff;border:1px solid #e4edf5;border-radius:16px;box-shadow:0 6px 18px #1536580d;font-size:14px;font-weight:800}.ey-photo-caption span{color:#c44708;margin-right:8px}
+.ey-benefits{max-width:1200px;margin:38px auto 0;padding:24px;background:#fff;border:1px solid #e5edf5;border-radius:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px}.ey-benefits>div{display:flex;align-items:center;gap:12px}.ey-benefits p{font-size:13px;font-weight:800}.ey-benefits small{display:block;font-size:11px;line-height:1.6;color:#64748b;margin-top:4px}.ey-benefit-icon{display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:14px;background:#edf6ff;font-size:23px;flex-shrink:0}
+@media(max-width:900px){.ey-hero-grid{gap:24px}.ey-benefits{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:767px){.ey-home-hero{padding:32px 20px 24px}.ey-hero-grid{grid-template-columns:1fr;gap:30px}.ey-hero-copy h1{font-size:42px}.ey-hero-description{font-size:16px}.ey-student-photo{max-height:360px;object-position:center 30%;border-radius:24px 24px 56px 24px}.ey-benefits{gap:20px 12px;padding:18px;margin-top:24px}.ey-benefits>div{align-items:flex-start;gap:8px}.ey-benefit-icon{width:32px;height:32px;font-size:18px}.ey-benefits p{font-size:12px}}
