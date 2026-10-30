@@ -1,0 +1,30 @@
+# ExamYari — India Child Data/Consent Legal Readiness Assessment
+
+Prepared: 30 October 2026. **Technical/internal compliance assessment only. This is NOT an independent legal opinion, legal certification, or substitute for an advocate's professional review.** No law firm has been engaged or signed off by this document.
+
+## Primary legal sources and timing
+- [DPDP Act 2023, section 9](https://www.meity.gov.in/static/uploads/2024/06/2bf1f0e9f04f3fb28c080f46c4c2511e.pdf) (check current India Code official text when counsel reviews): personal-data processing for individuals under eighteen; prior verifiable parent/lawful guardian consent; restrictions on detrimental processing and tracking/behavioural monitoring and targeted advertising.
+- [MeitY DPDP Rules 2025 Gazette](https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf): Rule 10 requires reliable age and identity details from a trusted existing record or voluntarily provided government/authorized identity evidence/virtual token, including DigiLocker routes. The relevant rules' broad 18-month commencement is May 2027 based on Gazette notification 13 Nov 2025; verify the exact provision and subsequent notifications with counsel.
+- Privacy/Terms public pages `/privacy` and `/terms`. Product currently primarily serves schoolchildren in Classes 8–12.
+
+## Threat model and safeguards designed
+1. **New self-service registrations:** Before the Supabase Auth user INSERT, a database trigger requires a 256-bit random single-use guardian invitation and valid active class. It atomically consumes the invitation and strips the bearer code from user metadata; without a valid invitation the Auth user cannot be created. Email-only verification and a check box do not pass.
+2. **Adult identity verification:** Full Admin must use a verifiable external/source-based age+identity check, verify age 18+, attest an affirmative guardian consent, and record only a minimal audit reference. Supported declaration categories: DigiLocker verified, government identity/age document checked, trusted adult KYC on record. The app does not perform government identity verification itself and does not hold raw government ID images. A false administrator attestation remains a human/governance risk.
+3. **One-time code security:** 32 random bytes, SHA-256 hash only stored, 7-day expiry, full admin issuance and revocation; no public API to enumerate grants, read guardian emails or generate codes; service-role access only, no direct anonymous/authenticated table access.
+4. **Child tracking:** Consent-opt-in public-page Google Analytics currently excludes student-specific pages and authenticated sessions. Stronger testing should verify edge cases (e.g. browsers with stale session or analytics scripts). Do not add child profiling, targeted ads or behaviour analysis.
+5. **Previously registered accounts:** Existing students are not reclassified as verified. They need a separate guardian-verification remediation and/or access suspension plan designed with counsel; account totals and date of original registration must be documented before enforcement.
+6. **Admin-created accounts:** The current trusted `admin_student_request` creation route bypasses the public Auth registration invitation check to preserve legitimate provisioned accounts. Therefore, **student accounts created through Full Admin also require guardian consent grants**, while only genuine Full Admin-created TEACHER accounts are exempt. Validate both routes after deployment. No blanket 'fully compliant' claim.
+7. **Withdrawal and deletion:** Inactive/unused invitation can be revoked by Full Admin. Used consent withdrawal needs authenticated parent-request review, child account disablement, data retention/deletion policy and audit record; cannot be claimed completed.
+8. **Data minimisation & privacy:** Guardian email plus short evidence reference retained; never store full ID numbers or scans. Retention duration and secure destruction of consent proof should be decided and documented before general launch.
+9. **Privacy notice:** Must explicitly state what guardian and child data is processed, how consent can be withdrawn, parent/child rights, grievance route and how the guardian learns about a child's registration. Support `support.cbseexam@gmail.com` is currently the working contact; `support@examyari.com` forwarding is parked.
+10. **Third parties and contracts:** Vercel/Supabase/GA4 processor terms, any international transfer and incident notification duties require independent review. Check SPDI, IT Act, DPDP commencement, Consumer Protection e-commerce rules (if payments launch), copyright/license risk in teacher uploads, accessibility and retention obligations. No guarantee that policies alone satisfy law.
+
+## Tests required prior to declaring rollout ready
+- Genuine new student Auth sign-up without guardian invite denied at database level.
+- Token successfully issues only after Full Admin verification, one valid registration consumes it, and second registration using token fails.
+- Child account registration with invalid/expired/revoked token denied; no token remains in Auth metadata; no child account created on failures.
+- Admin provisioning and existing student sign-in continue to function; Viewer, anonymous and teacher cannot issue or enumerate grants.
+- Parent withdrawal and legacy account remediation workflows implemented or formally restricted.
+- Lawyer checks age/ID evidence threshold, verification process, lawful basis, notices, retention and cross-border processing. Counsel's written deliverable signed and dated.
+
+**Readiness:** New-self-service guardian gating code can be implemented and regression-tested. **Independent legal review: NOT completed**. Do not market as legally certified; no professional lawyer has been retained or paid. Consent mechanism is not fully universal while separate admin-created and historical accounts lack verification.
