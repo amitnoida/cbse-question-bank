@@ -7,6 +7,7 @@ type ImportFile={id:string;file_name:string;file_size:number;mime_type:string;so
 type PreviewQuestion={id:number;question_text:string;option_a:string;option_b:string;option_c:string;option_d:string;correct_option:string;explanation:string};
 type Chapter={id:number;chapter_name:string};
 export default function TeacherImports(){
+ const [autoBusy,setAutoBusy]=useState(false),[batchOutcome,setBatchOutcome]=useState('');
  const [files,setFiles]=useState<ImportFile[]>([]),[page,setPage]=useState(0),[total,setTotal]=useState(0),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [targets,setTargets]=useState<Record<string,{chapters:Chapter[];chapterId:string}>>({});
  const [preview,setPreview]=useState<{file:string;questions:PreviewQuestion[];page:number;total:number}|null>(null);
@@ -29,11 +30,27 @@ export default function TeacherImports(){
  result=await teacherApi('/api/admin/teacher-imports',{action:'import',fileId:f.id,chapterId:Number(chapterId),sha256,text});
  }
  setMessage(`${result.batch.imported_count} imported · ${result.batch.skipped_count} skipped · ${result.complete?'Source file deleted':'Import saved; source cleanup pending'}`);await load();
- }catch(e){setError((e as Error).message);setMessage('');await load();}finally{setBusy('');}}
+  return true;
+ }catch(e){setError((e as Error).message);setMessage('');await load();return false;}finally{setBusy('');}}
+ async function autoImport(){
+  // The teacher-assigned chapter is essential. Never guess one, and never
+  // silently convert an ambiguous submission into a different chapter.
+  setAutoBusy(true);setBatchOutcome('');
+  let imported=0,failed=0,skipped=0;
+  const eligible=files.filter(f=>!f.source_deleted_at&&/\\.(pdf|docx)$/i.test(f.file_name));
+  for(const f of eligible){
+   const prior=Array.isArray(f.teacher_mcq_imports)?f.teacher_mcq_imports[0]:f.teacher_mcq_imports;
+   if(!prior&&!f.teacher_mcq_submissions.chapter_id&&!targets[f.id]?.chapterId){skipped++;continue;}
+   const ok=await process(f);if(ok)imported++;else failed++;
+  }
+  setBatchOutcome('Files completed: '+imported+' · Manual chapter mapping needed: '+skipped+' · Failed/retained for retry: '+failed+'.');
+  setAutoBusy(false);await load();
+ }
  return <main className="mx-auto min-h-screen max-w-5xl space-y-6 bg-slate-50 p-4 text-slate-900 sm:p-8"><header><Link href="/admin" className="font-semibold text-indigo-700">← Admin dashboard</Link><h1 className="mt-4 text-3xl font-bold">Teacher MCQ Imports</h1><p className="mt-2 text-sm text-slate-600">Process text-based PDF and Word .docx files. Complete MCQs are imported; incomplete, diagram-dependent and duplicate questions are skipped. The original file is automatically deleted after a verified import.</p><Link href="/admin/teacher-reviews" className="mt-3 inline-block font-semibold text-indigo-700 underline">Teacher reviews &amp; accounts →</Link></header>
  <section className="rounded-xl border bg-white p-4 text-sm"><p>One chapter per file. Include numbered questions, options A–D, Answer and Explanation. No AI charges. Keep this page open while processing.</p></section>
  {error&&<p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">{error}</p>}{message&&<p role="status" className="rounded-lg bg-indigo-50 p-4 text-indigo-900">{message}</p>}
- <div className="flex justify-between"><p className="font-semibold">{total} uploaded files</p><button className="min-h-11 rounded border px-4" disabled={Boolean(busy)} onClick={()=>void load()}>Refresh</button></div>
+ <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4"><h2 className="font-bold">Automatic batch import</h2><p className="mt-1 text-sm">One click processes all eligible files on this page, one by one. Only documents with a known destination chapter are imported. Incomplete, duplicate or unclear MCQs are ignored. Sources are deleted only after an import is verified; failures are retained for retry. PDFs must contain selectable text and Word files must be .docx.</p><button type="button" className={button+" mt-3"} disabled={Boolean(busy)||autoBusy||!files.length} onClick={()=>void autoImport()}>{autoBusy?"Processing batch…":"Auto-process eligible files on this page"}</button>{batchOutcome&&<p role="status" className="mt-2 text-sm font-semibold">{batchOutcome}</p>}</section>
+ <div className="flex justify-between"><p className="font-semibold">{total} uploaded files</p><button className="min-h-11 rounded border px-4" disabled={Boolean(busy)||autoBusy} onClick={()=>void load()}>Refresh</button></div>
  {loading?<p>Loading imports…</p>:files.map(f=>{
  const batch=Array.isArray(f.teacher_mcq_imports)?f.teacher_mcq_imports[0]:f.teacher_mcq_imports;const s=f.teacher_mcq_submissions;const supported=/\.(pdf|docx)$/i.test(f.file_name);
  return <article key={f.id} className="space-y-3 rounded-xl border bg-white p-5"><h2 className="break-words text-lg font-bold">{f.file_name}</h2><p>{s.teacher_profiles.full_name} · {s.subjects.subject_name}{s.chapters&&` · ${s.chapters.chapter_name}`}</p>{s.note&&<p className="whitespace-pre-wrap text-sm text-slate-600">{s.note}</p>}
