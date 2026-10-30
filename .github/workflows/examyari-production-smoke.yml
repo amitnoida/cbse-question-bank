@@ -1,0 +1,29 @@
+name: ExamYari Production Read-Only Smoke
+
+on:
+  push:
+    branches: [release/examyari-admin-improvements-oct30]
+    paths:
+      - 'e2e/production-smoke.cjs'
+      - '.github/workflows/examyari-production-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-smoke:
+    name: Check live public routes and anonymous API boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout read-only test code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Check production (no credentials and no writes)
+        run: node e2e/production-smoke.cjs
