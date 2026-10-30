@@ -1,0 +1,29 @@
+name: Guardian Consent Build Gate
+on:
+  push:
+    branches: [feature/examyari-guardian-consent-gate-20261030]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/admin/guardian-consent/**'
+      - 'app/api/admin/guardian-consent/**'
+      - 'app/api/admin/students/**'
+      - 'app/admin/create-user/**'
+      - 'app/app/page.tsx'
+      - 'maintenance/guardian-consent-*'
+      - 'e2e/guardian-consent.spec.cjs'
+      - '.github/workflows/guardian-consent-build.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npm run build
