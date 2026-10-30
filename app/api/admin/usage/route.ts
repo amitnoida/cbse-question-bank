@@ -1,6 +1,5 @@
 import {NextRequest,NextResponse} from "next/server";
 import {requireStatsAdmin,noStore} from "../../../../lib/system-stats-server";
-export const dynamic="force-dynamic";
 const respond=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:noStore});
 type UseRow={student_id:string;subject_id:number;questions_used:number|null;questions_allowed:number|null;last_used_at:string|null};
 export async function GET(req:NextRequest){
