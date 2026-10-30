@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { BrandLogo } from "../brand-logo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { errorMessage } from "../../lib/error-message";
@@ -2085,9 +2086,10 @@ export default function Home() {
               </button>
 
               <div className="mb-5 hidden overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100 sm:block">
-                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Indian students preparing for CBSE Classes 8 to 12" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
+                <Image width={775} height={655} sizes="(max-width: 640px) 100vw, 440px" src="/images/examyari-students.webp" alt="Indian students preparing for CBSE Classes 8 to 12" className="h-auto max-h-44 w-full object-cover object-[center_30%] sm:max-h-52" />
               </div>
               <div className="pr-10">
+                <div className="mb-3"><BrandLogo compact /></div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
                   Student Account
                 </p>
@@ -2278,10 +2280,11 @@ export default function Home() {
                 ×
               </button>
 
-              <div className="mb-5 overflow-hidden rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100">
-                <Image width={455} height={419} src="/images/cbse-students.webp" alt="Indian students preparing for CBSE Classes 8 to 12" className="h-auto max-h-44 w-full object-contain object-center sm:max-h-52" />
+              <div className="mb-5 hidden overflow-hidden rounded-xl bg-sky-50 sm:block">
+                <Image width={775} height={655} sizes="(max-width: 640px) 100vw, 440px" src="/images/examyari-students.webp" alt="Indian students preparing for CBSE Classes 8 to 12" className="h-auto max-h-44 w-full object-cover object-[center_30%] sm:max-h-52" />
               </div>
               <div className="pr-10">
+                <div className="mb-3"><BrandLogo compact /></div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
                   Student Login
                 </p>
@@ -2400,6 +2403,7 @@ export default function Home() {
               </button>
 
               <div className="pr-10">
+                <div className="mb-3"><BrandLogo compact /></div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-600">
                   Account Recovery
                 </p>
@@ -2542,8 +2546,7 @@ export default function Home() {
         <header className="border-b border-indigo-100 bg-white/95 shadow-sm">
           <nav aria-label="Student portal navigation" className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4">
             <Link href="/" className="flex items-center gap-3 font-black tracking-tight text-slate-950">
-              <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-lg text-white">📚</span>
-              CBSE Question Bank
+              <BrandLogo />
             </Link>
             <div className="flex w-full items-center justify-between gap-1 sm:w-auto sm:gap-3">
               <Link href="/" className="inline-flex min-h-11 items-center rounded-xl px-2 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 sm:text-sm">← Public Homepage</Link>
@@ -3330,8 +3333,8 @@ export default function Home() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-blue-700 sm:text-[11px] sm:tracking-[0.18em]">CBSE Exam Preparation</p>
-            <h1 className="text-base font-bold tracking-tight text-slate-950 sm:text-xl">CBSE Exam Question Bank</h1>
+            <Link href="/" aria-label="ExamYari home"><BrandLogo compact /></Link>
+            <h1 className="mt-1 text-xs font-semibold text-slate-600">Your learning space</h1>
           </div>
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
             <div className="hidden text-right sm:block">
@@ -3376,7 +3379,7 @@ export default function Home() {
             </p>
           </div>
           <div className="mx-auto w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/20 bg-indigo-50 shadow-2xl shadow-indigo-950/30 lg:max-w-md">
-            <Image width={455} height={419} src="/images/cbse-students.webp" alt="Two students ready to learn" className="h-auto max-h-[220px] sm:max-h-[300px] w-full object-contain" />
+            <Image width={775} height={655} sizes="(max-width: 640px) 100vw, 440px" src="/images/examyari-students.webp" alt="Two students ready to learn" className="h-auto max-h-[220px] sm:max-h-[300px] w-full object-cover" />
           </div>
         </div>
       </section>
