@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import type { ReportDefinition, ReportCategory } from "../../../lib/admin-reports";
 
@@ -73,6 +73,7 @@ export default function AdminReportsPage(){
  const [exportBusy,setExportBusy]=useState(false);
  const [exportedBytes,setExportedBytes]=useState(0);
  const [requestVersion,setRequestVersion]=useState(0);
+ const latestReportRequest=useRef(0);
 
  const getBearer=useCallback(async()=>{
   const {data:{session},error}=await supabase.auth.getSession();
@@ -139,15 +140,23 @@ export default function AdminReportsPage(){
  },[classNumber,subjectId,chapterId,status,usage,review,search,from,to,direction,sortField]);
 
  const load=useCallback(async(id=reportId,page=1)=>{
+  // Multiple report requests can overlap. Older responses must never replace
+  // the latest selected report, even when their network request finishes last.
+  const currentRequest=++latestReportRequest.current;
   setLoading(true);setError("");setResult(null);
   try{
    const token=await getBearer();
+   if(currentRequest!==latestReportRequest.current)return;
    const r=await fetch("/api/admin/reports?"+params(id,page,"data"),{headers:{Authorization:"Bearer "+token},cache:"no-store"});
    const data=await r.json();
+   if(currentRequest!==latestReportRequest.current)return;
    if(!r.ok)throw Error(data.error||"Report data unavailable");
    setResult(data as Result);
-  }catch(e){setError(e instanceof Error?e.message:"Report data unavailable");}
-  finally{setLoading(false);}
+  }catch(e){
+   if(currentRequest===latestReportRequest.current)setError(e instanceof Error?e.message:"Report data unavailable");
+  }finally{
+   if(currentRequest===latestReportRequest.current)setLoading(false);
+  }
  },[getBearer,params,reportId]);
 
  // Load the opening report once, then load on report selection or View Report.
