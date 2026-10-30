@@ -3530,7 +3530,7 @@ export default function Home() {
                 <span className="inline-flex min-h-10 items-center rounded-lg border border-blue-700 bg-blue-800 px-3 py-2 text-xs font-bold uppercase tracking-[0.1em] text-blue-100 sm:px-3 sm:text-[11px]">
                   Practice Paper
                 </span>
-                  {subscribeButton()}
+                  {isPaidMember ? <span className="rounded-lg border border-emerald-300 bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-800">✓ Premium Active</span> : subscribeButton()}
                 </div>
 
                 <h3 className="mt-2.5 text-xl font-bold sm:mt-3 sm:text-2xl">
