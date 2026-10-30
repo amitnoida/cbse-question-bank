@@ -1,7 +1,7 @@
 import type {Metadata} from "next";
 import Link from "next/link";
 import {PublicHeader,PublicFooter} from "../public-navigation";
-export const metadata:Metadata={title:"Terms of Use |title:"undefined",description:"Fair-use rules and educational content information for ExamYari.",alternates:{canonical:"/terms"}};
+export const metadata:Metadata={title:"Terms of Use",description:"Fair-use rules and educational content information for ExamYari.",alternates:{canonical:"/terms"}};
 export default function Terms(){return <><PublicHeader/><main id="main-content" className="mx-auto max-w-3xl space-y-6 px-5 py-12 text-slate-900">
 <h1 className="text-3xl font-extrabold">Terms of Use</h1><p className="text-sm text-slate-600">Last updated 30 October 2026</p>
 <p>ExamYari provides independent, supplementary school practice materials and mock tests. Use of the service is subject to these terms. The website is not affiliated with, approved by or officially endorsed by CBSE or NCERT.</p>
