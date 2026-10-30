@@ -32,7 +32,6 @@ BEGIN
  -- Trusted administrative provisioning has its own established create/finish flow.
  -- A public user cannot set raw_app_meta_data on auth.signUp.
  IF coalesce(NEW.raw_app_meta_data,'{}'::jsonb) ? 'admin_student_request' THEN RETURN NEW; END IF;
- IF coalesce(NEW.raw_app_meta_data,'{}'::jsonb) ? 'guardian_gate_internal_exemption' THEN RETURN NEW; END IF;
  -- Enforce on ALL ordinary Auth registrations; missing class metadata is not an escape.
  IF nullif(btrim(coalesce(NEW.raw_user_meta_data->>'class_id','')),'') IS NULL
    THEN RAISE EXCEPTION 'Student class and verified guardian invitation required' USING ERRCODE='23514'; END IF;
