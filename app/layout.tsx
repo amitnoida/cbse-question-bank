@@ -4,6 +4,7 @@ import "./globals.css";
 import AnnouncementBanner from "./announcement-banner";
 import InstallPrompt from "./install-prompt";
 import { Suspense } from "react";
+import StudentSessionGuard from "./student-session-guard";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -27,6 +28,6 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-    <body className="min-h-full flex flex-col"><AnnouncementBanner />{children}<Suspense fallback={null}><InstallPrompt /></Suspense></body>
+    <body className="min-h-full flex flex-col"><StudentSessionGuard /><AnnouncementBanner />{children}<Suspense fallback={null}><InstallPrompt /></Suspense></body>
   </html>;
 }

@@ -1942,7 +1942,7 @@ export default function Home() {
 
     // Keep the premium state unchanged until Supabase confirms sign-out,
     // preventing a transient "Subscribe ₹99" button.
-    const { error: signOutError } = await supabase.auth.signOut();
+    const { error: signOutError } = await supabase.auth.signOut({scope:"local"});
     if (signOutError) {
       console.error("Sign out failed:", signOutError);
       setSigningOut(false);

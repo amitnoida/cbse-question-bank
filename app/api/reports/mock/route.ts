@@ -41,6 +41,10 @@ export async function GET(req: NextRequest) {
     const { data: { user }, error: authError } = await auth.auth.getUser(match[1]);
     if (authError || !user) return fail("Unauthorized", 401);
 
+    const scoped=createClient(url,anon,{global:{headers:{Authorization:`Bearer ${match[1]}`}},auth:{persistSession:false,autoRefreshToken:false}});
+    const {data:sessionPolicy,error:sessionError}=await scoped.rpc("cbse_claim_student_session_v1");
+    if(sessionError||!sessionPolicy?.allowed)return fail("Your session has ended. Please sign in again.",403);
+
     const db = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: attempt, error: attemptError } = await db.from("quiz_attempts")
       .select("id,student_id,subject_id,quiz_type,status,total_questions,answered_questions,correct_answers,wrong_answers,unanswered_questions,total_marks,obtained_marks,percentage,started_at,submitted_at,time_taken_seconds")
