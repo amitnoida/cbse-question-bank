@@ -13,9 +13,17 @@ async function openReports(page, account){
  await expect(page.getByRole('heading',{name:'Reports & Admin Insights'})).toBeVisible();
  await expect(page.getByRole('tab',{name:/MCQ & Academic/i})).toBeVisible({timeout:30000});
 }
-test('Reports API must reject unauthenticated requests',async({request})=>{
- const response=await request.get('/api/admin/reports?mode=catalog');
- expect(response.status()).toBe(401);
+test('Reports API must reject unauthenticated requests',async({playwright})=>{
+ const target=new URL(process.env.E2E_BASE_URL||'https://cbse-question-bank.vercel.app');
+ const secret=process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+ // The request fixture does not use page.route. Limit bypass to this preview origin.
+ const client=await playwright.request.newContext({baseURL:target.origin,extraHTTPHeaders:secret&&target.hostname.endsWith('.vercel.app')?{'x-vercel-protection-bypass':secret}:{}});
+ try{
+  const response=await client.get('/api/admin/reports?mode=catalog');
+  const contentType=response.headers()['content-type']||'';
+  expect(contentType,'Must reach application JSON API instead of Vercel login HTML').toMatch(/application\/json/);
+  expect(response.status()).toBe(401);
+ }finally{await client.dispose();}
 });
 test('Full Admin: all 19 reporting menus available and live MCQ summary renders',async({page})=>{
  test.setTimeout(180000);
