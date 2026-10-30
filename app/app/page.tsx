@@ -312,6 +312,7 @@ export default function Home() {
   ========================= */
 
   const [showSignup, setShowSignup] = useState(false);
+  const [signupAgeGate, setSignupAgeGate] = useState<"unselected"|"adult"|"minor">("unselected");
   const [signupFullName, setSignupFullName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -1640,6 +1641,10 @@ export default function Home() {
 
     setSignupError("");
     setSignupSuccess("");
+    if (signupAgeGate !== "adult") {
+      setSignupError("Students under 18 must use the parent/guardian registration process. Age confirmation is required before self-registration.");
+      return;
+    }
 
     const fullName =
       signupFullName.trim();
@@ -2113,6 +2118,14 @@ export default function Home() {
                 onSubmit={handleSignup}
                 className="mt-5 space-y-4"
               >
+                <fieldset className="rounded-xl border-2 border-indigo-200 bg-indigo-50 p-3 text-sm">
+                  <legend className="px-1 font-bold text-indigo-950">Age confirmation — required</legend>
+                  <p className="mb-2 text-xs text-slate-700">Children must not create an account themselves. The guardian route requires separate identity and age verification before account creation; an email checkbox is not verification.</p>
+                  <label className="mb-2 flex items-center gap-2"><input type="radio" name="age-confirmation" checked={signupAgeGate==="adult"} onChange={()=>setSignupAgeGate("adult")} /> I am 18 or older and registering for myself</label>
+                  <label className="flex items-center gap-2"><input type="radio" name="age-confirmation" checked={signupAgeGate==="minor"} onChange={()=>setSignupAgeGate("minor")} /> I am under 18, or a parent registering a child</label>
+                  {signupAgeGate==="minor" && <p role="alert" className="mt-3 rounded-lg bg-white p-3 font-semibold text-amber-900">Self-registration is unavailable for children. Do not enter a child&apos;s name or details in this form. Start with <a className="underline text-indigo-700" href="/parent-consent" target="_blank" rel="noopener noreferrer">Parent/guardian instructions</a>.</p>}
+                </fieldset>
+                {signupAgeGate==="adult"&&<>
                 <div>
                   <label htmlFor="student-field-1" className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-600">
                     Full Name
@@ -2223,11 +2236,13 @@ export default function Home() {
                   </select>
                 </div>
 
+
+                </>}
                 <p className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs leading-5 text-slate-700">For students under 18, a parent or legal guardian should supervise registration. Read the <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Terms of Use</a>. Registration does not verify guardian identity; parents can request help or account deletion through <a href="/contact" target="_blank" rel="noopener noreferrer" className="font-bold text-indigo-700 underline">Support</a>.</p>
 
                 <button
                   type="submit"
-                  disabled={signupLoading}
+                  disabled={signupLoading||signupAgeGate!=="adult"}
                   className="mt-2 min-h-12 w-full rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {signupLoading

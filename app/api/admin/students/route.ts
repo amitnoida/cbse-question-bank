@@ -13,9 +13,26 @@ export async function POST(req:NextRequest){
  const a=await requireStatsAdmin(req);if(!a)return reply({error:"Sign in as an administrator."},401);if(a.role!=="FULL_ADMIN")return reply({error:"Full Admin permission required."},403);
  let body:unknown;try{body=await req.json();}catch{return reply({error:"Invalid JSON."},400);}
  const input=parseAdminStudent(body);if(!input)return reply({error:"Enter a full name, valid email, password of 12–128 characters, class and Free/Paid selection."},400);
+ // School student accounts require a verified guardian consent record before any child identity is created.
+ const consentId=typeof (body as Record<string,unknown>)?.guardianConsentId==="string"?(body as Record<string,string>).guardianConsentId:"";
+ const creatingStudent=input.accountRole==="STUDENT";
+ if(creatingStudent){
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(consentId))
+    return reply({error:"Verified parental consent ID is mandatory before creating a student account."},400);
+  const {error:claimError}=await a.db.rpc("cbse_guardian_claim_v1",{p_admin:a.user.id,p_consent:consentId,p_request:input.requestId});
+  if(claimError)return reply({error:"Consent is missing, unverified, or has already been assigned to another student."},409);
+ }
  const {data:begin,error:beginError}=await a.db.rpc("admin_account_creation_begin_v2",{p_actor:a.user.id,p_request:input.requestId,p_name:input.fullName,p_email:input.email,p_class:input.classId,p_paid:input.membership==="PAID",p_role:input.accountRole});
  if(beginError)return reply({error:beginError.code==="22023"?"Choose an active school class and check the account details.":"Unable to start account creation. Retry with the same details."},beginError.code==="22023"?400:409);
- if(begin.status==="COMPLETE")return reply({student:begin.result,alreadyCreated:true});
+ if(begin.status==="COMPLETE"){
+  if(creatingStudent){
+    const completedUserId=begin.result?.user_id;
+    if(typeof completedUserId!=="string")return reply({error:"Completed account cannot be linked to guardian consent."},503);
+    const {error:linkError}=await a.db.rpc("cbse_guardian_finish_v1",{p_admin:a.user.id,p_consent:consentId,p_request:input.requestId,p_student:completedUserId});
+    if(linkError)return reply({error:"Existing guardian consent link could not be confirmed."},503);
+  }
+  return reply({student:begin.result,alreadyCreated:true});
+ }
  if(begin.status==="BUSY")return reply({error:"This submission is still being processed. Retry shortly with the same details."},409);
  let userId=begin.user_id as string|undefined;
  if(begin.status==="CREATE"){
@@ -24,8 +41,13 @@ export async function POST(req:NextRequest){
   userId=data.user.id;
  }
  if(!userId)return reply({error:"Account creation could not be confirmed. Retry with the same details."},503);
+ if(creatingStudent){
+  const {error:linkError}=await a.db.rpc("cbse_guardian_finish_v1",{p_admin:a.user.id,p_consent:consentId,p_request:input.requestId,p_student:userId});
+  if(linkError)return reply({error:"Guardian consent link is not confirmed; student access has not been activated. Retry using the same request."},503);
+ }
  const {data:student,error:finishError}=await a.db.rpc("admin_student_creation_finish_v1",{p_actor:a.user.id,p_request:input.requestId,p_user:userId});
  if(finishError)return reply({error:"Account setup is incomplete and student access remains inactive. Retry with the same details to finish safely."},503);
+
  return reply({student,alreadyCreated:false},201);
  }catch{return reply({error:"Account creation could not be confirmed. Retry with the same details; existing accounts will not be overwritten."},503);}
 }

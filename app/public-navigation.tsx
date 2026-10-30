@@ -25,7 +25,7 @@ export function PublicFooter() {
       <nav aria-label="Help and resources" className="flex flex-wrap gap-5">
         <Link className="py-2 font-semibold hover:text-indigo-700" href="/install">Install app</Link>
         <AnalyticsPreferencesButton />
-        <Link className="py-2 font-semibold hover:text-indigo-700" href="/privacy">Privacy</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/terms">Terms</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/contact">Contact support</Link>
+        <Link className="py-2 font-semibold hover:text-indigo-700" href="/privacy">Privacy</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/terms">Terms</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/contact">Contact support</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/parent-consent">Parents / guardians</Link>
         <Link className="py-2 font-semibold hover:text-indigo-700" href="/app">Student app →</Link>
       </nav>
     </div>
