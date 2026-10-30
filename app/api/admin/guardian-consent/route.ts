@@ -14,11 +14,11 @@ export async function POST(req:NextRequest){
  const a=await requireStatsAdmin(req);
  if(!a)return respond({error:"Admin sign in required."},401);
  if(a.role!=="FULL_ADMIN")return respond({error:"Full Admin only."},403);
- let body:{guardianEmail?:unknown;method?:unknown;reference?:unknown;consentConfirmed?:unknown;adultIdentityConfirmed?:unknown};
+ let body:{guardianEmail?:unknown;method?:unknown;reference?:unknown;consentConfirmed?:unknown;adultIdentityConfirmed?:unknown;guardianAuthorityConfirmed?:unknown};
  try{body=await req.json();}catch{return respond({error:"Invalid request."},400);}
  const guardianEmail=typeof body.guardianEmail==="string"?body.guardianEmail.trim().toLowerCase():"";
  const method=body.method,reference=typeof body.reference==="string"?body.reference.trim():"";
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)||guardianEmail.length>254||!["DIGILOCKER_VERIFIED","GOVERNMENT_ID_CHECKED","EXISTING_TRUSTED_KYC"].includes(String(method))||reference.length<8||reference.length>180||body.consentConfirmed!==true||body.adultIdentityConfirmed!==true)
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)||guardianEmail.length>254||!["DIGILOCKER_VERIFIED","GOVERNMENT_ID_CHECKED","EXISTING_TRUSTED_KYC"].includes(String(method))||reference.length<8||reference.length>180||body.consentConfirmed!==true||body.adultIdentityConfirmed!==true||body.guardianAuthorityConfirmed!==true)
  return respond({error:"Check the adult's identity and age, record guardian consent and a meaningful evidence reference before issuing an invitation."},400);
  // The full random bearer secret is returned once, never persisted in plaintext.
  const token=randomBytes(32).toString("hex");
