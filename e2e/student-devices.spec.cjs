@@ -51,7 +51,7 @@ test('two browser sessions: oldest logout, old JWT/refresh denied, saved work pr
   expect((await rpc(request,apiKey,two.access_token,'cbse_student_session_status_v1')).status()).toBe(403);expect((await rpc(request,apiKey,three.access_token,'cbse_student_session_status_v1')).status()).toBe(200);
   const rows=await request.get(project+'/rest/v1/student_device_sessions?select=revoked_at',{headers:{apikey:apiKey,Authorization:'Bearer '+four.access_token}});expect(rows.ok()).toBe(true);expect((await rows.json()).filter(r=>r.revoked_at===null).length).toBe(2);
   // Ordinary sign out must not terminate the other retained device.
-  await first.getByRole('button',{name:/^Sign out$/i}).first().click();await expect(first.getByRole('heading',{name:/what will you learn today/i})).toHaveCount(0,{timeout:15000});expect((await rpc(request,apiKey,three.access_token,'cbse_student_session_status_v1')).status()).toBe(200);
+  await first.getByRole('button',{name:/^Logout$/i}).first().click();await expect(first.getByRole('heading',{name:/what will you learn today/i})).toHaveCount(0,{timeout:15000});expect((await rpc(request,apiKey,three.access_token,'cbse_student_session_status_v1')).status()).toBe(200);
  }finally{for(const c of contexts)await c.close();await adminContext.close();}
 });
 test('three admin browser sessions remain exempt',async({browser,request})=>{
