@@ -1,0 +1,11 @@
+import type {Metadata} from "next";
+import Link from "next/link";
+import {PublicFooter,PublicHeader} from "../public-navigation";
+export const metadata:Metadata={title:"Contact and Support | ExamYari",description:"ExamYari student, parent and teacher support and account/privacy request information.",alternates:{canonical:"/contact"}};
+export default function Contact(){return <><PublicHeader/><main id="main-content" className="mx-auto max-w-3xl space-y-6 px-5 py-12 text-slate-900">
+<h1 className="text-3xl font-extrabold">Contact ExamYari Support</h1>
+<p>Students, parents and teachers can contact us about login problems, test access, questions or explanations, account deletion, privacy and safety concerns.</p>
+<section className="space-y-3 rounded-2xl border bg-white p-5"><h2 className="text-xl font-bold">Current working contact address</h2><a className="break-all text-lg font-semibold text-indigo-700 underline" href="mailto:support.cbseexam@gmail.com">support.cbseexam@gmail.com</a><p className="text-sm text-slate-600">We are setting up support@examyari.com as a forwarding address. Until forwarding is verified, use the current contact address above so requests are not lost.</p></section>
+<section className="space-y-2"><h2 className="text-xl font-bold">How to request help</h2><p>Include a brief issue description, your class if relevant, and whether this concerns student access, content or privacy. For account-specific requests, write from your registered email when possible. Parents or guardians should identify the account they are contacting us about, without sending passwords, government IDs or full student records in the initial message.</p></section>
+<section className="space-y-2"><h2 className="text-xl font-bold">Privacy, safety and content concerns</h2><p>Use the same email for correction/deletion requests and reports of unsafe or incorrect educational content. We may verify identity or guardian authority before disclosing account details. You can read our <Link href="/privacy" className="font-semibold text-indigo-700 underline">Privacy Policy</Link> and <Link href="/terms" className="font-semibold text-indigo-700 underline">Terms of Use</Link>.</p></section>
+</main><PublicFooter/></>}
