@@ -1,6 +1,5 @@
 import {NextRequest,NextResponse} from "next/server";
 import {requireStatsAdmin,noStore} from "../../../../lib/system-stats-server";
-export const dynamic="force-dynamic";
 type Row={id:string;name:string;email:string;role:"STUDENT"|"TEACHER"|"ADMIN";className:string;status:string;created:string};
 const reply=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:noStore});
 // Read-only directory: one view of student, teacher and administrator identities.
