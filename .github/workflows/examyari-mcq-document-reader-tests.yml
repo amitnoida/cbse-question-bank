@@ -1,0 +1,33 @@
+name: Test ExamYari PDF and DOCX MCQ readers
+on:
+  push:
+    branches: [tests/examyari-document-readers-oct30]
+    paths:
+      - 'maintenance/generate-mcq-document-fixtures.py'
+      - 'maintenance/test-mcq-document-readers.cjs'
+      - '.github/workflows/examyari-mcq-document-reader-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'maintenance/generate-mcq-document-fixtures.py'
+      - 'maintenance/test-mcq-document-readers.cjs'
+      - '.github/workflows/examyari-mcq-document-reader-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-extraction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: python3 maintenance/generate-mcq-document-fixtures.py
+      - run: node --test maintenance/test-mcq-document-readers.cjs
+      - run: node --test maintenance/test-mcq-document-parser.cjs
