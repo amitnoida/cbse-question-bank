@@ -29,6 +29,6 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-    <body className="min-h-full flex flex-col"><StudentSessionGuard /><AnnouncementBanner /><PublicAnalyticsConsent />{children}<Suspense fallback={null}><InstallPrompt /></Suspense></body>
+    <body className="min-h-full flex flex-col"><StudentSessionGuard /><AnnouncementBanner /><Suspense fallback={null}><PublicAnalyticsConsent /></Suspense>{children}<Suspense fallback={null}><InstallPrompt /></Suspense></body>
   </html>;
 }
