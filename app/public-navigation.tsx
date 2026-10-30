@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AnalyticsPreferencesButton from "./analytics-preferences-button";
 import { CLASS_NUMBERS, classPath } from "@/lib/seo-catalog";
 
 export function PublicHeader() {
@@ -23,6 +24,7 @@ export function PublicFooter() {
       <div><p className="font-extrabold text-slate-900">A little practice. A clearer understanding.</p><p className="mt-2">Independent learning platform. Not affiliated with CBSE.</p></div>
       <nav aria-label="Help and resources" className="flex flex-wrap gap-5">
         <Link className="py-2 font-semibold hover:text-indigo-700" href="/install">Install app</Link>
+        <AnalyticsPreferencesButton />
         <a className="py-2 font-semibold hover:text-indigo-700" href="mailto:support.cbseexam@gmail.com">Contact support</a>
         <Link className="py-2 font-semibold hover:text-indigo-700" href="/app">Student app →</Link>
       </nav>
