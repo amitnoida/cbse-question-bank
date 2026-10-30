@@ -4,6 +4,7 @@ BEGIN;
 ALTER TABLE public.guardian_consent_invitations
  ADD COLUMN IF NOT EXISTS withdrawn_at timestamptz,
  ADD COLUMN IF NOT EXISTS withdrawal_evidence_ref text;
+CREATE UNIQUE INDEX IF NOT EXISTS guardian_one_unwithdrawn_consent_per_student ON public.guardian_consent_invitations(used_by) WHERE used_by IS NOT NULL AND withdrawn_at IS NULL;
 CREATE OR REPLACE FUNCTION public.cbse_guardian_consent_withdraw_v1(p_actor uuid,p_invitation uuid,p_evidence text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $fn$
 DECLARE g public.guardian_consent_invitations;
