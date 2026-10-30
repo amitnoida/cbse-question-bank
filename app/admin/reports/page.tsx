@@ -28,6 +28,29 @@ const format=(v:unknown)=>{
  if(typeof v==="string"&&/^\d{4}-\d\d-\d\dT/.test(v))return new Date(v).toLocaleString("en-IN");
  return String(v);
 };
+// Keep database identifiers in the export and underlying API, but show meaningful
+// business labels first. Technical identifiers remain available on demand.
+const businessColumns=(report:string,columns:string[])=>{
+ if(["student-directory","admin-access","subscriptions","coupons","free-usage"].includes(report))return columns.filter(c=>c!=="id"&&c!=="student_id"&&c!=="plan_id");
+ return columns;
+};
+const friendlyHeader=(column:string)=>({
+ full_name:"Name",email_verified:"Email verified",is_active:"Status",
+ must_change_password:"Password setup required",created_at:"Created on",
+ valid_until:"Coupon expires",valid_from:"Coupon valid from",
+ end_date:"Membership expires",start_date:"Membership starts",
+ amount_paid:"Amount paid",discount_percentage:"Discount",
+ usage_count:"Redemptions",usage_limit:"Redemption limit",
+ questions_used:"Free questions used",questions_allowed:"Free allowance",
+ last_used_at:"Last practice",account_type:"Account type",
+ } as Record<string,string>)[column]||label(column);
+const friendlyValue=(report:string,column:string,value:unknown)=>{
+ if(report==="admin-access"&&column==="role")return value==="FULL_ADMIN"?"Full Admin":value==="ADMIN_VIEW"?"Viewer Admin":format(value);
+ if(column==="must_change_password")return value===true?"Required":value===false?"Complete":"Unknown";
+ if(column==="is_active")return value===true?"Active":value===false?"Inactive":"Unknown";
+ if(column==="discount_percentage"&&value!==null&&value!==undefined)return format(value)+"%";
+ return format(value);
+};
 export default function AdminReportsPage(){
  const [catalog,setCatalog]=useState<Catalog|null>(null);
  const [activeCategory,setCategory]=useState<ReportCategory>("operations");
@@ -266,10 +289,11 @@ export default function AdminReportsPage(){
     </div>}
     {loading&&<p role="status" className="py-6 text-sm font-semibold text-indigo-700">Loading report records on demand…</p>}
     {result&&<div className="space-y-4">
+     {["student-directory","admin-access","subscriptions","coupons","free-usage"].includes(reportId)&&<details className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600"><summary className="cursor-pointer font-semibold">Technical details</summary><p className="mt-2">Internal database IDs are hidden from the main table. Authorized administrators can still use the full CSV export for troubleshooting.</p></details>}
      <div className="max-w-full overflow-x-auto rounded-xl border border-slate-200">
       <table className="w-full min-w-[680px] text-left text-xs sm:text-sm">
-       <thead className="sticky top-0 bg-slate-100"><tr>{result.columns.map(c=><th key={c} scope="col" className="whitespace-nowrap border-b p-3 font-black">{label(c)}</th>)}</tr></thead>
-       <tbody>{result.rows.map((r,i)=><tr key={String(r.id??i)+"-"+i} className="border-b hover:bg-indigo-50/40">{result.columns.map(c=><td key={c} className="max-w-[320px] break-words p-3 align-top text-slate-700">{format(r[c])}</td>)}</tr>)}</tbody>
+       <thead className="sticky top-0 bg-slate-100"><tr>{businessColumns(reportId,result.columns).map(c=><th key={c} scope="col" className="whitespace-nowrap border-b p-3 font-black">{friendlyHeader(c)}</th>)}</tr></thead>
+       <tbody>{result.rows.map((r,i)=><tr key={String(r.id??i)+"-"+i} className="border-b hover:bg-indigo-50/40">{businessColumns(reportId,result.columns).map(c=><td key={c} className="max-w-[320px] break-words p-3 align-top text-slate-700">{friendlyValue(reportId,c,r[c])}</td>)}</tr>)}</tbody>
       </table>
       {!result.rows.length&&<p className="p-6 text-center text-sm text-slate-600">No matching records for these filters.</p>}
      </div>
