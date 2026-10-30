@@ -16,4 +16,4 @@ export async function requireTeacher(req:NextRequest){const a=await teacherIdent
 export const positiveId=(v:unknown)=>typeof v==='number'&&Number.isSafeInteger(v)&&v>0;
 export const uuid=(v:unknown)=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 export const bucket='teacher-mcq-submissions';
-export const fileTypes:Record<string,string>={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png'};
+export const fileTypes:Record<string,string>={pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};

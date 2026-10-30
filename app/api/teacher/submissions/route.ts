@@ -13,13 +13,13 @@ export async function POST(req:NextRequest){try{
  const {data:s}=await a.db.from('teacher_mcq_submissions').select('id,status').eq('id',b.submissionId).eq('teacher_id',a.user.id).maybeSingle();if(!s)return reply({error:'Submission not found.'},404);
  if(b.action==='download'){
  if(!uuid(b.fileId))return reply({error:'Choose a file.'},400);
- const {data:f}=await a.db.from('teacher_mcq_files').select('*').eq('id',b.fileId).eq('submission_id',s.id).eq('uploaded',true).maybeSingle();if(!f)return reply({error:'File not found.'},404);
+ const {data:f}=await a.db.from('teacher_mcq_files').select('*').eq('id',b.fileId).eq('submission_id',s.id).eq('uploaded',true).is('source_deleted_at',null).maybeSingle();if(!f)return reply({error:'File not found.'},404);
  const {data,error}=await a.db.storage.from(bucket).createSignedUrl(f.object_path,60,{download:f.file_name});if(error)throw error;return reply({url:data.signedUrl});
  }
  if(s.status!=='DRAFT')return reply({error:'This submission has already been sent.'},409);
  if(b.action==='upload'){
  const ext=typeof b.name==='string'?b.name.split('.').pop()?.toLowerCase():'';const mime=fileTypes[ext||''];
- if(!mime||b.name.length>200||typeof b.size!=='number'||!Number.isSafeInteger(b.size)||b.size<1||b.size>10485760)return reply({error:'Use PDF, Word, JPG or PNG files, up to 10 MB each.'},400);
+ if(!mime||b.name.length>200||typeof b.size!=='number'||!Number.isSafeInteger(b.size)||b.size<1||b.size>10485760)return reply({error:'Use text-based PDF or Word .docx files, up to 10 MB each.'},400);
  const id=crypto.randomUUID(),path=`${a.user.id}/${s.id}/${id}.${ext}`;
  const {data:count,error:ce}=await a.db.from('teacher_mcq_files').select('id').eq('submission_id',s.id);if(ce)throw ce;
  const previous=(await a.db.from('teacher_mcq_files').select('*').eq('submission_id',s.id).eq('file_name',b.name).eq('file_size',b.size).maybeSingle()).data;

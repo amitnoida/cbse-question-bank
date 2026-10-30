@@ -5,7 +5,7 @@ export async function GET(req:NextRequest){try{
  const a=await requireTeacher(req);if(!a)return reply({error:'Teacher access is unavailable or expired. Contact your administrator.'},403);
  const action=req.nextUrl.searchParams.get('action')||'home';
  if(action==='home'){
- const [subjects,submissions,school]=await Promise.all([a.db.from('subjects').select('id,subject_name').eq('class_id',a.teacher.class_id).eq('is_active',true).order('display_order'),a.db.from('teacher_mcq_submissions').select('id,subject_id,note,status,admin_note,created_at,teacher_mcq_files(id,file_name,uploaded)').eq('teacher_id',a.user.id).order('created_at',{ascending:false}).limit(100),a.db.from('classes').select('class_name').eq('id',a.teacher.class_id).single()]);
+ const [subjects,submissions,school]=await Promise.all([a.db.from('subjects').select('id,subject_name').eq('class_id',a.teacher.class_id).eq('is_active',true).order('display_order'),a.db.from('teacher_mcq_submissions').select('id,subject_id,note,status,admin_note,created_at,teacher_mcq_files(id,file_name,uploaded,source_deleted_at)').eq('teacher_id',a.user.id).order('created_at',{ascending:false}).limit(100),a.db.from('classes').select('class_name').eq('id',a.teacher.class_id).single()]);
  if(subjects.error||submissions.error||school.error)throw Error('Unable to load teacher dashboard.');return reply({teacher:a.teacher,className:school.data.class_name,subjects:subjects.data,submissions:submissions.data});
  }
  if(action==='sets'){

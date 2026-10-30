@@ -9,17 +9,18 @@ export async function GET(req:NextRequest){try{
  const [teachers,reviews,submissions]=await Promise.all([
  a.db.from('teacher_profiles').select('*,classes(class_name)').order('created_at',{ascending:false}).limit(200),
  a.db.from('teacher_question_reviews').select('*,teacher_profiles(full_name,class_id,classes(class_name)),questions(question_text,correct_option,explanation,chapters(chapter_name,subjects(subject_name)))',{count:'exact'}).eq('decision',decision).eq('resolution',resolution).order('updated_at',{ascending:false}).range(page*30,page*30+29),
- a.db.from('teacher_mcq_submissions').select('*,teacher_profiles(full_name),subjects(subject_name),chapters(chapter_name),teacher_mcq_files(id,file_name,file_size,uploaded)').neq('status','DRAFT').order('created_at',{ascending:false}).limit(100)]);
+ a.db.from('teacher_mcq_submissions').select('*,teacher_profiles(full_name),subjects(subject_name),chapters(chapter_name),teacher_mcq_files(id,file_name,file_size,uploaded,source_deleted_at)').neq('status','DRAFT').order('created_at',{ascending:false}).limit(100)]);
  if(teachers.error||reviews.error||submissions.error)throw Error('Load failed');return reply({teachers:teachers.data,reviews:reviews.data,total:reviews.count,submissions:submissions.data});
 }catch{return reply({error:'Unable to load teacher review queue.'},503);}}
 export async function POST(req:NextRequest){try{
  const a=await requireStatsAdmin(req);if(!a||a.role!=='FULL_ADMIN')return reply({error:'Full Admin access required.'},403);const b=await req.json();
  if(b.action==='download'){
- if(!uuid(b.fileId))return reply({error:'Choose a file.'},400);const {data:f}=await a.db.from('teacher_mcq_files').select('*').eq('id',b.fileId).eq('uploaded',true).maybeSingle();if(!f)return reply({error:'File not found.'},404);
+ if(!uuid(b.fileId))return reply({error:'Choose a file.'},400);const {data:f}=await a.db.from('teacher_mcq_files').select('*').eq('id',b.fileId).eq('uploaded',true).is('source_deleted_at',null).maybeSingle();if(!f)return reply({error:'File not found.'},404);
  const {data,error}=await a.db.storage.from(bucket).createSignedUrl(f.object_path,60,{download:f.file_name});if(error)throw error;return reply({url:data.signedUrl});
  }
  if(b.action==='delete_submission'){
  if(!uuid(b.id))return reply({error:'Choose a submission.'},400);
+ const {count:processed,error:pe}=await a.db.from('teacher_mcq_imports').select('file_id',{count:'exact',head:true}).eq('submission_id',b.id);if(pe)throw pe;if(processed)return reply({error:'Processed submissions retain import history. Use Teacher MCQ Imports to retry source cleanup.'},409);
  const {data:submission}=await a.db.from('teacher_mcq_submissions').select('id,teacher_id').eq('id',b.id).maybeSingle();if(!submission)return reply({error:'Submission not found.'},404);
  const {data:files,error:fe}=await a.db.from('teacher_mcq_files').select('object_path').eq('submission_id',b.id);if(fe)throw fe;
  const paths=(files||[]).map(f=>f.object_path);if(paths.some(p=>!p.startsWith(`${submission.teacher_id}/${submission.id}/`)))throw Error('Invalid file scope');
