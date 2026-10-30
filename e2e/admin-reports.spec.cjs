@@ -1,4 +1,6 @@
 const { test, expect } = require('@playwright/test');
+const {installPreviewProtection}=require('./preview-protection.cjs');
+test.beforeEach(async({page})=>installPreviewProtection(page));
 const accounts=JSON.parse(process.env.E2E_ACCOUNTS_JSON||'[]').filter(a=>a.kind==='admin');
 
 async function openReports(page, account){
