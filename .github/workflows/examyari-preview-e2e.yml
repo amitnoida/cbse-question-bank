@@ -64,3 +64,14 @@ jobs:
       - name: Summarize actual passing and failing browser cases
         if: always()
         run: node e2e/summarize-results.cjs
+
+      - name: Upload failure screenshots and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: examyari-draft-preview-playwright-evidence
+          path: |
+            e2e/results/
+            e2e/report/
+          retention-days: 7
+          if-no-files-found: ignore
