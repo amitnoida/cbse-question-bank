@@ -23,7 +23,7 @@ begin
  if(public.cbse_claim_student_session_v1()->>'allowed')::boolean or public.is_active_student() then raise exception 'Revoked session reclaimed access';end if;
  begin perform public.mock_save_answer(gen_random_uuid(),1,'A');raise exception 'Revoked answer accepted';exception when insufficient_privilege then null;end;
  perform set_config('request.path','/rpc/mock_finish_exam',true);
- begin perform public.cbse_api_session_guard_v1();raise exception 'API guard allowed revoked token';exception when sqlstate 'PGRST' then null;end;
+ begin perform public.cbse_api_session_guard_v1();raise exception 'API guard allowed revoked token';exception when sqlstate 'PT403' then null;end;
  -- A stale native session that first visits late must not displace either newer login.
  perform set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated','session_id',late_old)::text,true);
  if(public.cbse_claim_student_session_v1()->>'allowed')::boolean then raise exception 'Delayed old login displaced a new login';end if;

@@ -31,7 +31,7 @@ export function createSessionPolicyFetch(baseUrl:string,apiKey:string,transport:
    }
   }
   const response=await transport(input,init);
-  if(response.status===403){try{const body=await response.clone().json();if(body.code===SESSION_REVOKED_CODE&&identity?.session_id)onRevoked(identity.session_id);}catch{/* Preserve the original response. */}}
+  if(response.status===403){try{const body=await response.clone().json();if((body.code===SESSION_REVOKED_CODE||(body.code==='PT403'&&body.details===SESSION_REVOKED_CODE))&&identity?.session_id)onRevoked(identity.session_id);}catch{/* Preserve the original response. */}}
   return response;
  };
 }

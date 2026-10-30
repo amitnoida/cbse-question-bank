@@ -61,7 +61,7 @@ begin
  if exists(select 1 from public.admin_users where user_id=u) then return;end if;
  if current_setting('request.path',true)='/rpc/cbse_claim_student_session_v1' then return;end if;
  if not cbse_sessions.allowed() then
- raise sqlstate 'PGRST' using message='{"code":"CBSE_SESSION_REVOKED","message":"You were signed out because your account was used on another device. Only two active sessions are allowed.","details":null,"hint":null}',detail='{"status":403}';
+ raise sqlstate 'PT403' using message='You were signed out because your account was used on another device. Only two active sessions are allowed.',detail='CBSE_SESSION_REVOKED';
  end if;
 end $$;
 create function public.cbse_claim_student_session_v1() returns jsonb language sql security invoker set search_path='' as $$select cbse_sessions.claim();$$;

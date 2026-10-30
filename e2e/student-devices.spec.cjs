@@ -37,7 +37,7 @@ test('two browser sessions: oldest logout, old JWT/refresh denied, saved work pr
   expect((await session(tab)).access_token.split('.')[1]).toBe(two.access_token.split('.')[1]);
   expect((await rpc(request,apiKey,one.access_token,'cbse_student_session_status_v1')).status()).toBe(200);
   const third=await device();const three=await session(third);
-  const denied=await rpc(request,apiKey,one.access_token,'cbse_save_practice_progress_v1',{p_session_id:practice.id,p_index:1});expect(denied.status()).toBe(403);expect((await denied.json()).code).toBe('CBSE_SESSION_REVOKED');
+  const denied=await rpc(request,apiKey,one.access_token,'cbse_save_practice_progress_v1',{p_session_id:practice.id,p_index:1});expect(denied.status()).toBe(403);const refusal=await denied.json();expect(refusal.code).toBe('PT403');expect(refusal.details).toBe('CBSE_SESSION_REVOKED');
   const submit=await rpc(request,apiKey,one.access_token,'mock_finish_exam',{p_session_id:exam.session_id});expect(submit.status()).toBe(403);
   const oldRead=await request.get(project+'/rest/v1/student_profiles?select=id',{headers:{apikey:apiKey,Authorization:'Bearer '+one.access_token}});expect(oldRead.status()).toBe(403);
   const oldReport=await request.get('https://cbse-question-bank.vercel.app/api/reports/mock?attemptId=1',{headers:{Authorization:'Bearer '+one.access_token}});expect([401,403]).toContain(oldReport.status());
