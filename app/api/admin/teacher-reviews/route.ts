@@ -18,6 +18,15 @@ export async function POST(req:NextRequest){try{
  if(!uuid(b.fileId))return reply({error:'Choose a file.'},400);const {data:f}=await a.db.from('teacher_mcq_files').select('*').eq('id',b.fileId).eq('uploaded',true).maybeSingle();if(!f)return reply({error:'File not found.'},404);
  const {data,error}=await a.db.storage.from(bucket).createSignedUrl(f.object_path,60,{download:f.file_name});if(error)throw error;return reply({url:data.signedUrl});
  }
+ if(b.action==='delete_submission'){
+ if(!uuid(b.id))return reply({error:'Choose a submission.'},400);
+ const {data:submission}=await a.db.from('teacher_mcq_submissions').select('id,teacher_id').eq('id',b.id).maybeSingle();if(!submission)return reply({error:'Submission not found.'},404);
+ const {data:files,error:fe}=await a.db.from('teacher_mcq_files').select('object_path').eq('submission_id',b.id);if(fe)throw fe;
+ const paths=(files||[]).map(f=>f.object_path);if(paths.some(p=>!p.startsWith(`${submission.teacher_id}/${submission.id}/`)))throw Error('Invalid file scope');
+ if(paths.length){const {error}=await a.db.storage.from(bucket).remove(paths);if(error)throw error;}
+ const {error}=await a.db.from('teacher_mcq_submissions').delete().eq('id',b.id);if(error)throw error;
+ await a.db.from('teacher_review_audit').insert({actor_id:a.user.id,action:'SUBMISSION_DELETED',details:{submission_id:b.id,teacher_id:submission.teacher_id}});return reply({saved:true});
+ }
  if(b.action==='submission'){
  if(!uuid(b.id)||!['UNDER_REVIEW','ADDED','NOT_USED'].includes(b.status)||typeof b.note!=='string'||b.note.length>4000)return reply({error:'Invalid submission update.'},400);
  const {data,error}=await a.db.from('teacher_mcq_submissions').update({status:b.status,admin_note:b.note,updated_by:a.user.id,updated_at:new Date().toISOString()}).eq('id',b.id).neq('status','DRAFT').select('id').single();if(error||!data)return reply({error:'Submission not found.'},404);return reply({saved:true});

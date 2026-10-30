@@ -104,7 +104,7 @@ begin
  ends:=((starts at time zone 'Asia/Kolkata')+interval '13 months') at time zone 'Asia/Kolkata';
  select 'CLASS_'||class_number into product from public.classes where id=r.class_id;
  insert into public.subscription_plans(plan_name,plan_code,price,description,is_active)
- values('Administrator granted annual membership','ADMIN_ONE_YEAR',0,'One year of class-scoped Practice and Real Mock granted by Full Admin',false)
+ values('Administrator granted 13-month membership','ADMIN_13_MONTHS',0,'13 months of class-scoped Practice and Real Mock granted by Full Admin',false)
  on conflict(plan_code) do update set plan_code=excluded.plan_code returning id into pid;
  insert into public.subscriptions(student_id,plan_id,status,start_date,end_date,payment_reference,amount_paid,covered_class_ids,membership_product_code,activation_policy,activation_request_id)
  values(p_user,pid,'ACTIVE',starts,ends,'ADMIN_GRANT:'||p_request::text,0,array[r.class_id],product,'NOW',p_request) returning id into sid;

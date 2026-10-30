@@ -30,7 +30,7 @@ jobs:
           node --input-type=module <<'JS'
           let ready=false;
           for(let i=0;i<60;i++){
-            try{const r=await fetch('https://cbse-question-bank.vercel.app/api/public/teacher-release');if(r.ok&&(await r.json()).version===1){ready=true;break;}}catch{}
+            try{const r=await fetch('https://cbse-question-bank.vercel.app/api/public/teacher-release');if(r.ok&&(await r.json()).version===2){ready=true;break;}}catch{}
             await new Promise(r=>setTimeout(r,5000));
           }
           if(!ready)throw Error('Teacher release was not ready');

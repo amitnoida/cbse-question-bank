@@ -106,7 +106,7 @@ begin
  (select q.id,row_number() over(order by c.chapter_number,c.id,q.id) rn from public.questions q join public.chapters c on c.id=q.chapter_id where c.subject_id=p_subject and c.is_active and q.is_active and q.question_type='MCQ' and (p_chapter=0 or c.id=p_chapter)) x group by ((rn-1)/60+1);
  end if;
  return coalesce((select jsonb_agg(to_jsonb(x) order by set_number) from
- (select s.id,s.set_number,cardinality(s.question_ids) total,
+ (select s.id,s.set_number,(select count(*) from public.questions q join public.chapters c on c.id=q.chapter_id where q.id=any(s.question_ids) and q.is_active and q.question_type='MCQ' and c.is_active) total,
  (select count(*) from public.teacher_question_reviews r where r.teacher_id=p_teacher and r.question_id=any(s.question_ids) and r.question_snapshot=public.cbse_teacher_question_snapshot(r.question_id)) reviewed
  from public.teacher_review_sets s where s.teacher_id=p_teacher and s.subject_id=p_subject and s.chapter_scope=p_chapter) x),'[]'::jsonb);
 end $$;
