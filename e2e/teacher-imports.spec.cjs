@@ -30,17 +30,25 @@ test('PDF + Word: teacher uploads, admin imports readable MCQs, skips failures/d
  const pdf=sourceFiles.find(f=>f.file_name.endsWith('.pdf')),word=sourceFiles.find(f=>f.file_name.endsWith('.docx'));
  // Interrupt the first download. No import history or source deletion may occur.
  await admin.route(/\/storage\/v1\/object\/sign\/teacher-mcq-submissions\//,route=>route.abort(),{times:1});
- console.log('POC: interrupting first download');let card=admin.getByRole('article').filter({has:admin.getByRole('heading',{name:'poc-mcqs.pdf',exact:true})}).filter({hasText:suffix});await card.getByRole('button',{name:'Process & Import',exact:true}).click();await expect(admin.getByRole('alert')).toBeVisible({timeout:30000});
+ console.log('POC: interrupting first download');let card=admin.getByRole('article').filter({has:admin.getByRole('heading',{name:'poc-mcqs.pdf',exact:true})}).filter({hasText:suffix});await card.getByRole('button',{name:'Process & Import',exact:true}).click();await expect(admin.getByRole('main').getByRole('alert')).toBeVisible({timeout:30000});
  const afterFailure=await(await api(request,admin,'/api/admin/teacher-imports')).json();const kept=afterFailure.files.find(f=>f.id===pdf.id);expect(kept.source_deleted_at).toBeNull();expect(Array.isArray(kept.teacher_mcq_imports)?kept.teacher_mcq_imports.length:kept.teacher_mcq_imports).toBeFalsy();
  console.log('POC: interrupted download preserved source');const expected=[[pdf,3,2],[word,2,3]];
  for(const [file,imported,skipped] of expected){
- console.log('POC: processing',file.file_name);card=admin.getByRole('article').filter({has:admin.getByRole('heading',{name:file.file_name,exact:true})}).filter({hasText:suffix});await card.getByRole('button',{name:'Process & Import',exact:true}).click();await Promise.race([card.getByText('Completed — source file deleted',{exact:true}).waitFor({timeout:90000}),admin.getByRole('alert').waitFor({timeout:90000}).then(async()=>{throw Error(await admin.getByRole('alert').innerText());})]);
+ console.log('POC: processing',file.file_name);card=admin.getByRole('article').filter({has:admin.getByRole('heading',{name:file.file_name,exact:true})}).filter({hasText:suffix});await card.getByRole('button',{name:'Process & Import',exact:true}).click();await Promise.race([card.getByText('Completed — source file deleted',{exact:true}).waitFor({timeout:90000}),admin.getByRole('main').getByRole('alert').waitFor({timeout:90000}).then(async()=>{throw Error(await admin.getByRole('main').getByRole('alert').innerText());})]);
  const status=await(await api(request,admin,'/api/admin/teacher-imports')).json();const row=status.files.find(f=>f.id===file.id);const batch=Array.isArray(row.teacher_mcq_imports)?row.teacher_mcq_imports[0]:row.teacher_mcq_imports;expect(batch.imported_count).toBe(imported);expect(batch.skipped_count).toBe(skipped);expect(batch.source_deleted_at).toBeTruthy();
  const view=await api(request,admin,`/api/admin/teacher-imports?fileId=${file.id}`);expect(view.ok()).toBe(true);const questions=(await view.json()).questions;expect(questions).toHaveLength(imported);for(const q of questions){expect(q.chapter_id).toBe(Number(chapter));expect(q.is_active).toBe(true);expect(q.explanation.length).toBeGreaterThan(5);expect(q.question_text).toContain(suffix);}
  await card.getByRole('button',{name:'View imported MCQs',exact:true}).click();await expect(card.locator('details')).toHaveCount(imported);
  const retry=await api(request,admin,'/api/admin/teacher-imports',{action:'import',fileId:file.id,chapterId:Number(chapter),sha256:'a'.repeat(64),text:'Retry after committed import'});expect(retry.ok()).toBe(true);expect((await retry.json()).batch.imported_count).toBe(imported);
  const missing=await api(request,teacher,'/api/teacher/submissions',{action:'download',submissionId:submission.id,fileId:file.id});expect(missing.status()).toBe(404);
  }
+ // Finish only earlier disposable POC sources left by interrupted checks, reclaiming their Storage space.
+ const pending=(await(await api(request,admin,'/api/admin/teacher-imports')).json()).files.filter(f=>f.teacher_mcq_submissions.teacher_profiles.full_name==='QA Disposable Import POC'&&f.teacher_mcq_submissions.note.startsWith('QA import POC ')&&!f.source_deleted_at&&!(Array.isArray(f.teacher_mcq_imports)?f.teacher_mcq_imports.length:f.teacher_mcq_imports));
+ for(const old of pending){
+ console.log('POC: finishing earlier disposable source',old.file_name);
+ const oldCard=admin.getByRole('article').filter({has:admin.getByRole('heading',{name:old.file_name,exact:true})}).filter({hasText:old.teacher_mcq_submissions.note});
+ await oldCard.getByRole('button',{name:'Process & Import',exact:true}).click();
+ await Promise.race([oldCard.getByText('Completed — source file deleted',{exact:true}).waitFor({timeout:90000}),admin.getByRole('main').getByRole('alert').waitFor({timeout:90000}).then(async()=>{throw Error(await admin.getByRole('main').getByRole('alert').innerText());})]);
+ }
  await teacher.reload();await expect(teacher.getByText(/Processing complete. Readable, complete MCQs imported/)).toBeVisible();
- }catch(e){if(admin)console.log('POC failure alert:',await admin.getByRole('alert').allTextContents().catch(()=>[]));throw e;}finally{await ac.close().catch(()=>{});await tc.close().catch(()=>{});}
+ }catch(e){if(admin)console.log('POC failure alert:',await admin.getByRole('main').getByRole('alert').allTextContents().catch(()=>[]));throw e;}finally{await ac.close().catch(()=>{});await tc.close().catch(()=>{});}
 });

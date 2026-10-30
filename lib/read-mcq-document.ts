@@ -3,7 +3,7 @@ export async function readMcqDocument(bytes:ArrayBuffer,name:string,progress:(me
  if(bytes.byteLength>10485760)throw Error('Maximum file size is 10 MB.');
  if(/\.pdf$/i.test(name)){
  progress('Reading PDF pages…');
- const pdfjs=await import('pdfjs-dist');
+ const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
  pdfjs.GlobalWorkerOptions.workerSrc='/document-readers/pdf.worker.min.mjs';
  const loading=pdfjs.getDocument({data:new Uint8Array(bytes),useSystemFonts:true});
  let timer:ReturnType<typeof setTimeout>|undefined;
