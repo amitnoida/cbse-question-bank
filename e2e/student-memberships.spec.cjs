@@ -1,4 +1,6 @@
 const {test,expect}=require('@playwright/test');
+const {installPreviewProtection}=require('./preview-protection.cjs');
+test.beforeEach(async({page})=>installPreviewProtection(page));
 const accounts=JSON.parse(process.env.E2E_ACCOUNTS_JSON||'[]').filter(a=>a.kind==='student'&&/^test_(8|9|10|11|12)_(free|paid)@gmail[.]com$/.test(a.email));
 if(accounts.length!==10)throw Error('Expected ten dedicated school accounts');
 async function login(page,a){await page.goto('/app');await page.getByRole('button',{name:/^sign in$/i}).first().click();const d=page.getByRole('dialog',{name:'Student sign in'});await d.locator('input[type=email]').fill(a.email);await d.locator('input[type=password]').fill(a.password);await d.getByRole('button',{name:/^sign in$/i}).click();await expect(page.getByRole('heading',{name:/what will you learn today/i})).toBeVisible({timeout:30000});}
