@@ -7,7 +7,7 @@ DECLARE
   sess uuid:=gen_random_uuid();
   class9 bigint;
   class10 bigint;
-  coupon_code text:='QA_EXAMYARI_'||replace(gen_random_uuid()::text,'-','');
+  v_coupon_code text:='QA_EXAMYARI_'||replace(gen_random_uuid()::text,'-','');
   coupon_id bigint;
   q jsonb;
   activated jsonb;
@@ -31,16 +31,16 @@ BEGIN
     THEN RAISE EXCEPTION 'Class 10 accessed before purchase'; END IF;
   INSERT INTO public.coupons(coupon_code,discount_percentage,is_active,valid_from,valid_until,
     usage_limit,applicable_plan_code,membership_validity)
-  VALUES(coupon_code,100,true,now()-interval '1 minute',now()+interval '10 days',
+  VALUES(v_coupon_code,100,true,now()-interval '1 minute',now()+interval '10 days',
     1,'CLASS_10','ONE_YEAR') RETURNING id INTO coupon_id;
-  q:=public.cbse_membership_quote_v1('CLASS_10','NOW',coupon_code);
+  q:=public.cbse_membership_quote_v1('CLASS_10','NOW',v_coupon_code);
   IF (q->>'payable_inr')::numeric<>0 OR jsonb_array_length(q->'class_ids')<>1
     THEN RAISE EXCEPTION 'Wrong coupon quote'; END IF;
   IF (q->>'end_date')::timestamptz IS DISTINCT FROM
       (((q->>'start_date')::timestamptz AT TIME ZONE 'Asia/Kolkata')
        +interval '13 months') AT TIME ZONE 'Asia/Kolkata'
     THEN RAISE EXCEPTION '13-month duration wrong'; END IF;
-  activated:=public.cbse_activate_membership_v1('CLASS_10','NOW',coupon_code,gen_random_uuid(),q);
+  activated:=public.cbse_activate_membership_v1('CLASS_10','NOW',v_coupon_code,gen_random_uuid(),q);
   subscription_id:=(activated->>'subscription_id')::bigint;
   IF NOT cbse_membership.can_access_class(u,class9)
     OR NOT cbse_membership.can_access_class(u,class10)
