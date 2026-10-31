@@ -32,3 +32,17 @@ a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline:3px s
 .ey-benefits{max-width:1200px;margin:38px auto 0;padding:24px;background:#fff;border:1px solid #e5edf5;border-radius:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px}.ey-benefits>div{display:flex;align-items:center;gap:12px}.ey-benefits p{font-size:13px;font-weight:800}.ey-benefits small{display:block;font-size:11px;line-height:1.6;color:#64748b;margin-top:4px}.ey-benefit-icon{display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:14px;background:#edf6ff;font-size:23px;flex-shrink:0}
 @media(max-width:900px){.ey-hero-grid{gap:24px}.ey-benefits{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:767px){.ey-home-hero{padding:32px 20px 24px}.ey-hero-grid{grid-template-columns:1fr;gap:30px}.ey-hero-copy h1{font-size:42px}.ey-hero-description{font-size:16px}.ey-student-photo{max-height:360px;object-position:center 30%;border-radius:24px 24px 56px 24px}.ey-benefits{gap:20px 12px;padding:18px;margin-top:24px}.ey-benefits>div{align-items:flex-start;gap:8px}.ey-benefit-icon{width:32px;height:32px;font-size:18px}.ey-benefits p{font-size:12px}}
+
+/* Mobile browser chrome, keyboards and standalone safe areas. Keep pinch zoom enabled. */
+@supports (min-height: 100dvh) { .min-h-screen { min-height:100dvh; } }
+body { padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px); }
+.mobile-dialog-backdrop { padding-top:max(.75rem,env(safe-area-inset-top,0px)); padding-bottom:max(.75rem,env(safe-area-inset-bottom,0px)); -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; }
+.mobile-install-prompt { bottom:calc(.75rem + env(safe-area-inset-bottom,0px)); right:calc(.75rem + env(safe-area-inset-right,0px)); }
+.mobile-consent-banner { bottom:calc(.75rem + env(safe-area-inset-bottom,0px)); max-height:calc(100dvh - 2rem); overflow-y:auto; }
+@media (max-width:1024px) and (pointer:coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),select,textarea { font-size:16px!important; }
+  input[type="radio"],input[type="checkbox"] { flex-shrink:0; }
+  input,select,textarea { scroll-margin-block:5rem; }
+  .mobile-dialog-backdrop { align-items:flex-start; }
+  .mobile-dialog-backdrop [role="dialog"] { margin-block:auto; max-width:100%; }
+}

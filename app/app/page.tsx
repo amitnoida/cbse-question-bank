@@ -2078,7 +2078,7 @@ export default function Home() {
     return (
       <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-[#f8f7ff] text-slate-950">
         {showSignup && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
+          <div className="mobile-dialog-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
             <div role="dialog" aria-modal="true" aria-label="Create student account" tabIndex={-1} className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7"><DialogFocus />
               <button
                 type="button"
@@ -2270,7 +2270,7 @@ export default function Home() {
         )}
 
         {showSignin && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
+          <div className="mobile-dialog-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
             <div role="dialog" aria-modal="true" aria-label="Student sign in" tabIndex={-1} className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-7"><DialogFocus />
               <button
                 type="button"
@@ -2392,7 +2392,7 @@ export default function Home() {
 
 
         {showForgotPassword && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-950/70 px-4 py-5 backdrop-blur-sm sm:py-8">
+          <div className="mobile-dialog-backdrop fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-950/70 px-4 py-5 backdrop-blur-sm sm:py-8">
             <div role="dialog" aria-modal="true" aria-label="Request reset email" tabIndex={-1} className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7"><DialogFocus />
               <button
                 type="button"
@@ -2474,7 +2474,7 @@ export default function Home() {
         )}
 
         {showUpdatePassword && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/70 px-4 py-5 backdrop-blur-sm sm:py-8">
+          <div className="mobile-dialog-backdrop fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/70 px-4 py-5 backdrop-blur-sm sm:py-8">
             <div role="dialog" aria-modal="true" aria-label="Create new password" tabIndex={-1} className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7"><DialogFocus />
               <div className="pr-2">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-600">

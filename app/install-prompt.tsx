@@ -40,12 +40,14 @@ export default function InstallPrompt() {
     const changed = () => setInstalled(isInstalled());
     window.addEventListener("beforeinstallprompt", beforeInstall);
     window.addEventListener("appinstalled", didInstall);
-    standalone.addEventListener("change", changed);
+    if (standalone.addEventListener) standalone.addEventListener("change", changed);
+    else standalone.addListener(changed);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("beforeinstallprompt", beforeInstall);
       window.removeEventListener("appinstalled", didInstall);
-      standalone.removeEventListener("change", changed);
+      if (standalone.removeEventListener) standalone.removeEventListener("change", changed);
+      else standalone.removeListener(changed);
     };
   }, []);
 
@@ -76,9 +78,9 @@ export default function InstallPrompt() {
   // Keep installation available below the content instead of overlaying tests.
   const placement = pathname === "/app" || pathname === "/dashboard"
     ? "mx-auto my-6 w-fit"
-    : "fixed bottom-3 right-3 z-40 sm:bottom-5 sm:right-5";
-  return <aside className={`${placement} max-w-[calc(100vw-1.5rem)] text-slate-900`} aria-label="Install CBSE app">
-    {open ? <section className="w-80 rounded-2xl border border-indigo-200 bg-white p-4 shadow-xl" aria-labelledby="install-app-title">
+    : "mobile-install-prompt fixed bottom-3 right-3 z-40 sm:bottom-5 sm:right-5";
+  return <aside className={`${placement} max-w-[calc(100vw-1.5rem)] text-slate-900`} aria-label="Install ExamShuru app">
+    {open ? <section className="w-80 max-w-full rounded-2xl border border-indigo-200 bg-white p-4 shadow-xl" aria-labelledby="install-app-title">
       <div className="flex items-start justify-between gap-3"><h2 id="install-app-title" className="font-extrabold">📲 Install ExamShuru</h2><button type="button" onClick={dismiss} aria-label="Dismiss install suggestion" className="min-h-10 min-w-10 rounded-lg border">✕</button></div>
       <p className="mt-2 text-sm">Open your quizzes quickly from your home screen. Internet is required for tests and sign-in.</p>
       {ios ? <ol className="mt-3 list-inside list-decimal space-y-1 text-sm"><li>Open this website in Safari.</li><li>Tap Share, then Add to Home Screen.</li><li>Tap Add to confirm.</li></ol> : nativeAvailable ? <button type="button" disabled={busy} onClick={() => void install()} className="mt-3 min-h-11 w-full rounded-lg bg-indigo-700 px-4 py-2 font-bold text-white disabled:opacity-50">{busy ? "Opening install prompt…" : "Install app"}</button> : <p className="mt-3 text-sm">In Chrome or Edge, open the browser menu (⋮ or …) and choose Install app or Add to Home screen. If unavailable, use a supported browser.</p>}

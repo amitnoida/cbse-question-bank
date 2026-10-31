@@ -103,7 +103,7 @@ export default function PublicAnalyticsConsent() {
   if (!allowed || (preference !== null && !showChoices)) return null;
 
   return (
-    <aside role="region" aria-label="Optional website analytics" className="fixed inset-x-3 bottom-3 z-[90] mx-auto max-w-2xl rounded-2xl border border-indigo-200 bg-white p-4 text-slate-900 shadow-2xl sm:p-5">
+    <aside role="region" aria-label="Optional website analytics" className="mobile-consent-banner fixed inset-x-3 bottom-3 z-[90] mx-auto max-w-2xl rounded-2xl border border-indigo-200 bg-white p-4 text-slate-900 shadow-2xl sm:p-5">
       <p className="text-sm font-bold">Optional website analytics</p>
       <p className="mt-1 text-xs leading-5 text-slate-700 sm:text-sm">
         ExamShuru would like to use Google Analytics to understand visits to public educational pages.
