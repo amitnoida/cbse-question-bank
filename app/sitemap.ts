@@ -3,7 +3,7 @@ import { SITE, CLASS_NUMBERS, classPath, getSubjectsForClass, subjectPath } from
 
 // Chapter guide pages remain noindex until individually reviewed for original, accurate educational content.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const paths = ["/", ...CLASS_NUMBERS.flatMap(n => [
+  const paths = ["/", "/try", ...CLASS_NUMBERS.flatMap(n => [
     classPath(n),
     ...getSubjectsForClass(n).map(s => subjectPath(n,s.slug)),
   ])];

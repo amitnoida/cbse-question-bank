@@ -42,10 +42,10 @@ export default function Home() {
             <div className="ey-hero-copy">
               <p className="ey-eyebrow">YOUR STUDY COMPANION · CBSE CLASSES 8–12</p>
               <h1>Practice today.<br />A <span>brighter</span> tomorrow.</h1>
-              <p className="ey-hero-description">A little practice every day goes a long way. Explore chapter-wise questions, understand each answer, and build confidence with timed mock tests.</p>
+              <p className="ey-hero-description">Try a short quiz, understand your mistakes, and find what to revise next. Start with our Class 9–10 Maths and Science demo, then explore available practice for Classes 8–12.</p>
               <div className="ey-hero-actions">
                 <Link href="/app?auth=signup" className="ey-primary-action">Start learning free <span aria-hidden="true">→</span></Link>
-                <a href="#how-it-works" className="ey-secondary-action">See how it works</a>
+                <Link href="/try" className="ey-secondary-action">Try 5 questions · No signup</Link>
               </div>
               <p className="ey-free-note">One free Practice + Mock set per subject. No payment needed to begin.</p>
               <p className="ey-tagline">Har Exam Ki Pakki Yaari!</p>
@@ -153,10 +153,10 @@ export default function Home() {
               </article>
               <article className="rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-800 p-7 text-white shadow-xl sm:p-9">
                 <p className="text-xs font-extrabold uppercase tracking-wider text-amber-300">Premium</p>
-                <h3 className="mt-4 text-2xl font-black">13-Month Membership</h3>
-                <p className="mt-4 text-4xl font-black">₹99 <span className="text-sm font-semibold text-indigo-200">eligible class plan · 13 months</span></p>
+                <h3 className="mt-4 text-2xl font-black">13-Month Membership</h3><p className="mt-3 text-sm text-indigo-100">Online payments are coming soon. Eligible 100% coupons can activate membership free. Check available class and combo prices before activation.</p>
+                <p className="mt-4 text-4xl font-black"><span className="text-lg">Starting at </span>₹99 <span className="text-sm font-semibold text-indigo-200">eligible single-class plan · 13 months</span></p>
                 <ul className="mt-7 space-y-3 text-sm font-semibold text-indigo-100"><li>✓ Full access to available practice questions</li><li>✓ All available chapters unlocked</li><li>✓ Answer explanations and practice</li><li>✓ 60-minute mock tests and eligible retakes</li></ul>
-                <Link href="/app?auth=signup" className="mt-8 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-400 px-5 py-3 font-extrabold text-slate-950 hover:bg-amber-300">View membership options</Link>
+                <Link href="/memberships" className="mt-8 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-400 px-5 py-3 font-extrabold text-slate-950 hover:bg-amber-300">View membership options</Link>
               </article>
             </div>
           </div>

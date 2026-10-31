@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import {ReportQuestion} from "../learning-ui";
 import { BrandLogo } from "../brand-logo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -2764,12 +2765,12 @@ export default function Home() {
                         {!user && <p className="mt-2 text-xs font-semibold text-amber-800">○ Question skipped</p>}
 
                         {q.explanation && (
-                          <p className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
+                          <div className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
                             <strong>
                               Explanation:
                             </strong>{" "}
-                            <QuestionContent text={q.explanation} />
-                          </p>
+                            <QuestionContent text={q.explanation} /><ReportQuestion questionId={q.id}/>
+                          </div>
                         )}
                       </div>
                     );
@@ -3095,12 +3096,12 @@ export default function Home() {
                         {!user && <p className="mt-2 text-xs font-semibold text-amber-800">○ Question skipped</p>}
 
                         {q.explanation && (
-                          <p className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
+                          <div className="mt-3 break-words rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-950">
                             <strong>
                               Explanation:
                             </strong>{" "}
-                            <QuestionContent text={q.explanation} />
-                          </p>
+                            <QuestionContent text={q.explanation} /><ReportQuestion questionId={q.id}/>
+                          </div>
                         )}
                       </div>
                     );
@@ -3244,7 +3245,7 @@ export default function Home() {
             <div role="status" className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-slate-900">
               <p className="font-extrabold">{practiceAnswers[current.id] === current.correct_option.trim().toUpperCase() ? "✅ Correct answer!" : practiceAnswers[current.id] ? "❌ Incorrect answer" : "⏭️ Question skipped"}</p>
               <p>Correct answer: <strong>{current.correct_option.toUpperCase()} — <QuestionContent text={current.options[current.correct_option.toUpperCase().charCodeAt(0) - 65]} /></strong></p>
-              {current.explanation && <p className="mt-2"><QuestionContent text={current.explanation} /></p>}
+              {current.explanation && <p className="mt-2"><QuestionContent text={current.explanation} /></p>}<ReportQuestion questionId={current.id}/>
             </div>
           ) : (
             <div className="mt-4">
@@ -3385,6 +3386,7 @@ export default function Home() {
         </div>
       </section>
 
+      <div className="mx-auto max-w-7xl px-4 pt-6"><Link href="/learn" className="inline-flex min-h-12 items-center rounded-xl bg-indigo-700 px-5 py-3 text-sm font-bold text-white">Daily five · Practise mistakes · Monthly progress →</Link></div>
       {/* QUESTION AREA */}
       <section
         id="questions"

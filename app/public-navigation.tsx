@@ -12,6 +12,7 @@ export function PublicHeader() {
           <BrandLogo />
         </Link>
         <div className="flex flex-wrap items-center gap-1 text-sm font-bold">
+          <Link className="rounded-xl px-3 py-2.5 text-indigo-700 hover:bg-indigo-50" href="/try">Try 5 questions</Link>
           {CLASS_NUMBERS.map(n => <Link key={n} className="rounded-xl px-2.5 py-2.5 text-slate-600 hover:bg-slate-100 sm:px-3" href={classPath(n)}>Class {n}</Link>)}
           <Link className="rounded-xl bg-indigo-600 px-4 py-3 text-white hover:bg-indigo-700" href="/app">Sign in / Join free</Link>
         </div>
