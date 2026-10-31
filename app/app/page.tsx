@@ -1675,9 +1675,9 @@ export default function Home() {
       return;
     }
 
-    if (signupPassword.length < 6) {
+    if (signupPassword.length < 12 || signupPassword.length > 128) {
       setSignupError(
-        "Password must be at least 6 characters."
+        "Password must contain 12–128 characters."
       );
       return;
     }
@@ -1852,8 +1852,8 @@ export default function Home() {
     setUpdatePasswordError("");
     setUpdatePasswordSuccess("");
 
-    if (newPassword.length < 6) {
-      setUpdatePasswordError("Password must be at least 6 characters long.");
+    if (newPassword.length < 12 || newPassword.length > 128) {
+      setUpdatePasswordError("Password must contain 12–128 characters.");
       return;
     }
 
@@ -2177,7 +2177,7 @@ export default function Home() {
                         e.target.value
                       )
                     }
-                    placeholder="Minimum 6 characters"
+                    placeholder="12–128 characters"
                     disabled={signupLoading}
                     autoComplete="new-password"
                     className="min-h-11 w-full rounded-lg border border-slate-300 bg-white pl-3.5 pr-14 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-700 focus:ring-2 focus:ring-blue-700/20 disabled:bg-slate-100 sm:text-sm"
@@ -2508,7 +2508,7 @@ export default function Home() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="At least 6 characters"
+                    placeholder="12–128 characters"
                     disabled={updatePasswordLoading || !!updatePasswordSuccess}
                     autoComplete="new-password"
                     autoFocus
