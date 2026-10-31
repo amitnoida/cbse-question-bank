@@ -11,4 +11,4 @@ export function publicSession(row:{id:string;mode:string;title:string;questions:
  return {id:row.id,mode:row.mode,title:row.title,answers:row.answers,completed_at:row.completed_at,questions,score:scoreQuestions(row.questions,row.answers),total:row.questions.length};
 }
 export function istDay(date=new Date()){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(date);}
-export function shareUrl(path:string){return `https://examyari.com${path}`;}
+export function shareUrl(path:string){return `https://examshuru.com${path}`;}

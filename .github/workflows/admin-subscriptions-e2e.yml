@@ -31,7 +31,7 @@ jobs:
           node --input-type=module <<'JS'
           let ready=false;
           for(let i=0;i<60;i++) {
-            try {const r=await fetch('https://cbse-question-bank.vercel.app/api/admin/subscriptions'); if(r.status===401){ready=true;break;}} catch {}
+            try {const r=await fetch('https://examshuru.com/api/admin/subscriptions'); if(r.status===401){ready=true;break;}} catch {}
             await new Promise(r=>setTimeout(r,5000));
           }
           if(!ready)throw Error('Production subscription API did not become ready');
@@ -41,5 +41,5 @@ jobs:
       - name: Read-only production admin checks
         env:
           E2E_ACCOUNTS_JSON: ${{ secrets.E2E_ACCOUNTS_JSON }}
-          E2E_BASE_URL: https://cbse-question-bank.vercel.app
+          E2E_BASE_URL: https://examshuru.com
         run: npx playwright test --config=e2e/admin-subscriptions.config.cjs

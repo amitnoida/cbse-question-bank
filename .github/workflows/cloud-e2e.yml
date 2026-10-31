@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 60
     env:
       E2E_ACCOUNTS_JSON: ${{ secrets.E2E_ACCOUNTS_JSON }}
-      E2E_BASE_URL: https://cbse-question-bank.vercel.app
+      E2E_BASE_URL: https://examshuru.com
       CI: 'true'
     steps:
       - name: Get latest test code

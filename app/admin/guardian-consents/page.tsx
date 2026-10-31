@@ -19,7 +19,7 @@ export default function GuardianConsent(){
  return <main className="mx-auto max-w-3xl space-y-5 p-5 text-slate-900">
  <Link href="/admin/create-user" className="font-semibold text-indigo-700">← Create user</Link>
  <h1 className="text-3xl font-extrabold">Guardian identity and consent verification</h1>
- <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">Full Admin only. Do not mark a check unless an adult guardian has actually been verified using reliable identity and age evidence, relationship/authority checked, a privacy notice provided and informed consent recorded. An email OTP or an unchecked assertion is not proof of adulthood. Never upload Aadhaar, passports or raw identity documents into ExamYari.</p>
+ <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">Full Admin only. Do not mark a check unless an adult guardian has actually been verified using reliable identity and age evidence, relationship/authority checked, a privacy notice provided and informed consent recorded. An email OTP or an unchecked assertion is not proof of adulthood. Never upload Aadhaar, passports or raw identity documents into ExamShuru.</p>
  {error&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}
  {saved&&<div role="status" className="rounded-lg bg-emerald-50 p-3"><p>Guardian verification audit saved. Use this ID once when creating the student account:</p><code className="break-all font-bold">{saved}</code></div>}
  <form onSubmit={submit} className="space-y-4 rounded-xl border bg-white p-5">

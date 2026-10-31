@@ -11,18 +11,18 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://examyari.com"),
-  title: { default: "ExamYari | Class 8–12 CBSE MCQ Practice", template: "%s | ExamYari" },
+  metadataBase: new URL("https://examshuru.com"),
+  title: { default: "ExamShuru | Class 8–12 CBSE MCQ Practice", template: "%s | ExamShuru" },
   description: "CBSE MCQ practice, chapter-wise questions, explanations and 60-question mock tests for Classes 8, 9, 10, 11 and 12, including Physics, Chemistry, Mathematics and Biology in Classes 11–12.",
-  applicationName: "ExamYari",
+  applicationName: "ExamShuru",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "ExamYari", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "ExamShuru", statusBarStyle: "default" },
   icons: { icon: "/icons/examyari-192-v2.png", apple: "/icons/examyari-apple-v2.png" },
   robots: { index: true, follow: true },
   openGraph: {
-    type: "website", siteName: "ExamYari",
-    url: "https://examyari.com",
-    title: "ExamYari | Classes 8–12 MCQ Practice",
+    type: "website", siteName: "ExamShuru",
+    url: "https://examshuru.com",
+    title: "ExamShuru | Classes 8–12 MCQ Practice",
     description: "Class 8, 9, 10, 11 and 12 subject-wise MCQ practice and timed mock tests."
   },
 };

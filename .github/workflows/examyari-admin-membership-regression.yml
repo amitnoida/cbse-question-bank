@@ -1,4 +1,4 @@
-name: ExamYari Admin and Membership Production Regression
+name: ExamShuru Admin and Membership Production Regression
 on:
   push:
     branches: [main]
@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 35
     env:
       CI: 'true'
-      E2E_BASE_URL: https://examyari.com
+      E2E_BASE_URL: https://examshuru.com
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:

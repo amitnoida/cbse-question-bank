@@ -1,4 +1,4 @@
-name: Test ExamYari PDF and DOCX MCQ readers
+name: Test ExamShuru PDF and DOCX MCQ readers
 on:
   push:
     branches: [tests/examyari-document-readers-oct30]
