@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setError("");
     if (!authorized) return;
-    if (password.length < 8) { setError("Use at least 8 characters."); return; }
+    if (password.length < 12 || password.length > 128) { setError("Use 12–128 characters."); return; }
     if (password !== confirm) { setError("Passwords do not match."); return; }
     setBusy(true);
     const result = await supabase.auth.updateUser({ password });
@@ -96,8 +96,8 @@ export default function ResetPasswordPage() {
           <div className="mt-6 space-y-4"><p className="rounded-xl bg-green-50 p-4 text-green-800">Password updated successfully. Please sign in using your new password.</p><Link className="block rounded-xl bg-indigo-600 px-4 py-3 text-center font-bold text-white" href="/app">Go to sign in</Link></div>
         ) : authorized ? (
           <form onSubmit={submit} className="mt-6 space-y-4">
-            <label className="block text-sm font-semibold text-slate-700">New password<input type="password" autoComplete="new-password" minLength={8} required value={password} onChange={e => setPassword(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 p-3 text-base" /></label>
-            <label className="block text-sm font-semibold text-slate-700">Confirm new password<input type="password" autoComplete="new-password" minLength={8} required value={confirm} onChange={e => setConfirm(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 p-3 text-base" /></label>
+            <label className="block text-sm font-semibold text-slate-700">New password<input type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={password} onChange={e => setPassword(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 p-3 text-base" /></label>
+            <label className="block text-sm font-semibold text-slate-700">Confirm new password<input type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={confirm} onChange={e => setConfirm(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 p-3 text-base" /></label>
             {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
             <button type="submit" disabled={busy} className="w-full rounded-xl bg-indigo-600 p-3 font-bold text-white disabled:opacity-60">{busy ? "Updating…" : "Update password"}</button>
           </form>
