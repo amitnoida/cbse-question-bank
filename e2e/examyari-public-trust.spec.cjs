@@ -13,6 +13,10 @@ test("Trust pages disclose contact, privacy, learning limits and guardian superv
   expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   expect(response.headers()["x-frame-options"]).toBe("DENY");
   expect(response.headers()["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+  expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(response.headers()["content-security-policy"]).toContain("base-uri 'self'");
+  expect(response.headers()["content-security-policy"]).toContain("object-src 'none'");
+  expect(response.headers()["strict-transport-security"]).toMatch(/max-age=\d+/);
  }
  await page.goto("/app?auth=signup");
  await expect(page.getByRole("checkbox",{name:/If I am under 18/})).toBeVisible();
