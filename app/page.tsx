@@ -42,10 +42,10 @@ export default function Home() {
             <div className="ey-hero-copy">
               <p className="ey-eyebrow">YOUR STUDY COMPANION · CBSE CLASSES 8–12</p>
               <h1>Practice today.<br />A <span>brighter</span> tomorrow.</h1>
-              <p className="ey-hero-description">Try a short quiz, understand your mistakes, and find what to revise next. Start with our Class 9–10 Maths and Science demo, then explore available practice for Classes 8–12.</p>
+              <p className="ey-hero-description">Try a short quiz, understand your mistakes, and find what to revise next. Start with our Class 8–12 Maths and Science demo, then explore available practice for Classes 8–12.</p>
               <div className="ey-hero-actions">
                 <Link href="/app?auth=signup" className="ey-primary-action">Start learning free <span aria-hidden="true">→</span></Link>
-                <Link href="/try" className="ey-secondary-action">Try 5 questions · No signup</Link>
+                <Link href="/try" className="ey-secondary-action">Try 10 questions · No signup</Link>
               </div>
               <p className="ey-free-note">One free Practice + Mock set per subject. No payment needed to begin.</p>
               <p className="ey-tagline">Har Exam Ki Pakki Yaari!</p>
