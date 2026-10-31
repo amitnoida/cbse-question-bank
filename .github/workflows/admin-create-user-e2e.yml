@@ -31,7 +31,7 @@ jobs:
           node --input-type=module <<'JS'
           let ready=false;
           for(let i=0;i<60;i++){
-            try{const r=await fetch('https://cbse-question-bank.vercel.app/api/admin/students');if(r.status===401){ready=true;break;}}catch{}
+            try{const r=await fetch('https://examshuru.com/api/admin/students');if(r.status===401){ready=true;break;}}catch{}
             await new Promise(r=>setTimeout(r,5000));
           }
           if(!ready)throw Error('Student membership release was not ready');
@@ -41,5 +41,5 @@ jobs:
       - name: Verify admin-created QA accounts and Class 12 flow
         env:
           E2E_ACCOUNTS_JSON: ${{ secrets.E2E_ACCOUNTS_JSON }}
-          E2E_BASE_URL: https://cbse-question-bank.vercel.app
+          E2E_BASE_URL: https://examshuru.com
         run: npx playwright test --config=e2e/admin-create-user.config.cjs

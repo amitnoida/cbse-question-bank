@@ -4,7 +4,7 @@ test("Trust pages disclose contact, privacy, learning limits and guardian superv
  await expect(page.getByRole("link",{name:"Privacy"})).toBeVisible();
  await expect(page.getByRole("link",{name:"Terms"})).toBeVisible();
  await expect(page.getByRole("link",{name:"Contact support"})).toBeVisible();
- for(const [url,heading] of [["/privacy","Privacy Policy"],["/terms","Terms of Use"],["/contact","Contact ExamYari Support"]]){
+ for(const [url,heading] of [["/privacy","Privacy Policy"],["/terms","Terms of Use"],["/contact","Contact ExamShuru Support"]]){
   await page.goto(url);
   await expect(page.getByRole("heading",{level:1,name:heading})).toBeVisible();
   await expect(page.getByText("support.cbseexam@gmail.com").first()).toBeVisible();

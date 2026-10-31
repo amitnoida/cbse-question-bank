@@ -2,7 +2,7 @@ import catalog from "./seo-catalog.json";
 import additionalCatalog from "./seo-catalog-new-classes.json";
 
 export type Chapter = (typeof catalog)[number];
-export const SITE = "https://examyari.com";
+export const SITE = "https://examshuru.com";
 export const CLASS_NUMBERS = [8, 9, 10, 11, 12] as const;
 export const subjects = [
   { name: "English", slug: "english" },

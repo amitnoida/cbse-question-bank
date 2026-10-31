@@ -4,7 +4,7 @@ test('GA4 sends collection request to Google after explicit consent',async({page
  page.on('request',r=>{if(/googletagmanager\.com\/gtag\/js|google-analytics\.com\/g\/collect|google-analytics\.com\/collect/.test(r.url()))requests.push({url:r.url().slice(0,350),type:r.resourceType()})});
  page.on('response',r=>{if(/googletagmanager\.com\/gtag\/js|google-analytics\.com\/g\/collect|google-analytics\.com\/collect/.test(r.url()))responses.push({url:r.url().slice(0,350),status:r.status()})});
  page.on('requestfailed',r=>{if(/googletagmanager|google-analytics/.test(r.url()))errors.push({url:r.url().slice(0,350),failure:r.failure()})});
- await page.goto('https://examyari.com/');
+ await page.goto('https://examshuru.com/');
  await expect(page.getByRole('region',{name:'Optional website analytics'})).toBeVisible();
  await page.getByRole('button',{name:'Allow public-page analytics'}).click();
  await page.waitForTimeout(7000);

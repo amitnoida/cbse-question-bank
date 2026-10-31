@@ -1703,7 +1703,7 @@ export default function Home() {
       password: signupPassword,
       options: {
         emailRedirectTo:
-          "https://cbse-question-bank.vercel.app/auth/callback",
+          "https://examshuru.com/auth/callback",
         data: {
           full_name: fullName,
           class_id: Number(signupClassId),
@@ -3335,7 +3335,7 @@ export default function Home() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <Link href="/" aria-label="ExamYari home"><BrandLogo compact /></Link>
+            <Link href="/" aria-label="ExamShuru home"><BrandLogo compact /></Link>
             <h1 className="mt-1 text-xs font-semibold text-slate-600">Your learning space</h1>
           </div>
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
