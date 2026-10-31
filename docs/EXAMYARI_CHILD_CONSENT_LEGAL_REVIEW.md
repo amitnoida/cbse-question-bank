@@ -14,7 +14,7 @@ Section 9 concerns verifiable parental/lawful-guardian consent, child welfare, c
 
 ## Controls in this release
 
-1. **Adult self-signup gate:** The registration form requires a declared 18+ choice. Selecting under 18/guardian blocks client-side self-service signup and links to guardian instructions. No child name/email is requested in the guardian pre-contact step. This is a client gate, not verified age-assurance: deliberate adult false declarations remain a risk.
+1. **Current public self-signup:** The registration form accepts students of all ages based on a single declaration of parent/guardian permission and supervision for users under 18. It does **not** collect age, independently verify guardian authority, or enforce a server-side guardian-consent prerequisite. Adult verification is NOT implemented on public self-service signup.
 2. **Manual guardian verification register:** Before a Full Admin can create a new STUDENT account through the admin API, a private, single-use guardian consent record must be present. The admin must verify the adult's age/identity through DigiLocker/reliable existing record/offline government-issued document, verify parental or lawful guardian authority, give the privacy notice, obtain affirmative guardian consent, and record the verification method, non-sensitive case reference, notice version, consent timestamp and admin verifier.
 3. **No sensitive document storage:** ExamYari stores audit references and the verified adult's contact details, not government ID photos, full Aadhaar numbers or DOB scans. Any offline identity handling must have separately approved secure procedures; don't use ordinary email attachments for ID scans.
 4. **One-use grant:** The backend atomically reserves the consent for one creation request and links it to that child account. Role enforcement is Full Admin/service-role only; table is RLS-protected and inaccessible to anon/authenticated clients.
@@ -23,7 +23,7 @@ Section 9 concerns verifiable parental/lawful-guardian consent, child welfare, c
 
 ## Known gaps / do NOT claim complete compliance
 
-- Client-side adult self-declaration does not independently prove 18+; fraudulent self-assertion can bypass the UX. Confirm appropriate age-assurance method and server-side enforcement with counsel before representing this as a fully verified service.
+- Public self-signup has no age-verification or independently verified guardian-consent gate; a checkbox is insufficient as evidence. Implement a legally reviewed server-side gate with a verifiable adult-authority workflow before representing the service as fully verified.
 - Existing ~34 student accounts predate the guardian register. Review their ages and parental permissions using minimal, lawful outreach before changing or disabling their accounts; do not automatically infer that all minors lack consent.
 - The manual process depends on trained authorized staff actually checking reliable adult identity and guardian relationship and keeping separate secure evidence of that check. The application cannot independently validate an offline document or DigiLocker token without a suitable authorized integration.
 - A verified adult is not automatically the child's parent. Relationship verification requires a defensible lawful process; legal counsel should specify acceptable evidence and audit retention without over-collection.
@@ -56,5 +56,5 @@ A practicing Indian technology/privacy lawyer should provide a signed, dated wri
 - Anonymous and Viewer cannot query or insert guardian evidence; Full Admin only.
 - Student creation API rejects an otherwise valid student request without verified grant, including requests that bypass the UI.
 - A grant can reserve only one request and link to one student (DB uniqueness).
-- A student cannot self-register by selecting the minor option; the parent path discloses that no identity verification has been performed online.
+- CURRENT GAP: minor/unknown-age students can create accounts through self-service registration after declaring guardian permission; `auth.signUp` is also reachable directly. A backend verified-consent gate is required. The parent path accurately discloses this limitation.
 - Existing student/question/test data and access are not modified by this release.
