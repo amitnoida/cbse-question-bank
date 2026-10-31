@@ -30,7 +30,8 @@ test('login and password recovery open without sending email',async({page})=>{
  await recovery.getByRole('button',{name:'← Back to Sign In',exact:true}).click();await expect(login).toBeVisible();
 });
 test('home-screen instructions replace floating install controls',async({page})=>{
- await page.goto('/');await expect(page.getByRole('button',{name:/Install app/})).toHaveCount(0);
+ await page.goto('/');await page.getByRole('region',{name:'Optional website analytics'}).getByRole('button',{name:'Decline',exact:true}).click();
+ await expect(page.getByRole('button',{name:/Install app/})).toHaveCount(0);
  await page.getByText('View Android and iPhone instructions',{exact:true}).click();
  await expect(page.getByRole('heading',{name:'Android · Chrome'})).toBeVisible();
  await expect(page.getByRole('heading',{name:'iPhone · Safari'})).toBeVisible();
@@ -80,8 +81,8 @@ test('signup offers resend with the same email, correct callback and cooldown',a
  await fits(page,'[role=dialog], [aria-label="Email verification help"]');
 });
 test('unconfirmed sign-in offers resend and handles rate limits',async({page})=>{
- await page.route('**/auth/v1/token**',route=>route.fulfill({status:400,json:{code:'email_not_confirmed',msg:'Email not confirmed'}}));
- await page.route('**/auth/v1/resend**',route=>route.fulfill({status:429,json:{code:'over_email_send_rate_limit',msg:'email rate limit exceeded'}}));
+ await page.route('**/auth/v1/token**',route=>route.fulfill({status:400,headers:{'x-supabase-api-version':'2024-01-01'},json:{code:'email_not_confirmed',msg:'Email not confirmed'}}));
+ await page.route('**/auth/v1/resend**',route=>route.fulfill({status:429,headers:{'x-supabase-api-version':'2024-01-01'},json:{code:'over_email_send_rate_limit',msg:'email rate limit exceeded'}}));
  await page.goto('/app');await page.getByRole('button',{name:'Continue to Sign In',exact:true}).click();
  const d=page.getByRole('dialog',{name:'Student sign in'});
  await d.getByLabel('Email ID',{exact:true}).fill('mobile-check@example.invalid');await d.getByLabel('Password',{exact:true}).fill('Test-Only-Password-123!');
