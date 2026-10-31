@@ -46,3 +46,6 @@ body { padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-i
   .mobile-dialog-backdrop { align-items:flex-start; }
   .mobile-dialog-backdrop [role="dialog"] { margin-block:auto; max-width:100%; }
 }
+
+/* Present one floating choice at a time so analytics cannot cover installation. */
+body:has(.mobile-consent-banner) .mobile-install-prompt { visibility:hidden; pointer-events:none; }

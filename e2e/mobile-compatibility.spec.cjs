@@ -30,7 +30,7 @@ test('login and password recovery open without sending email',async({page})=>{
  await recovery.getByRole('button',{name:'← Back to Sign In',exact:true}).click();await expect(login).toBeVisible();
 });
 test('install panel fits screen and platform guidance is correct',async({page},info)=>{
- await page.goto('/');await page.getByRole('button',{name:'📲 Install app',exact:true}).click();
+ await page.goto('/');const banner=page.getByRole('region',{name:'Optional website analytics'});await expect(banner).toBeVisible();const install=page.getByRole('button',{name:'📲 Install app',exact:true});await expect(install).toBeHidden();await banner.getByRole('button',{name:'Decline',exact:true}).click();await expect(banner).not.toBeVisible();await install.click();
  await expect(page.getByRole('heading',{name:'📲 Install ExamShuru'})).toBeVisible();await fits(page,'aside,aside section');
  if(info.project.name.startsWith('iphone'))await expect(page.getByText('Tap Share, then Add to Home Screen.',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Dismiss install suggestion'}).click();
