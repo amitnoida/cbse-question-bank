@@ -29,12 +29,14 @@ test('login and password recovery open without sending email',async({page})=>{
  await recovery.locator('input[type=email]').fill('mobile-check@example.invalid');await fits(page,'[role=dialog],[role=dialog] input');
  await recovery.getByRole('button',{name:'← Back to Sign In',exact:true}).click();await expect(login).toBeVisible();
 });
-test('install panel fits screen and platform guidance is correct',async({page},info)=>{
- await page.goto('/');const banner=page.getByRole('region',{name:'Optional website analytics'});await expect(banner).toBeVisible();const install=page.getByRole('button',{name:'📲 Install app',exact:true});await expect(install).toBeHidden();await banner.getByRole('button',{name:'Decline',exact:true}).click();await expect(banner).not.toBeVisible();await install.click();
- await expect(page.getByRole('heading',{name:'📲 Install ExamShuru'})).toBeVisible();await fits(page,'aside,aside section');
- if(info.project.name.startsWith('iphone'))await expect(page.getByText('Tap Share, then Add to Home Screen.',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Dismiss install suggestion'}).click();
- await page.goto('/install');await expect(page.getByRole('heading',{name:'iPhone · Safari'})).toBeVisible();
+test('home-screen instructions replace floating install controls',async({page})=>{
+ await page.goto('/');await expect(page.getByRole('button',{name:/Install app/})).toHaveCount(0);
+ await page.getByText('View Android and iPhone instructions',{exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Android · Chrome'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'iPhone · Safari'})).toBeVisible();
+ await fits(page,'details,details section');
+ await page.getByRole('link',{name:'Installation help',exact:true}).click();
+ await expect(page).toHaveURL(/\/install$/);await expect(page.getByRole('heading',{name:'iPhone · Safari'})).toBeVisible();
 });
 test('demo finishes at signup with no start checkbox',async({page})=>{
  await page.goto('/try');await expect(page.getByRole('checkbox')).toHaveCount(0);
@@ -54,4 +56,37 @@ test('manifest, icons and viewport support phone installation',async({request,pa
  expect(manifest.display).toBe('standalone');expect(manifest.short_name).toBe('ExamShuru');
  for(const icon of manifest.icons)expect((await request.get(icon.src)).ok()).toBeTruthy();
  await page.goto('/');const viewport=await page.locator('meta[name=viewport]').getAttribute('content');expect(viewport).toContain('viewport-fit=cover');expect(viewport).not.toMatch(/user-scalable=no|maximum-scale=1/);
+});
+
+// Auth responses below are intercepted: no real account is created and no email is sent.
+test('signup offers resend with the same email, correct callback and cooldown',async({page})=>{
+ let sent=0;await page.clock.install();
+ await page.route('**/auth/v1/signup**',route=>route.fulfill({json:{user:{id:'test-only',email:'mobile-check@example.invalid'},session:null}}));
+ await page.route('**/auth/v1/resend**',async route=>{
+  sent++;const body=route.request().postDataJSON();expect(body.type).toBe('signup');expect(body.email).toBe('mobile-check@example.invalid');
+  expect(route.request().url()).toContain('redirect_to=https%3A%2F%2Fexamshuru.com%2Fauth%2Fcallback');
+  await route.fulfill({json:{}});
+ });
+ await page.goto('/app?auth=signup');const d=page.getByRole('dialog',{name:'Create student account'});
+ await d.getByLabel('Full Name',{exact:true}).fill('Mobile Test');await d.getByLabel('Email ID',{exact:true}).fill('mobile-check@example.invalid');
+ await d.getByLabel('Password',{exact:true}).fill('Test-Only-Password-123!');await d.getByLabel('Confirm Password',{exact:true}).fill('Test-Only-Password-123!');
+ await d.locator('select').selectOption({index:1});await d.getByRole('checkbox').check();
+ await d.getByRole('button',{name:'Create Account',exact:true}).click();
+ await expect(d.getByRole('button',{name:/Resend available in/})).toBeDisabled();
+ await page.clock.fastForward(61000);
+ await d.getByRole('button',{name:'Resend verification email',exact:true}).click();
+ await expect(d.getByRole('status')).toContainText('new verification email has been requested');
+ await expect(d.getByRole('button',{name:/Resend available in/})).toBeDisabled();expect(sent).toBe(1);
+ await fits(page,'[role=dialog], [aria-label="Email verification help"]');
+});
+test('unconfirmed sign-in offers resend and handles rate limits',async({page})=>{
+ await page.route('**/auth/v1/token**',route=>route.fulfill({status:400,json:{code:'email_not_confirmed',msg:'Email not confirmed'}}));
+ await page.route('**/auth/v1/resend**',route=>route.fulfill({status:429,json:{code:'over_email_send_rate_limit',msg:'email rate limit exceeded'}}));
+ await page.goto('/app');await page.getByRole('button',{name:'Continue to Sign In',exact:true}).click();
+ const d=page.getByRole('dialog',{name:'Student sign in'});
+ await d.getByLabel('Email ID',{exact:true}).fill('mobile-check@example.invalid');await d.getByLabel('Password',{exact:true}).fill('Test-Only-Password-123!');
+ await d.getByRole('button',{name:'Sign In',exact:true}).click();
+ await d.getByRole('button',{name:'Resend verification email',exact:true}).click();
+ await expect(d.getByRole('status')).toContainText('Too many email requests');
+ await expect(d.getByRole('button',{name:/Resend available in/})).toBeDisabled();
 });

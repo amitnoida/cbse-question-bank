@@ -25,7 +25,7 @@ export function PublicFooter() {
     <div className="mx-auto flex max-w-6xl flex-wrap items-start justify-between gap-6 px-5 py-9 text-sm text-slate-600">
       <div><p className="font-extrabold text-slate-900">A little practice. A clearer understanding.</p><p className="mt-2">Independent learning platform. Not affiliated with CBSE.</p></div>
       <nav aria-label="Help and resources" className="flex flex-wrap gap-5">
-        <Link className="py-2 font-semibold hover:text-indigo-700" href="/install">Install app</Link>
+        <Link className="py-2 font-semibold hover:text-indigo-700" href="/install">Installation help</Link>
         <AnalyticsPreferencesButton />
         <Link className="py-2 font-semibold hover:text-indigo-700" href="/privacy">Privacy</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/terms">Terms</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/contact">Contact support</Link><Link className="py-2 font-semibold hover:text-indigo-700" href="/parent-consent">Parents / guardians</Link>
         <Link className="py-2 font-semibold hover:text-indigo-700" href="/app">Student app →</Link>

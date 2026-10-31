@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AnnouncementBanner from "./announcement-banner";
-import InstallPrompt from "./install-prompt";
 import { Suspense } from "react";
 import StudentSessionGuard from "./student-session-guard";
 import PublicAnalyticsConsent from "./public-analytics-consent";
@@ -31,6 +30,6 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-    <body className="min-h-full flex flex-col"><StudentSessionGuard /><AnnouncementBanner /><Suspense fallback={null}><PublicAnalyticsConsent /></Suspense>{children}<Suspense fallback={null}><InstallPrompt /></Suspense></body>
+    <body className="min-h-full flex flex-col"><StudentSessionGuard /><AnnouncementBanner /><Suspense fallback={null}><PublicAnalyticsConsent /></Suspense>{children}</body>
   </html>;
 }

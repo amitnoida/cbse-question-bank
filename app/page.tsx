@@ -1,4 +1,5 @@
 import Image from "next/image";
+import HomeScreenInstructions from "./home-screen-instructions";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicHeader, PublicFooter } from "./public-navigation";
@@ -162,6 +163,7 @@ export default function Home() {
           </div>
         </section>
 
+        <HomeScreenInstructions />
         <section id="faq" className="mx-auto max-w-4xl px-5 py-14 sm:py-20">
           <p className="text-center text-xs font-extrabold uppercase tracking-widest text-indigo-600">Help centre</p>
           <h2 className="mt-2 text-center text-3xl font-black tracking-tight sm:text-4xl">Frequently Asked Questions</h2>

@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import ResendVerification from "../resend-verification";
 import {ReportQuestion} from "../learning-ui";
 import { BrandLogo } from "../brand-logo";
 import Link from "next/link";
@@ -326,6 +327,8 @@ export default function Home() {
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [signinUnconfirmed, setSigninUnconfirmed] = useState(false);
 
   // The public SEO homepage is /. Deep links open the original
   // authentication dialogs here without duplicating the marketing page.
@@ -1621,6 +1624,7 @@ export default function Home() {
 
   function openSignup() {
     setSignupAcknowledged(false);
+    setVerificationEmail("");
     setSignupError("");
     setSignupSuccess("");
     setShowSignup(true);
@@ -1758,6 +1762,7 @@ export default function Home() {
         "Account created successfully. You can now start preparing for your CBSE exams."
       );
     } else {
+      setVerificationEmail(email);
       setSignupSuccess(SIGNUP_EMAIL_VERIFICATION_MESSAGE);
     }
 
@@ -1775,6 +1780,7 @@ export default function Home() {
 
   function openSignin() {
     setSigninError("");
+    setSigninUnconfirmed(false);
     setShowSignin(true);
     setShowSignup(false);
   }
@@ -1920,6 +1926,7 @@ export default function Home() {
       return;
     }
 
+    setSigninUnconfirmed(false);
     setSigninLoading(true);
 
     const {
@@ -1932,6 +1939,7 @@ export default function Home() {
       });
 
     if (authError) {
+      setSigninUnconfirmed(authError.code === "email_not_confirmed");
       setSigninError(
         authError.message
       );
@@ -2118,6 +2126,7 @@ export default function Home() {
                 <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm leading-5 text-emerald-800">
                   <p className="font-bold">Please verify your email address</p>
                   <p className="mt-2">{signupSuccess}</p>
+                  {verificationEmail && <ResendVerification email={verificationEmail} initialCooldown={60} />}
                 </div>
               )}
 
@@ -2306,6 +2315,7 @@ export default function Home() {
               {signinError && (
                 <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm leading-5 text-red-800">
                   {signinError}
+                  {signinUnconfirmed && <ResendVerification email={signinEmail} />}
                 </div>
               )}
 
